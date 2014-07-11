@@ -1,20 +1,23 @@
 >>>
+    This is a multiline comment!
     Uninitialized variables are disallowed.
     static typing
     and, or, not, is operators
 <<<
+
+>> Single line comment!
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 >> This is what the syntax should look like!                      <<
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 use std.io.print
+use magical_buterflies as magic
 
 when,
-    use magical_buterflies as magic
     magic.fly()
 throws TypeError or KeyboardInterrupt as k,
-    print("Darnit couldnt import! {1}", k)
+    print("Darnit couldnt import {1}!", k)
 else,
     print("Hurrah!")
 
