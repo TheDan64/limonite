@@ -1,7 +1,11 @@
 #![allow(dead_code)]
 #![feature(globs)]
 
-extern crate keywords;
+use syntax::core::keywords;
+
+mod core {
+    mod keywords;
+}
 
 pub enum Token {
     // True, False
@@ -28,9 +32,3 @@ pub struct Lexer {
     column_number : uint
 }
 
-
-
-// Temporary main
-fn main() {
-    
-}
