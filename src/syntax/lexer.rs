@@ -1,11 +1,10 @@
 #![allow(dead_code)]
 #![feature(globs)]
 
-use syntax::core::keywords;
-
-mod core {
-    mod keywords;
+pub mod core {
+    pub mod keywords;
 }
+
 
 pub enum Token {
     // True, False
@@ -15,7 +14,7 @@ pub enum Token {
     Identifier(String),
 
     // Reserved words
-    Keyword(keywords::Keyword),
+    Keyword(core::keywords::Keyword),
 
     // >> Comments. Eventually multiline as well
     Comment(String),
@@ -26,9 +25,9 @@ pub enum Token {
 
 
 
-pub struct Lexer {
-    pub tokens : Vec<Token>,
-    line_number : uint,
-    column_number : uint
+pub struct Lexer<B> {
+    pub token : Token,
+    pub line_number : uint,
+    pub column_number : uint,
+    buffer : B
 }
-

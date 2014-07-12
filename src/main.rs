@@ -1,7 +1,5 @@
-
-
-mod syntax {
-    mod lexer;
+pub mod syntax {
+    pub mod lexer;
 }
 
 fn main() -> () {
