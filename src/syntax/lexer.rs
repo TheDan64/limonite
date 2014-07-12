@@ -1,13 +1,36 @@
-use std::io::println;
+#![allow(dead_code)]
+#![feature(globs)]
 
-enum Token {
-	TokEof = -1,
-	TokVar = -2,
-	TokDef = -3,
-	TokIf = -4,
-	TokPrint = -5
+extern crate keywords;
+
+pub enum Token {
+	// True, False
+	BooleanLiteral(bool),
+
+	// Variables, fn names
+	Identifier(String),
+
+	// Reserved words
+	Keyword(keywords::Keyword),
+
+	// >> Comments. Eventually multiline as well
+	Comment(String),
+
+	// End of file
+	EOF
 }
 
+
+
+pub struct Lexer {
+	pub tokens : Vec<Token>,
+	line_number : uint,
+	column_number : uint
+}
+
+
+
+// Temporary main
 fn main() {
-	println("HER!")
+	
 }
