@@ -5,7 +5,7 @@
 //use std::fmt::{Formatter, Result, Show};
 use std::from_str::FromStr;
 
-pub enum Keyword {
+pub enum Keywords {
     And,
     Or,
     Not,
@@ -34,8 +34,8 @@ pub enum Keyword {
     Print 
 }
 
-impl FromStr for Keyword {
-    fn from_str(s: &str) -> Option<Keyword> {
+impl FromStr for Keywords {
+    fn from_str(s: &str) -> Option<Keywords> {
         match s {
             "and"      => Some(And),
             "or"       => Some(Or),
