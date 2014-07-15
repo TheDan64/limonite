@@ -1,3 +1,5 @@
+#![allow(unused_variable)] //temp
+
 use std::io::File;
 use std::io::BufferedReader;
 
@@ -11,5 +13,5 @@ fn main() {
     let file = BufferedReader::new(File::open(&path));
 
     let mut lexer = syntax::lexer::Lexer::new(file);
-    let mut token = lexer.get_tok();
+    let token = lexer.get_tok();
 }
