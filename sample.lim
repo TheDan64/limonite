@@ -15,13 +15,7 @@
         - ints signed by default
         
     Agenda:
-        lincense https://tldrlegal.com/
-
-
-
-
-
-
+        license https://tldrlegal.com/
 
     To agree upon:
     - python style *args/**kwargs
@@ -80,7 +74,7 @@ class DescendantObject from Object
         <<<
         
         fn meow() -> str
-            return "Meow!
+            return "Meow!"
         
         var a = 34
         var a = 3 >> ERROR: it redeclares `a`
@@ -116,9 +110,9 @@ class DescendantObject from Object
         while a not equals 4,
             dosomething()
         
-        var f = [int]
+        var f = [int] >> An empty array that takes ints
         var g = [1,2,3,4]
-        print(g[1]) >> prints 1
+        print(g[0]) >> prints 1
         print(g.len()) >> prints 4
         
         >> casting builtins & non builtins
