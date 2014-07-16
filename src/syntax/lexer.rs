@@ -7,34 +7,9 @@ use std::char::is_whitespace;
 use std::char::is_alphabetic;
 use std::char::is_alphanumeric;
 
-pub mod core {
-    pub mod keywords;
-}
-
-
-pub enum Token {
-    // Just for initializing the lexer
-    Start,
-
-    // True, False
-    BooleanLiteral(bool),
-
-    // Variables, fn names
-    Identifier(String),
-
-    // Keep track of whitespace
-    Indent,
-
-    // Reserved words
-    Keyword(core::keywords::Keywords),
-
-    // >> Comments. Eventually multiline as well
-    //Comment(String),
-
-    // End of file
-    EOF
-}
-
+use syntax::core::keywords;
+use syntax::core::tokens;
+use syntax::core::tokens::Token;
 
 pub struct Lexer<B> {
     pub token: Token,
@@ -48,7 +23,7 @@ impl<B:Buffer> Lexer<B> {
     // Create a new lexer instance
     pub fn new(buffer: B) -> Lexer<B> {
         Lexer {
-            token: Start,
+            token: tokens::Start,
             line_number: 1,
             column_number: 1,
             buffer: buffer
@@ -87,7 +62,7 @@ impl<B:Buffer> Lexer<B> {
                 lastChar = self.get_char();
 
                 if is_alphanumeric(lastChar) == false {
-                    break;              
+                    break;
                 }
 
                 string.push_char(lastChar);
@@ -98,11 +73,11 @@ impl<B:Buffer> Lexer<B> {
             //     return Keywords.from_str(string.slice());
             // }
 
-            return Identifier(string);
+            return tokens::Identifier(string);
 
             // return match string.as_slice() {
-            //     "var"   => Keyword(core::keywords::Var),
-            //     "print" => Keyword(core::keywords::Print),
+            //     "var"   => Keyword(keywords::Var),
+            //     "print" => Keyword(keywords::Print),
             //     _       => Identifier(string)
             // }
         }
@@ -129,11 +104,11 @@ impl<B:Buffer> Lexer<B> {
         // Found EOF
 
         if lastChar != -1 as char {
-            return EOF;
+            return tokens::EOF;
         }
 
         // ToDo: return unknown token with the char
 
-        return EOF;
+        return tokens::EOF;
     }
 }

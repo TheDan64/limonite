@@ -29,9 +29,9 @@ pub enum Keywords {
     Break,
     Continue,
     Pass,
-    
+
     // Print is temporaily a statement until we have functions
-    Print 
+    Print
 }
 
 impl FromStr for Keywords {

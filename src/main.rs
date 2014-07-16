@@ -1,15 +1,7 @@
-use std::io::File;
-use std::io::BufferedReader;
+use syntax::parser::Parser;
 
-pub mod syntax {
-    pub mod lexer;
-}
+pub mod syntax;
 
 fn main() {
-	// Example lexer usage
-    let path = Path::new("tests/1_HelloWorld.lim");
-    let file = BufferedReader::new(File::open(&path));
-
-    let mut lexer = syntax::lexer::Lexer::new(file);
-    let mut token = lexer.get_tok();
+    let mut parser = Parser::new("tests/1_HelloWorld.lim");
 }

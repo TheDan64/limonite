@@ -1,2 +1,3 @@
-// Lexer. Parsers buffer into tokens.
+pub mod core;
 pub mod lexer;
+pub mod parser;
