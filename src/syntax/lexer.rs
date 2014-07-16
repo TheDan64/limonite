@@ -1,18 +1,17 @@
-#![allow(dead_code)]
-#![allow(unused_variable)]
+#![allow(dead_code)] //temp
+#![allow(unused_variable)] //temp
+#![allow(unused_imports)] //temp
 
-use std::io::IoError;
+use std::char::{is_whitespace, is_alphabetic, is_alphanumeric};
+use std::from_str::FromStr;
+use std::io::{IoError, IoResult};
 use std::string::String;
-use std::char::is_whitespace;
-use std::char::is_alphabetic;
-use std::char::is_alphanumeric;
 
 use syntax::core::keywords;
 use syntax::core::tokens;
 use syntax::core::tokens::Token;
 
 pub struct Lexer<B> {
-    pub token: Token,
     pub line_number: uint,
     pub column_number: uint,
     buffer: B
@@ -23,22 +22,9 @@ impl<B:Buffer> Lexer<B> {
     // Create a new lexer instance
     pub fn new(buffer: B) -> Lexer<B> {
         Lexer {
-            token: tokens::Start,
             line_number: 1,
             column_number: 1,
             buffer: buffer
-        }
-    }
-
-    // Get a char from the buffer
-    fn get_char(&mut self) -> char {
-        return match self.buffer.read_char() {
-            Ok(chr) => {
-                //print!("{}", chr); // tmp, displays what has been parsed
-                chr
-            },
-            Err(IoError {kind: EndOfFile, ..}) => -1 as char
-//            Err(why)=> fail!("lexer.get_char() failed: {}", why)
         }
     }
 
@@ -46,8 +32,28 @@ impl<B:Buffer> Lexer<B> {
     pub fn get_tok(&mut self) -> Token {
         let mut string = String::new();
         let number = 0u;
-        let mut lastChar = ' ';
+        let mut lastChar = match self.buffer.read_char() {
+            Ok(chr) => chr,
+            Err(err) => return tokens::EOF
+        };
 
+        loop {
+            string.push_char(lastChar);
+
+            // match FromStr::from_str(string.as_slice()) {
+            //     Some(Key) => return Keyword(Key),
+            //     None => break
+            // }
+
+            lastChar = match self.buffer.read_char() {
+                Ok(chr) => chr,
+                Err(err) => return tokens::EOF
+            };
+        }
+    }
+}
+
+/* Old:
         // Skip over all whitespace
         while is_whitespace(lastChar) {
             lastChar = self.get_char(); // ToDo: tokenize indent
@@ -112,3 +118,4 @@ impl<B:Buffer> Lexer<B> {
         return tokens::EOF;
     }
 }
+*/
