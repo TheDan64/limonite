@@ -1,9 +1,0 @@
->>>
-	Hello World!
-	This is only a sample at the moment.
-	We will be using similar tests to make sure new builds dont break anything.
-<<<
-
-use std.io.print
-
-print("Hello World!")
