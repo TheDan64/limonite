@@ -1,11 +1,57 @@
 >>>
-    This is a multiline comment!
-    Uninitialized variables are disallowed.
-    static typing
-    and, or, not, is operators
+    Keywords:
+        and or not is class fn def var assert else if for while return
+        equals use from as when throws break continue pass
+    
+    Types:
+        int uint: 1_345_234 >> Ignores underscore for readability
+        bool:     True False
+        str:      [ru]""
+        wtf:      None
+        
+    Rules that arent well demonstrated by code:
+        - `use` will import all things in the namespace, but don't execute any
+          code inside the global namespace
+        - ints signed by default
+        
+    Agenda:
+        license https://tldrlegal.com/
+
+    To agree upon:
+    - python style *args/**kwargs
+    - interface/traits syntax
+
+    switch/match statements
+        >> New style
+        var dict1 = {
+            5: 3
+            "asd": "qwe"
+        }
+        
+        var dict2 = {
+            5:
+                print(5)
+                do_something()
+                5 >> needs return when used as match
+            6..8:
+                print(x)
+                if x > 3,
+                    print(x)
+                x + 1 >> returns
+            else:
+                5
+        }
+
+    Generics (Not final)
+        keep the parameters short, allow template keyword?
+            
+            templ allNum = float double int
+            fn add(allNum a, allNum b) -> allNum
+                assert type(a) equals type(b) >> Checks the actual non templated type
+                return a + b
 <<<
 
->> Single line comment!
+
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 >> This is what the syntax should look like!                      <<
@@ -22,29 +68,37 @@ else,
     print("Hurrah!")
 
 class DescendantObject from Object
-    fn name(int a, str b = "", bool c: False, ...) -> int
+    fn name(int a, str b = "", bool c = False) -> int
         >>>
-            docstring becasue its on the line directly
-            after the function delcaration.
+            docstring because it's directly after the function delcaration.
         <<<
         
-        var a = 34
-        var b = 34u
-        var c >> This is an error because uninitialised variables are dumb
-        var d = 3 >> This is also an error because it redeclares `a`
-        def e = "Cannot change"
+        fn meow() -> str
+            return "Meow!"
         
+        var a = 34
+        var a = 3 >> ERROR: it redeclares `a`
+        var b = 34u
+        var c >> ERROR: Uninitialized variables are disallowed
+        var d = a as uint
+        def e = "Cannot change"
+ 
         if a < 3 and a > 4 or 3 <= a,
             whatever()
         else,
             meow()
         . >> Optional period for sake of sentence
         
-        for var i in 1..6,
-            dosomething()
-            
-        for var i in 1..3 by 2s,
-            do_something_else()
+        for i in 1..6, >> iterates from 1 to 6
+            dosomething(i)
+        
+        for i in 1..5 by 2, >> iterates over the values 1, 3 and 5
+            if do_something(),
+                break
+            elif 0 < i < 5,
+                print("ASDF")
+            else,
+                continue
         
         def obj = Object(3)
         assert obj is obj >> True
@@ -53,28 +107,49 @@ class DescendantObject from Object
         assert obj is obj2 >> False
         assert obj equals obj2 >> True
         
-        while a is not equal 4,
+        while a not equals 4,
             dosomething()
         
+        var f = [int] >> An empty array that takes ints
+        var g = [1,2,3,4]
+        print(g[0]) >> prints 1
+        print(g.len()) >> prints 4
+        
+        >> casting builtins & non builtins
+        cast("123", int) >> Formal method
+        int("123") >> Sugar for the above
+        
+        >> Must use formal method for classes and some sort of class defined
+        >> casting method
+        instance = SomeClass()
+        instance = cast(instance, Obj2)
+        
+        
+        >> match syntax maybe bayby
+        var a = when x equals,
+            4: asdasdasd("asdsad")
+        
+        a = 0
+        when x equals,
+            4: a = 4
+
+        when x equals,
+            5:
+                func(5)
+            6 or 7: func(x)
+            (x, y):
+                func(x, y)
+                
+
+        >> Calls by value vs by reference
+        fn name(int variable_name) {}
+        int i
+        int x = ref i
+        
+        name(i) >> pass a copy of it
+        
+        name(x) >> pass the int itself
+        >> or
+        name(ref i)
+        
         return 343
-
-
-
->>> Possible stuff
-    Explicit equivalence (maybe)
-        if 5.5 is about 5:
-    
-    Bound checking
-        if 5 < a < 6:
-    
-    Anonymous functions
-        a = lambda -> 6 if b || c else 3
-    
-    Multiline comments:
-        >>> This is a comment
-            that has multiple lines.
-        <<<
-    
-    Classes and inheritance
-        class Descendant from Ancestor,
-<<<
