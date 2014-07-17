@@ -1,15 +1,17 @@
 #![allow(dead_code)] //temp
 #![allow(unused_variable)] //temp
 #![allow(unused_imports)] //temp
+#![allow(unused_mut)] //temp
 
 use std::char::{is_whitespace, is_alphabetic, is_alphanumeric};
 use std::from_str::FromStr;
 use std::io::{IoError, IoResult};
 use std::string::String;
 
-use syntax::core::keywords;
+use syntax::core::keywords::Keywords;
 use syntax::core::tokens;
 use syntax::core::tokens::Token;
+use syntax::core::punctuation;
 
 pub struct Lexer<B> {
     pub line_number: uint,
@@ -30,26 +32,63 @@ impl<B:Buffer> Lexer<B> {
 
     // Parse the file where it left off and return the next token
     pub fn get_tok(&mut self) -> Token {
-        let mut string = String::new();
         let number = 0u;
-        let mut lastChar = match self.buffer.read_char() {
-            Ok(chr) => chr,
-            Err(err) => return tokens::EOF
-        };
+        let mut state = tokens::Start;
+        let mut string = String::new();
+        let mut lastChar;
+
 
         loop {
-            string.push_char(lastChar);
-
-            // match FromStr::from_str(string.as_slice()) {
-            //     Some(Key) => return Keyword(Key),
-            //     None => break
-            // }
-
             lastChar = match self.buffer.read_char() {
                 Ok(chr) => chr,
-                Err(err) => return tokens::EOF
+                Err(err) => break
             };
+
+            print!("{}", lastChar); // tmp
+
+            match lastChar {
+                '('  => return tokens::Punctuation(punctuation::ParenOpen),
+                ')'  => return tokens::Punctuation(punctuation::ParenClose),
+                '['  => return tokens::Punctuation(punctuation::SBracketOpen),
+                ']'  => return tokens::Punctuation(punctuation::SBracketClose),
+                '{'  => return tokens::Punctuation(punctuation::CBracketOpen),
+                '}'  => return tokens::Punctuation(punctuation::CBracketClose),
+                '.'  => return tokens::Punctuation(punctuation::Period),
+                ','  => return tokens::Punctuation(punctuation::Comma),
+                ':'  => return tokens::Punctuation(punctuation::Colon),
+                ';'  => return tokens::Punctuation(punctuation::SemiColon),
+                '~'  => return tokens::Punctuation(punctuation::Negate),
+                '='  => return tokens::Punctuation(punctuation::Assign),
+                // Start 2 char puncuators:
+                '>'  => return tokens::Punctuation(punctuation::GreaterThan),
+                '<'  => return tokens::Punctuation(punctuation::LessThan),
+                '+'  => return tokens::Punctuation(punctuation::Plus),
+                '-'  => return tokens::Punctuation(punctuation::Minus),
+                '*'  => return tokens::Punctuation(punctuation::Multiply),
+                '/'  => return tokens::Punctuation(punctuation::Divide),
+                '%'  => return tokens::Punctuation(punctuation::Modulus),
+                // ">=" => return tokens::Punctuation(punctuation::GreaterThanEqual),
+                // "<=" => return tokens::Punctuation(punctuation::LessThanEqual),
+                // "++" => return tokens::Punctuation(punctuation::Increment),
+                // "--" => return tokens::Punctuation(punctuation::Decrement),
+                // "+=" => return tokens::Punctuation(punctuation::AddAssign),
+                // "-=" => return tokens::Punctuation(punctuation::MinusAssign),
+                // "*=" => return tokens::Punctuation(punctuation::MultiplyAssign),
+                // "/=" => return tokens::Punctuation(punctuation::DivideAssign),
+                // "%=" => return tokens::Punctuation(punctuation::ModulusAssign),
+                _ => break
+            };
+
+
+
+
+            string.push_char(lastChar);
+
+
+            print!("{}", lastChar); // tmp
         }
+
+        return tokens::EOF
     }
 }
 

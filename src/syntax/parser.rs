@@ -1,3 +1,7 @@
+#![allow(dead_code)] //temp
+#![allow(unused_variable)] //temp
+#![allow(unused_imports)] //temp
+
 use std::io::BufferedReader;
 use std::io::File;
 use std::io::IoError;

@@ -1,3 +1,6 @@
+#![allow(unused_variable)] //temp
+#![allow(unused_imports)] //temp
+
 use std::io::File;
 use std::io::BufferedReader;
 

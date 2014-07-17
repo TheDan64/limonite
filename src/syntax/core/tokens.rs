@@ -1,4 +1,5 @@
 use syntax::core::keywords::Keywords;
+use syntax::core::punctuation::Punctuation;
 
 pub enum Token {
     // Just for initializing the lexer
@@ -15,6 +16,9 @@ pub enum Token {
 
     // Reserved words
     Keyword(Keywords),
+
+    // (,),[,],:,:,>,<, ...
+    Punctuation(Punctuation),
 
     // >> Comments. Eventually multiline as well
     //Comment(String),
