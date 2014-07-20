@@ -2,8 +2,8 @@ use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuation;
 
 pub enum Token {
-    // Just for initializing the lexer
-    Start,
+    // Begin a line with this token
+    LineBegin,
 
     // True, False
     BooleanLiteral(bool),
@@ -11,8 +11,9 @@ pub enum Token {
     // Variables, fn names
     Identifier(String),
 
-    // Keep track of whitespace
+    // Keep track of scope via indentation
     Indent,
+    Dedent(size),
 
     // Reserved words
     Keyword(Keywords),
@@ -20,9 +21,10 @@ pub enum Token {
     // (,),[,],:,:,>,<, ...
     Punctuation(Punctuation),
 
-    // >> Comments. Eventually multiline as well
-    //Comment(String),
+    // >> Singleline and >>> \nMultiline comments\n <<<
+    CommentStart(String),
+    CommentEnd,
 
-    // End of file
+    // End of File
     EOF
 }
