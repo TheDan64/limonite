@@ -4,8 +4,7 @@
 use syntax::parser::Parser;
 
 pub mod syntax;
-pub mod tests;
 
 fn main() {
-    let mut parser = Parser::new("src/tests/lang/test_hello_world.lim");
+    let mut parser = Parser::new("tests/lang/test_hello_world.lim");
 }
