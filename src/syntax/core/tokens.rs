@@ -12,7 +12,7 @@ pub enum Token {
     BooleanLiteral(bool),
 
     // 42, 42u, 0x2A, 0b101010, -42.0, 42f ...
-    Numeric(String)
+    Numeric(String),
 
     // Variables, fn names
     Identifier(String),

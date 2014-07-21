@@ -1,6 +1,6 @@
-#![allow(dead_code)] //temp
-#![allow(unused_variable)] //temp
-#![allow(unused_imports)] //temp
+#![allow(dead_code)]
+#![allow(unused_variable)]
+#![allow(unused_imports)]
 
 use std::io::BufferedReader;
 use std::io::File;
