@@ -1,3 +1,6 @@
+#![allow(unused_variable)] //temp
+#![allow(unused_mut)] //temp
+
 use syntax::parser::Parser;
 
 pub mod syntax;
