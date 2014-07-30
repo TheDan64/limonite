@@ -13,6 +13,8 @@
         - `use` will import all things in the namespace, but don't execute any
           code inside the global namespace
         - ints signed by default
+        - tabs are used for indentation. Spaces are completely ignored by the
+          lexer, so are good for matching alignment.
         
     Agenda:
         license https://tldrlegal.com/
