@@ -5,6 +5,7 @@
 //use std::fmt::{Formatter, Result, Show};
 use std::from_str::FromStr;
 
+#[deriving(Show)]
 pub enum Keywords {
     And,
     Or,

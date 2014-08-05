@@ -1,5 +1,3 @@
-use std::from_str::FromStr;
-
 pub enum Punctuation {
     // '('
     ParenOpen,
