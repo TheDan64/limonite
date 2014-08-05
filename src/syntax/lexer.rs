@@ -13,6 +13,13 @@ use syntax::core::tokens;
 use syntax::core::tokens::Token;
 use syntax::core::punctuation;
 
+enum States {
+    Start,
+    Identifier,
+    Numeric,
+    MultiPunc
+}
+
 pub struct Lexer<B> {
     pub line_number: uint,
     pub column_number: uint,
@@ -36,20 +43,51 @@ impl<B:Buffer> Lexer<B> {
     // Parse the file where it left off and return the next token
     pub fn get_tok(&mut self) -> Token {
         let mut lastChar;
+        let mut currChar;
         let mut string = String::new();
-
-        // Flag for whether or not the input char needs to be reparsed
         let mut reparseFlag = false;
+        let mut state = Start;
 
         loop {
-            if reparseFlag != true {
-                lastChar = match self.buffer.read_char() {
+            // Reuse the previous character if the flag is not set,
+            // else grab the next character from the buffer.
+            if reparseFlag == true {
+                currChar = match self.buffer.read_char() {
                     Ok(chr) => chr,
-                    Err(err) => break
+                    Err(err) => return tokens::EOF
                 };
+
+                reparseFlag = false;
             }
+
+            // Match some basic characters
+            match currChar {
+                // Skip over whitespace
+                ' ' => {
+                    lastChar = ' ';
+                    print!("(space)");
+                    continue;
+                },
+
+                // Keep track of indentation
+                '\t'=> {
+                    lastChar = '\t';
+                    print!("(tab)");
+                    continue;
+                },
+
+                // A line begins
+                '\n'=> {
+                    lastChar = '\n';
+                    print!("(nl)");
+                    continue;
+                },
+
+                _   => println!("Unknown char: ")
+            }
+
         }
 
-        return tokens::EOF
+        return tokens::EOF;
     }
 }
