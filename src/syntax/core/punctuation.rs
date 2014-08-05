@@ -1,3 +1,6 @@
+use std::fmt::Show;
+
+#[deriving(Show)]
 pub enum Punctuation {
     // '('
     ParenOpen,

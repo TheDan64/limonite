@@ -125,9 +125,6 @@ impl Parser {
                     self.start();
                     Ok(None)
                 }
-                tokens::Indent(depth) => {
-                    self.check_indentation(depth)
-                }
                 tokens::Keyword(word) => {
                     self.handle_keywords(word)
                 }
@@ -137,8 +134,8 @@ impl Parser {
                 tokens::EOF => {
                     break
                 }
-                tokens::Number(num) => {
-                    fail!("Invalid numeric literal {}", num);
+                _ => {
+                    fail!("Invalid token at the top level {}", cur_token);
                 }
             };
 
