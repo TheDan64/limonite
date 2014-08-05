@@ -1,6 +1,8 @@
+use std::fmt::Show;
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuation;
 
+#[deriving(Show)]
 pub enum Token {
     // Depricated: to be phased out with next parser update.
     Start,
