@@ -1,10 +1,10 @@
 use std::fmt::Show;
 use syntax::core::keywords::Keywords;
-use syntax::core::punctuation::Punctuation;
+use syntax::core::punctuation::Punctuations;
 
 #[deriving(Show)]
 pub enum Token {
-    // Depricated: to be phased out with next parser update.
+    // Depricated, please remove from code
     Start,
 
     // Begin a line with this token
@@ -27,7 +27,7 @@ pub enum Token {
     Keyword(Keywords),
 
     // (,),[,],:,:,>,<, ...
-    Punctuation(Punctuation),
+    Punctuation(Punctuations),
 
     // >> Singleline and >>> \nMultiline comments\n <<<
     CommentStart(String),

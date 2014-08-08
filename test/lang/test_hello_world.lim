@@ -1,6 +1,5 @@
->>	Hello World!
->>	This is only a sample at the moment.
->>	We will be using similar tests to make sure new builds dont break anything.
-
+>> Hello World!
+>> This is only a sample at the moment.
+>> We will be using similar tests to make sure new builds dont break anything.
 
 print("Hello World!")

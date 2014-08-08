@@ -1,7 +1,7 @@
 use std::fmt::Show;
 
 #[deriving(Show)]
-pub enum Punctuation {
+pub enum Punctuations {
     // '('
     ParenOpen,
 
@@ -29,9 +29,6 @@ pub enum Punctuation {
     // ':'
     Colon,
 
-    // ';'
-    SemiColon,
-
     // '>'
     GreaterThan,
 
@@ -55,12 +52,6 @@ pub enum Punctuation {
 
     // '/'
     Divide,
-
-    // '++'
-    Increment,
-
-    // '--'
-    Decrement,
 
     // '%'
     Modulus,

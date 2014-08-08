@@ -1,4 +1,7 @@
 pub enum Types {
-    Int
-    // More to  come
+    Int,
+    UInt,
+    Str,
+    Bool
+    // More to come?
 }
