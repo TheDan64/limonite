@@ -72,9 +72,9 @@ impl<B:Buffer> Lexer<B> {
     // Consume non newline and tab whitespace
     fn consume_whitespace(&mut self) {
         self.consume_while(|self_, ch| match ch {
-            '\n' | '\t' => false,
+            '\n' | '\t'            => false,
             w if w.is_whitespace() => true,
-            _ => false
+            _                      => false
         });
     }
 
@@ -84,8 +84,8 @@ impl<B:Buffer> Lexer<B> {
         // so there is no need to check for numeric start
         Some(self.consume_while(|self_, ch| match ch {
             a if a.is_alphanumeric() => true,
-            '_' => true,
-            _ => false
+            '_'                      => true,
+             _                       => false
         }))
     }
 
