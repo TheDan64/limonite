@@ -1,4 +1,4 @@
-use std::char::{is_whitespace, is_alphabetic, is_alphanumeric};
+use std::char::{is_whitespace, is_alphanumeric};
 use std::from_str::FromStr;
 use std::io::{IoError, IoResult};
 use std::string::String;
@@ -28,7 +28,7 @@ impl<B:Buffer> Lexer<B> {
         }
     }
 
-    fn slice_from_pos(&mut self) -> &str {
+    fn current_slice(&mut self) -> &str {
         self.input.as_slice().slice_from(self.pos)
     }
 
@@ -44,7 +44,7 @@ impl<B:Buffer> Lexer<B> {
             self.column_number += 1;
         }
 
-        return ch;
+        ch
     }
 
     // Gets the next char
@@ -52,26 +52,26 @@ impl<B:Buffer> Lexer<B> {
         return self.input.as_slice().char_at(self.pos);
     }
 
-    // Determine if we hit End of File
+    // Determine if we hit the inevitable End of File
     fn eof(&self) -> bool {
         return self.pos >= self.input.len();
     }
 
     // Thanks to mbrubeck of Mozilla for this consume_while fn as
     // well eof() and next_char() examples :)
-    fn consume_while(&mut self, test: |char| -> bool) -> String {
+    fn consume_while(&mut self, test: |&Lexer<B>, char| -> bool) -> String {
         let mut result = String::new();
 
-        while !self.eof() && test(self.next_char()) {
+        while !self.eof() && test(self, self.next_char()) {
             result.push_char(self.consume_char());
         }
 
-        return result;
+        result
     }
     
     // Consume non newline and tab whitespace
     fn consume_whitespace(&mut self) {
-        self.consume_while(|ch| match ch {
+        self.consume_while(|self_, ch| match ch {
             '\n' | '\t' => false,
             w if w.is_whitespace() => true,
             _ => false
@@ -82,7 +82,7 @@ impl<B:Buffer> Lexer<B> {
     fn consume_identifier(&mut self) -> Option<String> {
         // Lexer will only let you start with alpha or undescore,
         // so there is no need to check for numeric start
-        Some(self.consume_while(|ch| match ch {
+        Some(self.consume_while(|self_, ch| match ch {
             a if a.is_alphanumeric() => true,
             '_' => true,
             _ => false
@@ -91,72 +91,60 @@ impl<B:Buffer> Lexer<B> {
 
     // Determines what type of number it is and call the appropriate fn
     fn consume_numeric(&mut self) -> Option<String> {
-        if self.slice_from_pos().starts_with("0x") {
-            self.consume_hex()
+        let start = self.pos;
+        let mut result = String::new();
 
-        } else if self.slice_from_pos().starts_with("0b") {
-            self.consume_bin()
+        if self.current_slice().starts_with("0x") {
+            // Found hexadecimal: 0x[0-9a-fA-F_]+
+
+            self.pos += 2;
+            result.push_str("0x");
+
+            // Cant do += for String, and push_str looks better than
+            // result = result + self.consume...
+            result.push_str(self.consume_while(|self_, ch| match ch {
+                '0'..'9' | 'a'..'f' | 'A'..'F' => true,
+                 _                             => false
+            }).as_slice());
+
+        } else if self.current_slice().starts_with("0b") {
+            // Found binary: 0b[01_]+
+
+            self.pos += 2;
+            result.push_str("0b");
+
+            // Formatting the same as the hex case above.
+            result.push_str(self.consume_while(|self_, ch| match ch {
+                '0' | '1' | '_' => true,
+                 _              => false
+            }).as_slice());
 
         } else {
-            self.consume_num()
+            // Need to finish this
 
+        }
+
+        // ToDo: catch signed or unsigned signature at the end (u|i)?
+
+        // ToDo: Make this error msg better. Add line column and number, etc.
+        match result.as_slice() {
+            "0x" | "0b" => fail!("Invalid hex or binary value! GG!"),
+             _          => Some(result)
         }
     }
 
-    // Int: [0-9]+(s|u), Float: [0-9]+.[0-9]+(f32|f64) I think
-    fn consume_num(&self) -> Option<String> {
-        let string = String::new();
+    fn consume_tabs(&mut self) -> uint {
+        let mut count = 0;
 
-        Some(string) // tmp
-    }
-
-    // Hexidecimal: 0x[0-9a-fA-F_]+(u|s)
-    fn consume_hex(&mut self) -> Option<String> {
-        let mut string = String::from_str("0x");
-
-        self.pos += 2;
-
-        // Dumb: can't use += for strings but + is fine...
-        string = string + self.consume_while(|ch| match ch {
-            '0'..'9' | 'a'..'f' | 'A'..'F' | '_' => true,
-             _                                   => false
-        });
-        
-        if !self.eof() {
-            match self.next_char() {
-                's' | 'u' => string.push_char(self.consume_char()),
-                 _        => ()
-            };
-        }
-
-        match string.as_slice() {
-            "0x" => None,
-             _   => Some(string)
-        }
-    }
-
-    // Binary: 0b[01_]*
-    fn consume_bin(&mut self) -> Option<String> {
-        let mut string = String::from_str("0b");
-
-        self.pos += 2;
-
-        string = string + self.consume_while(|ch| match ch {
-            '0' | '1' | '_' => true,
-             _              => false
+        self.consume_while(|self_, ch| match ch {
+            '\t' => {
+                count += 1;
+                true
+            },
+             _   => false
         });
 
-        if !self.eof() {
-            match self.next_char() {
-                's' | 'u' => string.push_char(self.consume_char()),
-                 _        => ()
-            }
-        }
-        
-        match string.as_slice() {
-            "0b" => None,
-             _   => Some(string)
-        }
+        count
     }
 
     // Parse the file where it left off and return the next token
@@ -165,7 +153,7 @@ impl<B:Buffer> Lexer<B> {
         let mut indentLevel = 0u;
         let mut string = String::new();
 
-        // Next step: finish above support fns and finish this section.
+        // ToDo: Lex!
 
         return tokens::EOF;
     }
