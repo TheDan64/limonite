@@ -4,3 +4,7 @@ name = "limonite"
 version = "0.0.1"
 authors = [ "thadancardin@gmail.com",
             "thadan64@gmail.com" ]
+
+[[bin]]
+
+name = "limonite"

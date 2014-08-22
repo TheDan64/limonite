@@ -1,3 +1,2 @@
 *.o
-/target
-Cargo.lock
+target

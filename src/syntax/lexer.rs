@@ -1,4 +1,3 @@
-
 use std::char::{is_whitespace, is_alphanumeric};
 use std::from_str::FromStr;
 use std::io::{IoError, IoResult};
