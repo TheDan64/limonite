@@ -1,3 +1,4 @@
+
 use std::char::{is_whitespace, is_alphanumeric};
 use std::from_str::FromStr;
 use std::io::{IoError, IoResult};
@@ -133,10 +134,16 @@ impl<B:Buffer> Lexer<B> {
         }
     }
 
+    fn consume_comment(&mut self) -> Option<String> {
+        let mut result = String::new();
+
+        Some(result)
+    }
+
     fn consume_tabs(&mut self) -> uint {
         let mut count = 0;
 
-        self.consume_while(|self_, ch| match ch {
+        self.consume_while(ref |self_, ch| match ch {
             '\t' => {
                 count += 1;
                 true

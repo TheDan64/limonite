@@ -33,6 +33,9 @@ pub enum Token {
     CommentStart(String),
     CommentEnd,
 
+    // Is this too basic?
+    Error(String),
+
     // End of File
     EOF
 }
