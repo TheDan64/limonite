@@ -1,9 +1,3 @@
-
-use std::char::{is_whitespace, is_alphanumeric};
-use std::from_str::FromStr;
-use std::io::{IoError, IoResult};
-use std::string::String;
-
 use syntax::core::keywords::Keywords;
 use syntax::core::tokens;
 use syntax::core::tokens::Token;
@@ -15,18 +9,37 @@ pub struct Lexer<B> {
     pub line_number: uint,
     pub column_number: uint,
     pos: uint,
+    line_start: uint,
     input: String
 }
 
 impl<B:Buffer> Lexer<B> {
     // Create a new lexer instance
-    pub fn new(mut FileReader: B) -> Lexer<B> {
+    pub fn new(mut fileReader: B) -> Lexer<B> {
         Lexer {
             line_number: 1,
             column_number: 1,
             pos: 0,
-            input: FileReader.read_to_string().unwrap()
+            line_start: 0,
+            input: fileReader.read_to_string().unwrap()
         }
+    }
+
+    // For displaying error messages from the parser
+    pub fn current_line(&mut self) -> String {
+        let tmp = self.pos;
+        let mut result = String::new();
+
+        self.pos = self.line_start;
+
+        result.push_str(self.consume_while(|ch| match ch {
+            '\n' => false,
+            _    => true
+        }).as_slice());
+
+        self.pos = tmp;
+
+        result
     }
 
     fn current_slice(&mut self) -> &str {
@@ -41,6 +54,7 @@ impl<B:Buffer> Lexer<B> {
         self.line_number += 1;
 
         if ch == '\n' {
+            self.line_start = self.pos;
             self.line_number = 1;
             self.column_number += 1;
         }
@@ -60,10 +74,10 @@ impl<B:Buffer> Lexer<B> {
 
     // Thanks to mbrubeck of Mozilla for this consume_while fn as
     // well eof() and next_char() examples :)
-    fn consume_while(&mut self, test: |&Lexer<B>, char| -> bool) -> String {
+    fn consume_while(&mut self, test: |char| -> bool) -> String {
         let mut result = String::new();
 
-        while !self.eof() && test(self, self.next_char()) {
+        while !self.eof() && test(self.next_char()) {
             result.push_char(self.consume_char());
         }
 
@@ -72,7 +86,7 @@ impl<B:Buffer> Lexer<B> {
     
     // Consume non newline and tab whitespace
     fn consume_whitespace(&mut self) {
-        self.consume_while(|self_, ch| match ch {
+        self.consume_while(|ch| match ch {
             '\n' | '\t'            => false,
             w if w.is_whitespace() => true,
             _                      => false
@@ -83,7 +97,7 @@ impl<B:Buffer> Lexer<B> {
     fn consume_identifier(&mut self) -> String {
         // Lexer will only let you start with alpha or undescore,
         // so there is no need to check for numeric start
-        self.consume_while(|self_, ch| match ch {
+        self.consume_while(|ch| match ch {
             a if a.is_alphanumeric() => true,
             '_'                      => true,
              _                       => false
@@ -92,7 +106,6 @@ impl<B:Buffer> Lexer<B> {
 
     // Determines what type of number it is and call the appropriate fn
     fn consume_numeric(&mut self) -> Result<String, String> {
-        let start = self.pos;
         let mut result = String::new();
 
         if self.current_slice().starts_with("0x") {
@@ -103,7 +116,7 @@ impl<B:Buffer> Lexer<B> {
 
             // Cant do += for String, and push_str looks better than
             // result = result + self.consume...
-            result.push_str(self.consume_while(|self_, ch| match ch {
+            result.push_str(self.consume_while(|ch| match ch {
                 '0'..'9' | 'a'..'f' | 'A'..'F' => true,
                  _                             => false
             }).as_slice());
@@ -117,7 +130,7 @@ impl<B:Buffer> Lexer<B> {
             result.push_str("0b");
 
             // Formatting the same as the hex case above.
-            result.push_str(self.consume_while(|self_, ch| match ch {
+            result.push_str(self.consume_while(|ch| match ch {
                 '0' | '1' | '_' => true,
                  _              => false
             }).as_slice());
@@ -127,7 +140,7 @@ impl<B:Buffer> Lexer<B> {
         } else {
             // Found int: [0-9]+ or float: [0-9]+.[0-9]+
 
-            result.push_str(self.consume_while(|self_, ch| match ch {
+            result.push_str(self.consume_while(|ch| match ch {
                 '0'..'9' => true,
                  _       => false
             }).as_slice());
@@ -137,10 +150,17 @@ impl<B:Buffer> Lexer<B> {
                 '.' => {
                     result.push_char(self.consume_char());
 
-                    let fractional = self.consume_while(|self_, ch| match ch {
+                    let fractional = self.consume_while(|ch| match ch {
                         '0'..'9' => true,
                          _       => false
                     });
+
+                    if fractional.as_slice() == "" {
+                        return Err("Invalid floating point number.".to_string());
+
+                    } else {
+                        result.push_str(fractional.as_slice());
+                    }
 
                     // Float suffixes:
                     // ToDo: find f32, f64?
@@ -184,7 +204,7 @@ impl<B:Buffer> Lexer<B> {
 
             result.push_char('>');
 
-            result.push_str(self.consume_while(ref |self_, ch| match ch {
+            result.push_str(self.consume_while(ref |ch| match ch {
                 '<' => {
                     sequence += 1;
 
@@ -199,12 +219,11 @@ impl<B:Buffer> Lexer<B> {
                  }
             }).as_slice());
             
-            // ToDo: eof check/no <<< found -> error
-                                               
+            // ToDo: eof check/no <<< found -> error                                               
         }
         else {
             // Single line comments eat up anything until newline or eof
-            result.push_str(self.consume_while(|self_, ch| match ch {
+            result.push_str(self.consume_while(|ch| match ch {
                 '\n' => false,
                 _ => true
             }).as_slice());
@@ -219,7 +238,7 @@ impl<B:Buffer> Lexer<B> {
     fn consume_tabs(&mut self) -> uint {
         let mut count = 0;
 
-        self.consume_while(ref |self_, ch| match ch {
+        self.consume_while(ref |ch| match ch {
             '\t' => {
                 count += 1;
                 true
@@ -232,11 +251,9 @@ impl<B:Buffer> Lexer<B> {
 
     // Parse the file where it left off and return the next token
     pub fn get_tok(&mut self) -> Token {
-        let mut currChar = '\n';
         let mut indentLevel = 0u;
-        let mut string = String::new();
 
-        // ToDo: Lex!
+        // ToDo: More lexing!
         loop {
             if self.eof() {
                 return tokens::EOF;
@@ -249,13 +266,11 @@ impl<B:Buffer> Lexer<B> {
                 a if a.is_alphabetic() || a == '_' => {
                     let ident = self.consume_identifier();
 
-                    // Keywords found in /src/syntax/core/keywords.rs
-                    match from_str::<Keywords>(ident.as_slice()) {
-                        Some(keyword) => return tokens::Keyword(keyword),
-                        None          => ()
-                    }
-
-                    return tokens::Identifier(ident)
+                    // Keywords are found in /src/syntax/core/keywords.rs
+                    return match from_str::<Keywords>(ident.as_slice()) {
+                        Some(key) => tokens::Keyword(key),
+                        None      => tokens::Identifier(ident)
+                    };
                 },
 
                 // Find ints, floats, hex, and bin numeric values

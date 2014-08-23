@@ -1,5 +1,3 @@
-use std::fmt::Show;
-
 #[deriving(Show)]
 pub enum Punctuations {
     // '('

@@ -1,4 +1,3 @@
-use std::fmt::Show;
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
 

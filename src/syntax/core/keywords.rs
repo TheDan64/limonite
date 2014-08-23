@@ -1,8 +1,3 @@
-// keywords.rs
-// based on code from TomBebbington's js.rs
-// https://github.com/TomBebbington/js.rs
-
-//use std::fmt::{Formatter, Result, Show};
 use std::from_str::FromStr;
 
 #[deriving(Show)]
