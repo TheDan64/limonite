@@ -1,2 +1,5 @@
 *.o
 target
+src/*.sublime-workspace
+src/*.sublime-project
+src/*.o

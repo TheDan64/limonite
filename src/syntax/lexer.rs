@@ -1,3 +1,4 @@
+
 use std::char::{is_whitespace, is_alphanumeric};
 use std::from_str::FromStr;
 use std::io::{IoError, IoResult};
@@ -79,18 +80,18 @@ impl<B:Buffer> Lexer<B> {
     }
 
     // Identifiers: [a-zA-Z_][a-zA-z0-9_]*
-    fn consume_identifier(&mut self) -> Option<String> {
+    fn consume_identifier(&mut self) -> String {
         // Lexer will only let you start with alpha or undescore,
         // so there is no need to check for numeric start
-        Some(self.consume_while(|self_, ch| match ch {
+        self.consume_while(|self_, ch| match ch {
             a if a.is_alphanumeric() => true,
             '_'                      => true,
              _                       => false
-        }))
+        })
     }
 
     // Determines what type of number it is and call the appropriate fn
-    fn consume_numeric(&mut self) -> Option<String> {
+    fn consume_numeric(&mut self) -> Result<String, String> {
         let start = self.pos;
         let mut result = String::new();
 
@@ -107,6 +108,8 @@ impl<B:Buffer> Lexer<B> {
                  _                             => false
             }).as_slice());
 
+            // ToDo: Get valid suffix for hex. Same as int?
+
         } else if self.current_slice().starts_with("0b") {
             // Found binary: 0b[01_]+
 
@@ -119,24 +122,98 @@ impl<B:Buffer> Lexer<B> {
                  _              => false
             }).as_slice());
 
-        } else {
-            // Need to finish this
+            // ToDo: Get valid suffix for bin. Same as int?
 
+        } else {
+            // Found int: [0-9]+ or float: [0-9]+.[0-9]+
+
+            result.push_str(self.consume_while(|self_, ch| match ch {
+                '0'..'9' => true,
+                 _       => false
+            }).as_slice());
+
+            match self.next_char() {
+                // Float decimal point:
+                '.' => {
+                    result.push_char(self.consume_char());
+
+                    let fractional = self.consume_while(|self_, ch| match ch {
+                        '0'..'9' => true,
+                         _       => false
+                    });
+
+                    // Float suffixes:
+                    // ToDo: find f32, f64?
+                },
+
+                // Int suffixes:
+                // ToDo: will we need other int sizes?
+                'i' | 'u' => {
+                    result.push_char(self.consume_char());
+
+                    // Ensure there are no additional alpha chars
+                    if self.next_char().is_alphabetic() {
+                        return Err("Invalid suffix.".to_string());
+                    }
+
+                },
+
+                // Ensure there are no additional alpha chars
+                c if c.is_alphabetic() => {
+                    return Err("Invalid suffix".to_string());
+                },
+
+                // Presumably any other remaining char is valid, ie punctuation {,[ etc
+                _ => ()
+            };
         }
 
-        // ToDo: catch signed or unsigned signature at the end (u|i)?
-
-        // ToDo: Make this error msg better. Add line column and number, etc.
         match result.as_slice() {
-            "0x" | "0b" => fail!("Invalid hex or binary value! GG!"),
-             _          => Some(result)
+            "0x" => Err("Invalid hex value.".to_string()), 
+            "0b" => Err("Invalid binary value.".to_string()),
+             _   => Ok(result)
         }
     }
 
-    fn consume_comment(&mut self) -> Option<String> {
-        let mut result = String::new();
+    fn consume_comment(&mut self) -> Result<String, String> {
+        let mut result = String::from_str(">>");
 
-        Some(result)
+        if self.next_char() == '>' {
+            // Multiline comments must end in <<< else error
+            let mut sequence = 0u;
+
+            result.push_char('>');
+
+            result.push_str(self.consume_while(ref |self_, ch| match ch {
+                '<' => {
+                    sequence += 1;
+
+                    if sequence == 3 {
+                        return false;
+                    }
+                    true
+                },
+                 _  => {
+                     sequence = 0;
+                     true
+                 }
+            }).as_slice());
+            
+            // ToDo: eof check/no <<< found -> error
+                                               
+        }
+        else {
+            // Single line comments eat up anything until newline or eof
+            result.push_str(self.consume_while(|self_, ch| match ch {
+                '\n' => false,
+                _ => true
+            }).as_slice());
+
+        }
+
+        // ToDo: Finish this
+
+        Ok(result) 
     }
 
     fn consume_tabs(&mut self) -> uint {
@@ -160,7 +237,38 @@ impl<B:Buffer> Lexer<B> {
         let mut string = String::new();
 
         // ToDo: Lex!
+        loop {
+            if self.eof() {
+                return tokens::EOF;
+            }
 
-        return tokens::EOF;
+            self.consume_whitespace();
+
+            match self.consume_char() {
+                // Find Keywords and Identifiers
+                a if a.is_alphabetic() || a == '_' => {
+                    let ident = self.consume_identifier();
+
+                    // Keywords found in /src/syntax/core/keywords.rs
+                    match from_str::<Keywords>(ident.as_slice()) {
+                        Some(keyword) => return tokens::Keyword(keyword),
+                        None          => ()
+                    }
+
+                    return tokens::Identifier(ident)
+                },
+
+                // Find ints, floats, hex, and bin numeric values
+                n if n.is_digit() => {
+                    return match self.consume_numeric() {
+                        Ok(num)  => tokens::Numeric(num),
+                        Err(err) => tokens::Error(err)
+                    }
+                },
+
+                // ToDo: match punctuation
+                _ => ()
+            };
+        }
     }
 }
