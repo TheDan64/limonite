@@ -1,8 +1,24 @@
-limonite
+Limonite
 ========
 
-[DanCardin](https://github.com/DanCardin) and I wanted to see if we could write a very basic language compiler in Rust. This is mostly for us to expand our knowledge of the new and exciting Rust programming language.
+This is a compiler for the Limonite programming language.
 
-* At the moment we are writing our own lexer and parser.
-* LLVM compatability with Rust is being reasearched.
-* Syntax is also being determined. See sample.lim for semi up to date examples.
+Limonite is a relatively basic programming language written in rust using LLVM as a backend.
+
+* Uses a custom tokenizer and parser.
+* LLVM compilation to Rust source is being looked into.
+* Syntax is by no means final. See sample.lim for examples.
+
+## Building
+1. Make sure you have installed all the dependencies.
+	* Rust (nightly)
+	* Cargo
+	* git
+
+2. Download and build Limonite
+
+    Run the following commands
+
+        git clone git@github.com:TheDan64/limonite.git
+        cd limonite
+        cargo build

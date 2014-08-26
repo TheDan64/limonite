@@ -2,7 +2,7 @@ extern crate limonite;
 
 use std::io::File;
 use std::io::BufferedReader;
-use limonite::syntax::lexer::Lexer;
+use limonite::syntax::lexer::{Lexer, Tokenizer};
 use limonite::syntax::core::tokens;
 
 #[test]

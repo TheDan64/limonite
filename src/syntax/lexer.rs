@@ -3,9 +3,14 @@ use syntax::core::tokens;
 use syntax::core::tokens::Token;
 use syntax::core::punctuation;
 
+
+pub trait Tokenizer {
+    fn get_tok(&mut self) -> Token;
+}
+
 // A Lexer that keeps track of the current line and column position
 // as well as the position in the char input stream.
-pub struct Lexer<B> {
+pub struct Lexer {
     /*****
 
     pub status of line and column number deprecated, please use get_position()
@@ -18,9 +23,35 @@ pub struct Lexer<B> {
     input: String
 }
 
-impl<B:Buffer> Lexer<B> {
+impl Tokenizer for Lexer {
+    // Parse the file where it left off and return the next token
+    fn get_tok(&mut self) -> Token {
+        // ToDo: More lexing!
+        loop {
+            if self.eof() {
+                return tokens::EOF;
+            }
+
+            self.consume_whitespace();
+
+            return match self.consume_char() {
+                // Find Keywords and Identifiers
+                a if a.is_alphabetic() || a == '_' => self.consume_identifier(),
+
+                // Find ints, floats, hex, and bin numeric values
+                n if n.is_digit() => self.consume_numeric(),
+
+                '\n' => self.consume_tabs(),
+                // ToDo: match punctuation
+                _ => tokens::Error("Unknown character.".to_string())
+            };
+        }
+    }
+}
+
+impl Lexer {
     // Create a new lexer instance
-    pub fn new(mut fileReader: B) -> Lexer<B> {
+    pub fn new<B: Buffer>(mut fileReader: B) -> Lexer {
         Lexer {
             line_number: 1,
             column_number: 1,
@@ -88,7 +119,7 @@ impl<B:Buffer> Lexer<B> {
 
         result
     }
-    
+
     // Consume non newline whitespace
     fn consume_whitespace(&mut self) {
         self.consume_while(|ch| match ch {
@@ -228,9 +259,11 @@ impl<B:Buffer> Lexer<B> {
                      true
                  }
             }).as_slice());
-            
-            // ToDo: eof check/no <<< found -> error                                               
-        } else {
+
+            // ToDo: eof check/no <<< found -> error
+        }
+        else {
+
             // Single line comments eat up anything until newline or eof
             result.push_str(self.consume_while(|ch| match ch {
                 '\n' => false,
@@ -240,7 +273,7 @@ impl<B:Buffer> Lexer<B> {
 
         // ToDo: Finish this
 
-        Ok(result) 
+        Ok(result)
     }
 
     fn consume_tabs(&mut self) -> Token {
@@ -257,31 +290,5 @@ impl<B:Buffer> Lexer<B> {
         });
 
         tokens::Indent(count)
-    }
-
-    // Parse the file where it left off and return the next token
-    pub fn get_tok(&mut self) -> Token {
-        // ToDo: More lexing!
-        loop {
-            if self.eof() {
-                return tokens::EOF;
-            }
-
-            self.consume_whitespace();
-
-            return match self.consume_char() {
-                // Find Keywords(/src/syntax/core/keywords.rs) and Identifiers
-                a if a.is_alphabetic() || a == '_' => self.consume_identifier(),
-
-                // Find ints, floats, hex, and bin numeric values
-                n if n.is_digit() => self.consume_numeric(),
-
-                // Find \n\t*
-                '\n' => self.consume_tabs(),
-
-                // ToDo: match punctuation
-                _ => tokens::Error("Unknown char".to_string())
-            };
-        }
     }
 }

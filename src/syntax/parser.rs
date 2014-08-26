@@ -1,12 +1,11 @@
-use std::io::BufferedReader;
-use std::io::File;
 use std::string::String;
 
-use syntax::lexer::Lexer;
+use syntax::lexer::Tokenizer;
 use syntax::core::tokens;
 use syntax::core::tokens::Token;
 use syntax::core::keywords;
 use syntax::core::keywords::Keywords;
+use syntax::core::punctuation;
 
 pub struct Error {
     pub line: u64,
@@ -43,37 +42,36 @@ struct FloatAST {
     val: f64,
 }
 
-pub struct Parser {
-    lexer: Lexer<BufferedReader<File>>,
+pub struct Parser<TokType: Tokenizer> {
+    lexer: TokType,
     indentation: u64,
 }
 
-impl Parser {
-    pub fn new(filename: &str) -> Parser {
-        let path = Path::new(filename);
-        let file = match File::open(&path) {
-            Ok(f)  => f,
-            Err(e) => fail!("Failed to open file. File error: {}", e),
-        };
+impl<TokType: Tokenizer> Parser<TokType> {
+    pub fn new(tokenizer: TokType) -> Parser<TokType> {
         Parser {
-            lexer: Lexer::new(BufferedReader::new(file)),
+            lexer: tokenizer,
             indentation: 0,
         }
     }
 
     // Get the next token from the lexer
-    fn get_next_token(&mut self) -> Token {
+    fn next_token(&mut self) -> Token {
         self.lexer.get_tok()
     }
 
     // Create an error from the current lexer's
     // state, and a message
-    fn throw_error(&self, msg: String) -> Error {
+    fn write_error(&self, msg: &str) -> Error {
         Error {
-            line: self.lexer.line_number as u64,
-            column: self.lexer.column_number as u64,
-            messgage: msg,
+            line: 1,
+            column: 1,
+            messgage: msg.to_string(),
         }
+    }
+
+    fn expect_error(&self, reason: &str, expect: &str, got: &str) -> Error {
+        self.write_error(format!("{}. Expected {}, but got {}", reason, expect, got).as_slice())
     }
 
     // Perform any necessary on-start actions
@@ -90,16 +88,46 @@ impl Parser {
         if self.indentation == depth {
             return Ok(None);
         }
-        Err(self.throw_error(format!("Incorrect indentation level. Expected {}, but was {}.",
-                                     self.indentation, depth)))
+        Err(self.write_error("Incorrect indentation level"))
+    }
+
+    // Parses a variable or constant declaration
+    fn parse_declaration(&mut self) -> Result<Option<Expr>, Error> {
+        let token = self.next_token();
+        match token {
+            tokens::Identifier(name) => {
+                let token1 = self.next_token();
+                match token1 {
+                    // tokens::Punctuation(punc) => {
+                    //     match punc {
+                    //         punctuation::Assign => {
+                    //             self.parse_expression()
+                    //         }
+                    //         _ => Err(self.write_error("Invalid Punctuation here"))
+                    //     }
+                    // }
+                    tokens::Punctuation(punctuation::Equals) => {
+                        self.parse_expression()
+                    }
+                    _ => Err(self.write_error("Invalid sequence"))
+                }
+            },
+            tokens::Error(msg) => Err(self.write_error(msg.as_slice())),
+            _ => Err(self.expect_error("", "a variable name", "something else"))
+        }
     }
 
     // Handles top-level keywords to start parsing them
-    fn handle_keywords(&self, keyword: Keywords) -> Result<Option<Expr>, Error> {
-        Ok(None)
+    fn handle_keywords(&mut self, keyword: Keywords) -> Result<Option<Expr>, Error> {
+        match keyword {
+            keywords::Def => {
+                self.parse_declaration()
+            }
+            _ => Err(self.write_error(format!("Unsupported keyword {}.", keyword).as_slice()))
+        }
     }
 
-    fn parse_expression(&self, name: String) -> Result<Option<Expr>, Error> {
+    fn parse_expression(&self) -> Result<Option<Expr>, Error> {
         Ok(None)
     }
 
@@ -114,22 +142,18 @@ impl Parser {
 
     // Parse the file
     pub fn parse(&mut self) {
+        self.start();
+        let cur_token = self.next_token();
         loop {
             // Parse the token into the next node of the AST
             let result: Result<Option<Expr>, Error>;
 
-            let cur_token = self.get_next_token();
-
             result = match cur_token {
-                tokens::Start => {
-                    self.start();
-                    Ok(None)
+                tokens::Keyword(ref keyword) => {
+                    self.handle_keywords(*keyword)
                 }
-                tokens::Keyword(word) => {
-                    self.handle_keywords(word)
-                }
-                tokens::Identifier(repr) => {
-                    self.parse_expression(repr)
+                tokens::Identifier(ref repr) => {
+                    self.parse_expression()
                 }
                 tokens::EOF => {
                     break

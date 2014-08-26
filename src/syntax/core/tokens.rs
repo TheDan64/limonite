@@ -3,8 +3,6 @@ use syntax::core::punctuation::Punctuations;
 
 #[deriving(Show)]
 pub enum Token {
-    // Depricated
-    Start,
 
     // True, False
     BooleanLiteral(bool),
