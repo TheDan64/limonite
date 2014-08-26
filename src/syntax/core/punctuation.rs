@@ -46,32 +46,32 @@ pub enum Punctuations {
     Minus,
 
     // '*'
-    Multiply,
+    Asterisk,
 
     // '/'
-    Divide,
+    Slash,
 
     // '%'
-    Modulus,
+    Percent,
 
     // '~'
-    Negate,
+    Tilde,
 
     // '='
-    Assign,
+    Equals,
 
     // '+='
-    AddAssign,
+    PlusEquals,
 
     // '-='
-    MinusAssign,
+    MinusEquals,
 
     // '*='
-    MultiplyAssign,
+    AsteriskEquals,
 
     // '/='
-    DivideAssign,
+    SlashEquals,
 
     // '%='
-    ModulusAssign
+    PercentEquals
 }

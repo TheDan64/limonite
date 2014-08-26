@@ -3,11 +3,8 @@ use syntax::core::punctuation::Punctuations;
 
 #[deriving(Show)]
 pub enum Token {
-    // Depricated, please remove from code
+    // Depricated
     Start,
-
-    // Begin a line with this token
-    LineBegin,
 
     // True, False
     BooleanLiteral(bool),
@@ -18,9 +15,14 @@ pub enum Token {
     // Variables, fn names
     Identifier(String),
 
-    // Keep track of scope via indentation
-    Indent,
-    Dedent(uint),
+    // Count the number of tabs after a newline
+    Indent(u32),
+
+    // 'c'
+    Char(char),
+
+    // "This is a string"
+    Str(String),
 
     // Reserved words
     Keyword(Keywords),
@@ -29,10 +31,9 @@ pub enum Token {
     Punctuation(Punctuations),
 
     // >> Singleline and >>> \nMultiline comments\n <<<
-    CommentStart(String),
-    CommentEnd,
+    Comment(String),
 
-    // Is this too basic?
+    // Error message
     Error(String),
 
     // End of File
