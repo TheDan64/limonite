@@ -3,9 +3,12 @@ use syntax::core::tokens;
 use syntax::core::tokens::Token;
 use syntax::core::punctuation;
 
-// A Lexer that keeps track of the current line and column position
-// as well as the position in the char input stream.
-pub struct Lexer<B> {
+pub trait Tokenizer {
+    fn get_tok(&mut self) -> Token;
+}
+
+// A lexer
+pub struct Lexer {
     pub line_number: uint,
     pub column_number: uint,
     pos: uint,
@@ -13,9 +16,49 @@ pub struct Lexer<B> {
     input: String
 }
 
-impl<B:Buffer> Lexer<B> {
+impl Tokenizer for Lexer {
+    // Parse the file where it left off and return the next token
+    fn get_tok(&mut self) -> Token {
+        let mut indentLevel = 0u;
+
+        // ToDo: More lexing!
+        loop {
+            if self.eof() {
+                return tokens::EOF;
+            }
+
+            self.consume_whitespace();
+
+            match self.consume_char() {
+                // Find Keywords and Identifiers
+                a if a.is_alphabetic() || a == '_' => {
+                    let ident = self.consume_identifier();
+
+                    // Keywords are found in /src/syntax/core/keywords.rs
+                    return match from_str::<Keywords>(ident.as_slice()) {
+                        Some(key) => tokens::Keyword(key),
+                        None      => tokens::Identifier(ident)
+                    };
+                },
+
+                // Find ints, floats, hex, and bin numeric values
+                n if n.is_digit() => {
+                    return match self.consume_numeric() {
+                        Ok(num)  => tokens::Numeric(num),
+                        Err(err) => tokens::Error(err)
+                    }
+                },
+
+                // ToDo: match punctuation
+                _ => ()
+            };
+        }
+    }
+}
+
+impl Lexer {
     // Create a new lexer instance
-    pub fn new(mut fileReader: B) -> Lexer<B> {
+    pub fn new<B: Buffer>(mut fileReader: B) -> Lexer {
         Lexer {
             line_number: 1,
             column_number: 1,
@@ -83,7 +126,7 @@ impl<B:Buffer> Lexer<B> {
 
         result
     }
-    
+
     // Consume non newline and tab whitespace
     fn consume_whitespace(&mut self) {
         self.consume_while(|ch| match ch {
@@ -189,7 +232,7 @@ impl<B:Buffer> Lexer<B> {
         }
 
         match result.as_slice() {
-            "0x" => Err("Invalid hex value.".to_string()), 
+            "0x" => Err("Invalid hex value.".to_string()),
             "0b" => Err("Invalid binary value.".to_string()),
              _   => Ok(result)
         }
@@ -218,8 +261,8 @@ impl<B:Buffer> Lexer<B> {
                      true
                  }
             }).as_slice());
-            
-            // ToDo: eof check/no <<< found -> error                                               
+
+            // ToDo: eof check/no <<< found -> error
         }
         else {
             // Single line comments eat up anything until newline or eof
@@ -232,7 +275,7 @@ impl<B:Buffer> Lexer<B> {
 
         // ToDo: Finish this
 
-        Ok(result) 
+        Ok(result)
     }
 
     fn consume_tabs(&mut self) -> uint {
@@ -247,43 +290,5 @@ impl<B:Buffer> Lexer<B> {
         });
 
         count
-    }
-
-    // Parse the file where it left off and return the next token
-    pub fn get_tok(&mut self) -> Token {
-        let mut indentLevel = 0u;
-
-        // ToDo: More lexing!
-        loop {
-            if self.eof() {
-                return tokens::EOF;
-            }
-
-            self.consume_whitespace();
-
-            match self.consume_char() {
-                // Find Keywords and Identifiers
-                a if a.is_alphabetic() || a == '_' => {
-                    let ident = self.consume_identifier();
-
-                    // Keywords are found in /src/syntax/core/keywords.rs
-                    return match from_str::<Keywords>(ident.as_slice()) {
-                        Some(key) => tokens::Keyword(key),
-                        None      => tokens::Identifier(ident)
-                    };
-                },
-
-                // Find ints, floats, hex, and bin numeric values
-                n if n.is_digit() => {
-                    return match self.consume_numeric() {
-                        Ok(num)  => tokens::Numeric(num),
-                        Err(err) => tokens::Error(err)
-                    }
-                },
-
-                // ToDo: match punctuation
-                _ => ()
-            };
-        }
     }
 }

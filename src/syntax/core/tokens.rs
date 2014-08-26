@@ -3,9 +3,6 @@ use syntax::core::punctuation::Punctuations;
 
 #[deriving(Show)]
 pub enum Token {
-    // Depricated, please remove from code
-    Start,
-
     // Begin a line with this token
     LineBegin,
 
