@@ -11,11 +11,9 @@ fn cmp_tokens(mut lexer: Lexer, vec: Vec<Token>) {
     for desired_tok in vec.iter() {
         let tok = &lexer.get_tok();
 
-        if tok != desired_tok {
-            fail!(format!("Unexpected token {} found. Expected {}.", tok, desired_tok));
-        }
+        if tok == desired_tok { continue; }
 
-        continue
+        fail!(format!("Unexpected token {} found. Expected {}.", tok, desired_tok));
     }
 }
 
@@ -27,7 +25,7 @@ fn test_hello_world() {
     let desired_output = vec![Comment(" Hello World!".to_string()), Indent(0),
                               Comment(" Let's compile!".to_string()), Indent(0),
                               Keyword(Print), Indent(0),
-                              Punctuation(ParenOpen), Str("Hello World!".to_string()), Punctuation(ParenClose)];
+                              Punctuation(ParenOpen), Str("Hello World!".to_string()), Punctuation(ParenClose), EOF];
 
     cmp_tokens(lexer, desired_output);
 
