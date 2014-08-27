@@ -1,4 +1,4 @@
-#[deriving(Show)]
+#[deriving(Show, PartialEq)]
 pub enum Punctuations {
     // '('
     ParenOpen,

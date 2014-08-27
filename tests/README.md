@@ -7,4 +7,5 @@ The subdirectory, lang, will contain scripts in our language to test incremental
 | Test                        | Description                                    |
 | --------------------------- | ---------------------------------------------- |
 | `test_lexer.rs`             | Tests the first component of the compiler      |
+| `test_parser.rs`            | Tests the second components of the compiler    |
 | `lang/test_hello_world.lim` | Tests the most basic statement in any language |

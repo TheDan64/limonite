@@ -1,7 +1,7 @@
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
 
-#[deriving(Show)]
+#[deriving(Show, PartialEq)]
 pub enum Token {
 
     // True, False

@@ -1,6 +1,6 @@
 use std::from_str::FromStr;
 
-#[deriving(Show)]
+#[deriving(Show, PartialEq)]
 pub enum Keywords {
     And,
     Or,
