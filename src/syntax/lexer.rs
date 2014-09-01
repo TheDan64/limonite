@@ -55,7 +55,7 @@ impl Tokenizer for Lexer {
 
                 // Find single char punctuations
                 '(' | ')' | '[' | ']' | '{' | '}' |
-                '.' | ',' | ':' | '<' | '>' | '~' | '=' => {
+                '.' | ',' | ':' | '<' | '~' | '=' => {
                     // Dumb: cant do self.single_punc_token(self.consume_char()) due to borrowing
                     // But the following works.
                     let ch = self.consume_char();
@@ -201,8 +201,7 @@ impl Lexer {
     // Consume non newline whitespace
     fn consume_whitespace(&mut self) {
         self.consume_while(|ch| match ch {
-            '\n'                   => false,
-            '\t'                   => false,
+            '\n' | '\t'            => false,
             w if w.is_whitespace() => true,
             _                      => false
         });
