@@ -2,7 +2,7 @@ use syntax::core::keywords::Keywords;
 use syntax::core::tokens;
 use syntax::core::tokens::Token;
 use syntax::core::punctuation;
-
+use syntax::core::punctuation::Punctuations;
 
 pub trait Tokenizer {
     fn get_tok(&mut self) -> Token;
@@ -13,7 +13,7 @@ pub trait Tokenizer {
 pub struct Lexer {
     /*****
 
-    pub status of line and column number deprecated, please use get_position()
+    pub status of line and column number deprecated, please use get_tok_line(), get_tok_column()
 
     ******/
     pub line_number: uint,
@@ -34,16 +34,50 @@ impl Tokenizer for Lexer {
 
             self.consume_whitespace();
 
-            return match self.consume_char() {
+            return match self.next_char() {
                 // Find Keywords and Identifiers
                 a if a.is_alphabetic() || a == '_' => self.consume_identifier(),
+
+                e if self.eof() => tokens::EOF,
 
                 // Find ints, floats, hex, and bin numeric values
                 n if n.is_digit() => self.consume_numeric(),
 
                 '\n' => self.consume_tabs(),
-                // ToDo: match punctuation
-                _ => tokens::Error("Unknown character.".to_string())
+
+                '(' | ')' | '[' | ']' | '{' | '}' |
+                '.' | ',' | ':' | '<' | '~' | '=' => {
+                    // Dumb: cant do self.single_punc_token(self.consume_char()) due to borrowing
+                    // But the following works.
+                    let ch = self.consume_char();
+
+                    self.single_punc_token(ch)
+                },
+
+                // Determine if multi-char(+=, -=, ..) or not
+                '+' | '-' | '*' | '/' | '%' => {
+                    let ch = self.consume_char();
+
+                    match self.next_char() {
+                        '=' => {
+                            let ch2 = self.consume_char();
+
+                            self.multi_punc_token([ch, ch2])
+                        },
+                         _  => self.single_punc_token(ch)
+                    }
+                },
+
+                '>' => {
+                    self.consume_char();
+
+                    match self.next_char() {
+                        '>' => self.consume_comment(),
+                         _  => self.single_punc_token('>')
+                    }
+                },
+
+                ch => tokens::Error(format!("Unknown character '{}'.", ch).to_string())
             };
         }
     }
@@ -118,6 +152,41 @@ impl Lexer {
         }
 
         result
+    }
+
+    // Single char puncuations: (, [, ., ...
+    fn single_punc_token(&mut self, ch: char) -> Token {
+        tokens::Punctuation(match ch {
+            '(' => punctuation::ParenOpen,
+            ')' => punctuation::ParenClose,
+            '[' => punctuation::SBracketOpen,
+            ']' => punctuation::SBracketClose,
+            '{' => punctuation::CBracketOpen,
+            '}' => punctuation::CBracketClose,
+            '.' => punctuation::Period,
+            ',' => punctuation::Comma,
+            ':' => punctuation::Colon,
+            '>' => punctuation::GreaterThan,
+            '<' => punctuation::LessThan,
+            '+' => punctuation::Plus,
+            '-' => punctuation::Minus,
+            '*' => punctuation::Asterisk,
+            '/' => punctuation::Slash,
+            '%' => punctuation::Percent,
+            '~' => punctuation::Tilde,
+            '=' => punctuation::Equals,
+
+            // Should never get here:
+              _ => punctuation::Period
+        })
+    }
+
+    // Multi char punctuations: +=, -=, ...
+    fn multi_punc_token(&mut self, vec: &[char]) -> Token {
+        let string = String::from_chars(vec);
+        let punct = from_str::<Punctuations>(string.as_slice()).unwrap();
+        
+        tokens::Punctuation(punct)
     }
 
     // Consume non newline whitespace
@@ -236,14 +305,18 @@ impl Lexer {
         }
     }
 
-    fn consume_comment(&mut self) -> Result<String, String> {
-        let mut result = String::from_str(">>");
+    fn consume_comment(&mut self) -> Token {
+        let mut result = String::new();
+
+        // Consume 2nd '>'
+        self.consume_char();
 
         if self.next_char() == '>' {
             // Multiline comments must end in <<< else error
             let mut sequence = 0u;
 
-            result.push_char('>');
+            // Consume 3rd '>'
+            self.consume_char();
 
             result.push_str(self.consume_while(ref |ch| match ch {
                 '<' => {
@@ -273,7 +346,7 @@ impl Lexer {
 
         // ToDo: Finish this
 
-        Ok(result)
+        tokens::Comment(result)
     }
 
     fn consume_tabs(&mut self) -> Token {

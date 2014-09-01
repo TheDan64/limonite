@@ -1,3 +1,5 @@
+use std::from_str::FromStr;
+
 #[deriving(Show, PartialEq)]
 pub enum Punctuations {
     // '('
@@ -74,4 +76,19 @@ pub enum Punctuations {
 
     // '%='
     PercentEquals
+}
+
+impl FromStr for Punctuations {
+    fn from_str(s: &str) -> Option<Punctuations> {
+        match s {
+            "+=" => Some(PlusEquals),
+            "-=" => Some(MinusEquals),
+            "*=" => Some(AsteriskEquals),
+            "/=" => Some(SlashEquals),
+            "%=" => Some(PercentEquals),
+
+            // Should never get here:
+            _    => Some(PlusEquals)
+        }
+    }
 }
