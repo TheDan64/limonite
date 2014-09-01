@@ -43,8 +43,17 @@ impl Tokenizer for Lexer {
                 // Find ints, floats, hex, and bin numeric values
                 n if n.is_digit() => self.consume_numeric(),
 
+                // Count tabs: \n\t*
                 '\n' => self.consume_tabs(),
 
+                // Error: Found tabs without preceeding newline
+                '\t' => {
+                    self.consume_char();
+
+                    tokens::Error("Found an out of place tab.".to_string())
+                },
+
+                // Find single char punctuations
                 '(' | ')' | '[' | ']' | '{' | '}' |
                 '.' | ',' | ':' | '<' | '~' | '=' => {
                     // Dumb: cant do self.single_punc_token(self.consume_char()) due to borrowing
@@ -54,7 +63,7 @@ impl Tokenizer for Lexer {
                     self.single_punc_token(ch)
                 },
 
-                // Determine if multi-char(+=, -=, ..) or not
+                // Find multi-char(+=, -=, ..) punctuations or not
                 '+' | '-' | '*' | '/' | '%' => {
                     let ch = self.consume_char();
 
@@ -121,12 +130,12 @@ impl Lexer {
         let ch = self.next_char();
 
         self.buffer_pos += 1;
-        self.line_number += 1;
+        self.column_number += 1;
 
         if ch == '\n' {
             self.line_start = self.buffer_pos;
-            self.line_number = 1;
-            self.column_number += 1;
+            self.line_number += 1;
+            self.column_number = 1;
         }
 
         ch
@@ -193,6 +202,7 @@ impl Lexer {
     fn consume_whitespace(&mut self) {
         self.consume_while(|ch| match ch {
             '\n'                   => false,
+            '\t'                   => false,
             w if w.is_whitespace() => true,
             _                      => false
         });
