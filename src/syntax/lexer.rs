@@ -55,7 +55,7 @@ impl Tokenizer for Lexer {
 
                 // Find single char punctuations
                 '(' | ')' | '[' | ']' | '{' | '}' |
-                '.' | ',' | ':' | '<' | '~' | '=' => {
+                '.' | ',' | ':' | '<' | '>' | '~' | '=' => {
                     // Dumb: cant do self.single_punc_token(self.consume_char()) due to borrowing
                     // But the following works.
                     let ch = self.consume_char();
