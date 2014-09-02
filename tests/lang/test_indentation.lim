@@ -1,0 +1,9 @@
+>>>
+    Test of indentation and a few keywords.
+<<<
+
+if True,
+	func()
+
+	if False,
+		func2()

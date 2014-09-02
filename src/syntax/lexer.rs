@@ -248,7 +248,14 @@ impl Lexer {
 
         match from_str::<Keywords>(ident.as_slice()) {
             Some(key) => tokens::Keyword(key),
-            None      => tokens::Identifier(ident)
+            None      => { 
+                match ident.as_slice() {
+                    "None"  => tokens::None,
+                    "True"  => tokens::BooleanLiteral(true),
+                    "False" => tokens::BooleanLiteral(false),
+                    _       => tokens::Identifier(ident)
+                }
+            }
         }
     }
 
@@ -371,7 +378,14 @@ impl Lexer {
                  }
             }).as_slice());
 
-            // ToDo: eof check/no <<< found -> error
+            err_if_eof!(self, "Hit eof before end of multi-line comment.");
+
+            // Remove >> from end of the comment
+            result.pop_char();
+            result.pop_char();
+
+            // Consume the last >
+            self.consume_char();
         }
         else {
 
@@ -387,7 +401,7 @@ impl Lexer {
 
     fn consume_tabs(&mut self) -> Token {
         let mut count = 0;
-        
+
         // Consume the newline token, count tabs
         self.consume_char();
         self.consume_while(ref |ch| match ch {
@@ -411,6 +425,7 @@ impl Lexer {
             'n' => Ok('\n'),
             'r' => Ok('\r'),
             't' => Ok('\t'),
+//            '\n'=> Ok(''), // Escape newline?
             _   => Err(format!("Unknown character escape: {}", ch).to_string())
         }
     }

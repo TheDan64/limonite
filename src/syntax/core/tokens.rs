@@ -3,7 +3,6 @@ use syntax::core::punctuation::Punctuations;
 
 #[deriving(Show, PartialEq)]
 pub enum Token {
-
     // True, False
     BooleanLiteral(bool),
 
@@ -33,6 +32,9 @@ pub enum Token {
 
     // Error message
     Error(String),
+
+    // None
+    None,
 
     // End of File
     EOF
