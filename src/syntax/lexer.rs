@@ -157,6 +157,13 @@ impl Lexer {
         let mut result = String::new();
 
         while !self.eof() && test(self.next_char()) {
+            // Ignore carriage return if present
+            if self.next_char() == '\r' { 
+                self.consume_char();
+
+                continue;
+            }
+            
             result.push_char(self.consume_char());
         }
 
@@ -352,8 +359,6 @@ impl Lexer {
                 _ => true
             }).as_slice());
         }
-
-        // ToDo: Finish this
 
         tokens::Comment(result)
     }
