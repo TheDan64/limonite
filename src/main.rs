@@ -1,5 +1,6 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
+#![feature(macro_rules)]
 #![feature(phase)]
 #[phase(plugin, link)] extern crate log;
 

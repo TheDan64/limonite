@@ -1,7 +1,7 @@
 [package]
 
 name = "limonite"
-version = "0.0.1"
+version = "0.0.2"
 authors = [ "thadancardin@gmail.com",
             "thadan64@gmail.com" ]
 

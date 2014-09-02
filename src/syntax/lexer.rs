@@ -4,6 +4,16 @@ use syntax::core::tokens::Token;
 use syntax::core::punctuation;
 use syntax::core::punctuation::Punctuations;
 
+// Macro for checking for possible eof
+macro_rules! err_if_eof(
+    ($self_:ident, $string:expr) => {
+        if $self_.eof() {
+            return tokens::Error($string.to_string());
+        }
+    };
+)
+
+
 pub trait Tokenizer {
     fn get_tok(&mut self) -> Token;
 }
@@ -77,6 +87,7 @@ impl Tokenizer for Lexer {
                     }
                 },
 
+                // Find comments, otherwise '>' punctuation
                 '>' => {
                     self.consume_char();
 
@@ -85,6 +96,12 @@ impl Tokenizer for Lexer {
                          _  => self.single_punc_token('>')
                     }
                 },
+
+                // Find character literals, 'c', including ascii escape chars
+                '\'' => self.consume_char_literal(),
+
+                // Find string literals, "String"
+                '\"' => self.consume_string_literal(),
 
                 ch => tokens::Error(format!("Unknown character '{}'.", ch).to_string())
             };
@@ -143,6 +160,8 @@ impl Lexer {
 
     // Gets the next char
     fn next_char(&self) -> char {
+        if self.eof() { fail!("Lexer error: hit eof.") }
+
         return self.input.as_slice().char_at(self.buffer_pos);
     }
 
@@ -156,15 +175,18 @@ impl Lexer {
     fn consume_while(&mut self, test: |char| -> bool) -> String {
         let mut result = String::new();
 
-        while !self.eof() && test(self.next_char()) {
-            // Ignore carriage return if present
-            if self.next_char() == '\r' { 
-                self.consume_char();
 
-                continue;
-            }
-            
-            result.push_char(self.consume_char());
+        while !self.eof() && test(self.next_char()) {
+            match self.next_char() {
+                // Ignore any carriage returns
+                '\r' => {
+                    self.consume_char();
+
+                    continue;
+                },
+                
+                _   => result.push_char(self.consume_char())
+            };
         }
 
         result
@@ -378,4 +400,72 @@ impl Lexer {
 
         tokens::Indent(count)
     }
+
+    fn escape_char(ch: char) -> Result<char, String> {
+        // Does not include unicode escapes
+
+        match ch {
+            '\''=> Ok('\''),
+            '\"'=> Ok('\"'),
+            '\\'=> Ok('\\'),
+            'n' => Ok('\n'),
+            'r' => Ok('\r'),
+            't' => Ok('\t'),
+            _   => Err(format!("Unknown character escape: {}", ch).to_string())
+        }
+    }
+
+    fn consume_char_literal(&mut self) -> Token {
+        let ch: char;
+
+        // Consume first '
+        self.consume_char();
+
+        err_if_eof!(self, "Hit eof before end of character literal.");
+
+        match self.consume_char() {
+            '\\' => {
+                err_if_eof!(self, "Hit eof before end of character literal.");
+
+                match Lexer::escape_char(self.consume_char()) {
+                    Ok(esc) => ch = esc,
+                    Err(msg)=> return tokens::Error(msg)
+                };
+            },
+
+            '\'' => return tokens::Error("Empty character literal is invalid.".to_string()),
+            c    => ch = c
+        };
+
+        err_if_eof!(self, "Hit eof before end of character literal.");
+
+        match self.consume_char() {
+            '\'' => tokens::Char(ch),
+            _    => tokens::Error("Char literal was not closed with a '".to_string())
+        }
+    }
+
+    fn consume_string_literal(&mut self) -> Token {
+        // ToDo: Handle character escapes for strs
+
+        let mut result = String::new();
+        let mut escape = false;
+
+        // Consume first "
+        self.consume_char();
+
+        err_if_eof!(self, "Hit eof before end of string literal.");
+
+        result.push_str(self.consume_while(ref |ch| match ch {
+            '\"' => false,
+            _ => true
+        }).as_slice());
+
+        err_if_eof!(self, "Hit eof before end of string literal.");
+
+        // Consume last "
+        self.consume_char();
+
+        tokens::Str(result)
+    }    
 }
