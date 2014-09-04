@@ -1,7 +1,32 @@
+#[deriving(Show, PartialEq)]
 pub enum Types {
-    Int,
-    UInt,
+    // True, False
+    Bool(bool),
+
+    // str
     Str,
-    Bool
-    // More to come?
+
+    // char
+    Char,
+
+    // i32
+    Int32Bit,
+
+    // i64
+    Int64Bit,
+
+    // u32
+    UInt32Bit,
+
+    // u64
+    UInt64Bit,
+
+    // f32
+    Float32Bit,
+
+    // f64
+    Float64Bit,
+
+    // None
+    None
 }

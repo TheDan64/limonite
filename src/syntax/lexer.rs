@@ -1,4 +1,5 @@
 use syntax::core::keywords::Keywords;
+use syntax::core::types;
 use syntax::core::tokens;
 use syntax::core::tokens::Token;
 use syntax::core::punctuation;
@@ -247,16 +248,22 @@ impl Lexer {
         });
 
         match from_str::<Keywords>(ident.as_slice()) {
-            Some(key) => tokens::Keyword(key),
-            None      => { 
-                match ident.as_slice() {
-                    "None"  => tokens::None,
-                    "True"  => tokens::BooleanLiteral(true),
-                    "False" => tokens::BooleanLiteral(false),
-                    _       => tokens::Identifier(ident)
-                }
-            }
-        }
+            Some(key) => return tokens::Keyword(key),
+            None      => ()
+        };
+
+        return match ident.as_slice() {
+            "None"  => tokens::Type(types::None),
+            "True"  => tokens::Type(types::Bool(true)),
+            "False" => tokens::Type(types::Bool(false)),
+            "i32"   => tokens::Type(types::Int32Bit),
+            "i64"   => tokens::Type(types::Int64Bit),
+            "u32"   => tokens::Type(types::UInt32Bit),
+            "u64"   => tokens::Type(types::UInt64Bit),
+            "f32"   => tokens::Type(types::Float32Bit),
+            "f64"   => tokens::Type(types::Float64Bit),
+            _       => tokens::Identifier(ident)
+        };
     }
 
     // Determines what type of number it is and call the appropriate fn

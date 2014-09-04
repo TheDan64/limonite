@@ -86,9 +86,7 @@ impl FromStr for Punctuations {
             "*=" => Some(AsteriskEquals),
             "/=" => Some(SlashEquals),
             "%=" => Some(PercentEquals),
-
-            // Should never get here:
-            _    => Some(PlusEquals)
+            _    => None
         }
     }
 }

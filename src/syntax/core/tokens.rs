@@ -1,11 +1,9 @@
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
+use syntax::core::types::Types;
 
 #[deriving(Show, PartialEq)]
 pub enum Token {
-    // True, False
-    BooleanLiteral(bool),
-
     // 42, 42u, 0x2A, 0b101010, -42.0, 42f ...
     Numeric(String),
 
@@ -33,8 +31,8 @@ pub enum Token {
     // Error message
     Error(String),
 
-    // None
-    None,
+    // Types: i64, f32, None, ..
+    Type(Types),
 
     // End of File
     EOF
