@@ -45,6 +45,7 @@ impl FromStr for Types {
             "u64"  => Some(UInt64Bit),
             "f32"  => Some(Float32Bit),
             "f64"  => Some(Float64Bit),
+            "None" => Some(None_),
             _      => None
         }
     }

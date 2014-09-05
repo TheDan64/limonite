@@ -15,7 +15,6 @@ macro_rules! err_if_eof(
     };
 )
 
-
 pub trait Tokenizer {
     fn get_tok(&mut self) -> Token;
 }
@@ -162,7 +161,7 @@ impl Lexer {
 
     // Gets the next char
     fn next_char(&self) -> char {
-        if self.eof() { fail!("Lexer error: hit eof.") }
+        if self.eof() { fail!("Lexer error: hit unexpected eof.") }
 
         return self.input.as_slice().char_at(self.buffer_pos);
     }
@@ -216,8 +215,8 @@ impl Lexer {
             '~' => punctuation::Tilde,
             '=' => punctuation::Equals,
 
-            // Should never get here:
-              _ => punctuation::Period
+            // Should never get here: (Maybe should be Option<Token> for None?)
+             _  => fail!(format!("Lexer error: hit unexpected single punctuation type {}", ch))
         })
     }
 
@@ -239,7 +238,7 @@ impl Lexer {
     }
 
     // Identifiers: [a-zA-Z_][a-zA-z0-9_]*
-    // Keywords and Types are a subset of identifiers.
+    // Keywords and Types are subsets of identifiers.
     fn consume_identifier(&mut self) -> Token {
         // Lexer will only let you start with alpha or undescore,
         // so there is no need to check for numeric start
