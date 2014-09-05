@@ -3,8 +3,7 @@ extern crate limonite;
 use std::io::File;
 use std::io::BufferedReader;
 use limonite::syntax::lexer::{Lexer, Tokenizer};
-use limonite::syntax::core::types::{Bool};
-use limonite::syntax::core::tokens::{Token, Comment, Keyword, Identifier, Indent, Punctuation, Str, Type, EOF};
+use limonite::syntax::core::tokens::{Token, Comment, Keyword, Identifier, Indent, Punctuation, BoolLiteral, StrLiteral, Type, EOF};
 use limonite::syntax::core::keywords::{If, Print};
 use limonite::syntax::core::punctuation::{Comma, ParenOpen, ParenClose};
 
@@ -27,7 +26,7 @@ fn test_hello_world() {
     let lexer = Lexer::new(file);
     let desired_output = vec![Comment(" Hello World!".to_string()), Indent(0),
                               Indent(0),
-                              Keyword(Print), Punctuation(ParenOpen), Str("Hello World!".to_string()), Punctuation(ParenClose), EOF];
+                              Keyword(Print), Punctuation(ParenOpen), StrLiteral("Hello World!".to_string()), Punctuation(ParenClose), EOF];
 
     cmp_tokens(lexer, desired_output);
 }
@@ -39,10 +38,10 @@ fn test_indentation() {
     let lexer = Lexer::new(file);
     let desired_output = vec![Comment("\n    Test of indentation and a few keywords.\n".to_string()), Indent(0),
                               Indent(0),
-                              Keyword(If), Type(Bool(true)), Punctuation(Comma), Indent(1),
+                              Keyword(If), BoolLiteral(true), Punctuation(Comma), Indent(1),
                               Identifier("func".to_string()), Punctuation(ParenOpen), Punctuation(ParenClose), Indent(0),
                               Indent(1),
-                              Keyword(If), Type(Bool(false)), Punctuation(Comma), Indent(2),
+                              Keyword(If), BoolLiteral(false), Punctuation(Comma), Indent(2),
                               Identifier("func2".to_string()), Punctuation(ParenOpen), Punctuation(ParenClose), EOF];
 
     cmp_tokens(lexer, desired_output);

@@ -1,7 +1,9 @@
+use std::from_str::FromStr;
+
 #[deriving(Show, PartialEq)]
 pub enum Types {
-    // True, False
-    Bool(bool),
+    // bool
+    Bool,
 
     // str
     Str,
@@ -28,5 +30,22 @@ pub enum Types {
     Float64Bit,
 
     // None
-    None
+    None_
+}
+
+impl FromStr for Types {
+    fn from_str(s: &str) -> Option<Types> {
+        match s {
+            "bool" => Some(Bool),
+            "str"  => Some(Str),
+            "char" => Some(Char),
+            "i32"  => Some(Int32Bit),
+            "i64"  => Some(Int64Bit),
+            "u32"  => Some(UInt32Bit),
+            "u64"  => Some(UInt64Bit),
+            "f32"  => Some(Float32Bit),
+            "f64"  => Some(Float64Bit),
+            _      => None
+        }
+    }
 }

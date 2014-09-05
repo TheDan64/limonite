@@ -13,11 +13,14 @@ pub enum Token {
     // Count the number of tabs after a newline
     Indent(u32),
 
+    // True, False
+    BoolLiteral(bool),
+
     // 'c'
-    Char(char),
+    CharLiteral(char),
 
     // "This is a string"
-    Str(String),
+    StrLiteral(String),
 
     // Reserved words
     Keyword(Keywords),

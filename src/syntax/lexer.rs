@@ -1,5 +1,6 @@
 use syntax::core::keywords::Keywords;
 use syntax::core::types;
+use syntax::core::types::Types;
 use syntax::core::tokens;
 use syntax::core::tokens::Token;
 use syntax::core::punctuation;
@@ -238,6 +239,7 @@ impl Lexer {
     }
 
     // Identifiers: [a-zA-Z_][a-zA-z0-9_]*
+    // Keywords and Types are a subset of identifiers.
     fn consume_identifier(&mut self) -> Token {
         // Lexer will only let you start with alpha or undescore,
         // so there is no need to check for numeric start
@@ -247,23 +249,24 @@ impl Lexer {
              _                       => false
         });
 
+        // ToDo: Consolodate the following somehow?
+        // Idea: one big from_str fn for ident/keyword/type/boollits?
+
         match from_str::<Keywords>(ident.as_slice()) {
             Some(key) => return tokens::Keyword(key),
             None      => ()
         };
 
-        return match ident.as_slice() {
-            "None"  => tokens::Type(types::None),
-            "True"  => tokens::Type(types::Bool(true)),
-            "False" => tokens::Type(types::Bool(false)),
-            "i32"   => tokens::Type(types::Int32Bit),
-            "i64"   => tokens::Type(types::Int64Bit),
-            "u32"   => tokens::Type(types::UInt32Bit),
-            "u64"   => tokens::Type(types::UInt64Bit),
-            "f32"   => tokens::Type(types::Float32Bit),
-            "f64"   => tokens::Type(types::Float64Bit),
-            _       => tokens::Identifier(ident)
-        };
+        match ident.as_slice() {
+            "True"  => return tokens::BoolLiteral(true),
+            "False" => return tokens::BoolLiteral(false),
+            _       => ()
+        }
+
+        match from_str::<Types>(ident.as_slice()) {
+            Some(type_) => tokens::Type(type_),
+            _           => tokens::Identifier(ident)
+        }
     }
 
     // Determines what type of number it is and call the appropriate fn
@@ -462,7 +465,7 @@ impl Lexer {
         err_if_eof!(self, "Hit eof before end of character literal.");
 
         match self.consume_char() {
-            '\'' => tokens::Char(ch),
+            '\'' => tokens::CharLiteral(ch),
             _    => tokens::Error("Char literal was not closed with a '".to_string())
         }
     }
@@ -488,6 +491,6 @@ impl Lexer {
         // Consume last "
         self.consume_char();
 
-        tokens::Str(result)
+        tokens::StrLiteral(result)
     }    
 }
