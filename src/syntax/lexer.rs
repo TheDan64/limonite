@@ -6,15 +6,6 @@ use syntax::core::tokens::Token;
 use syntax::core::punctuation;
 use syntax::core::punctuation::Punctuations;
 
-// Macro for checking for possible eof
-macro_rules! err_if_eof(
-    ($self_:ident, $string:expr) => {
-        if $self_.eof() {
-            return tokens::Error($string.to_string());
-        }
-    };
-)
-
 pub trait Tokenizer {
     fn get_tok(&mut self) -> Token;
 }
@@ -47,64 +38,75 @@ impl Tokenizer for Lexer {
 
             return match self.next_char() {
                 // Find Keywords and Identifiers
-                a if a.is_alphabetic() || a == '_' => self.consume_identifier(),
-
-                e if self.eof() => tokens::EOF,
+                Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
 
                 // Find ints, floats, hex, and bin numeric values
-                n if n.is_digit() => self.consume_numeric(),
+                Some(n) if n.is_digit() => self.consume_numeric(),
 
                 // Count tabs: \n\t*
-                '\n' => self.consume_tabs(),
+                Some('\n') => self.consume_tabs(),
 
                 // Error: Found tabs without preceeding newline
-                '\t' => {
-                    self.consume_char();
+                Some('\t') => {
+                    self.consume_char().unwrap();
 
                     tokens::Error("Found an out of place tab.".to_string())
                 },
 
                 // Find single char punctuations
-                '(' | ')' | '[' | ']' | '{' | '}' |
-                '.' | ',' | ':' | '<' | '~' | '=' => {
-                    // Dumb: cant do self.single_punc_token(self.consume_char()) due to borrowing
+                Some('(') | Some(')') |
+                Some('[') | Some(']') |
+                Some('{') | Some('}') |
+                Some('.') |
+                Some(',') |
+                Some(':') |
+                Some('<') |
+                Some('~') |
+                Some('=') => {
+                    // Dumb: cant do self.single_punc_token(self.consume_char().unwrap()) due to borrowing
                     // But the following works.
-                    let ch = self.consume_char();
+                    let ch = self.consume_char().unwrap();
 
                     self.single_punc_token(ch)
                 },
 
                 // Find multi-char(+=, -=, ..) punctuations or not
-                '+' | '-' | '*' | '/' | '%' => {
-                    let ch = self.consume_char();
+                Some('+') |
+                Some('-') |
+                Some('*') |
+                Some('/') |
+                Some('%') => {
+                    let ch = self.consume_char().unwrap();
 
                     match self.next_char() {
-                        '=' => {
-                            let ch2 = self.consume_char();
+                        Some('=') => {
+                            let ch2 = self.consume_char().unwrap();
 
                             self.multi_punc_token([ch, ch2])
                         },
-                         _  => self.single_punc_token(ch)
+                        Some(_) | None => self.single_punc_token(ch)
                     }
                 },
 
                 // Find comments, otherwise '>' punctuation
-                '>' => {
+                Some('>') => {
                     self.consume_char();
 
                     match self.next_char() {
-                        '>' => self.consume_comment(),
-                         _  => self.single_punc_token('>')
+                        Some('>')       => self.consume_comment(),
+                        Some(_) | None  => self.single_punc_token('>')
                     }
                 },
 
                 // Find character literals, 'c', including ascii escape chars
-                '\'' => self.consume_char_literal(),
+                Some('\'') => self.consume_char_literal(),
 
                 // Find string literals, "String"
-                '\"' => self.consume_string_literal(),
+                Some('\"') => self.consume_string_literal(),
 
-                ch => tokens::Error(format!("Unknown character '{}'.", ch).to_string())
+                Some(ch) => tokens::Error(format!("Unknown character '{}'.", ch).to_string()),
+
+                None => tokens::EOF
             };
         }
     }
@@ -144,26 +146,31 @@ impl Lexer {
     }
 
     // Gets the next char and sets the position forward in the buffer
-    fn consume_char(&mut self) -> char {
-        let ch = self.next_char();
+    fn consume_char(&mut self) -> Option<char> {
+        match self.next_char() {
+            Some(ch) => {
+                self.buffer_pos += 1;
+                self.column_number += 1;
+                
+                if ch == '\n' {
+                    self.line_start = self.buffer_pos;
+                    self.line_number += 1;
+                    self.column_number = 1;
+                }
 
-        self.buffer_pos += 1;
-        self.column_number += 1;
+                Some(ch)
+            },
 
-        if ch == '\n' {
-            self.line_start = self.buffer_pos;
-            self.line_number += 1;
-            self.column_number = 1;
+            None => None
         }
-
-        ch
     }
 
     // Gets the next char
-    fn next_char(&self) -> char {
-        if self.eof() { fail!("Lexer error: hit unexpected eof.") }
-
-        return self.input.as_slice().char_at(self.buffer_pos);
+    fn next_char(&self) -> Option<char> {
+        match self.eof() {
+            false => Some(self.input.as_slice().char_at(self.buffer_pos)),
+            true  => None
+        }
     }
 
     // Determine if we hit the inevitable End of File
@@ -176,17 +183,17 @@ impl Lexer {
     fn consume_while(&mut self, test: |char| -> bool) -> String {
         let mut result = String::new();
 
-
-        while !self.eof() && test(self.next_char()) {
-            match self.next_char() {
+        // Always unwrapping as the loop checks eof.
+        while !self.eof() && test(self.next_char().unwrap()) {
+            match self.next_char().unwrap() {
                 // Ignore any carriage returns
                 '\r' => {
-                    self.consume_char();
+                    self.consume_char().unwrap();
 
                     continue;
                 },
                 
-                _   => result.push_char(self.consume_char())
+                _   => result.push_char(self.consume_char().unwrap())
             };
         }
 
@@ -214,9 +221,7 @@ impl Lexer {
             '%' => punctuation::Percent,
             '~' => punctuation::Tilde,
             '=' => punctuation::Equals,
-
-            // Should never get here: (Maybe should be Option<Token> for None?)
-             _  => fail!(format!("Lexer error: hit unexpected single punctuation type {}", ch))
+             _  => fail!(format!("Lexer error: hit what should be an unreachable single punctuation type {}", ch))
         })
     }
 
@@ -268,51 +273,78 @@ impl Lexer {
         }
     }
 
-    // Determines what type of number it is and call the appropriate fn
+    // Determines what type of number it is and consume it
     fn consume_numeric(&mut self) -> Token {
-        let mut result = String::new();
+        let mut number = String::new();
+        let mut suffix = String::new();
 
         if self.current_slice().starts_with("0x") {
             // Found hexadecimal: 0x[0-9a-fA-F_]+
 
             self.buffer_pos += 2;
-            result.push_str("0x");
+            number.push_str("0x");
 
             // Cant do += for String, and push_str looks better than
-            // result = result + self.consume...
-            result.push_str(self.consume_while(|ch| match ch {
+            // number = number + self.consume...
+            number.push_str(self.consume_while(|ch| match ch {
                 '0'..'9' | 'a'..'f' | 'A'..'F' => true,
                  _                             => false
             }).as_slice());
 
-            // ToDo: Get valid suffix for hex. Same as int?
+            if number.as_slice() == "0x" {
+                return tokens::Error("Found invalid hexadecimal value".to_string());
+            }
+
+            // Possibly find a suffix
+
+            match self.next_char() {
+                Some('u') |
+                Some('i') => {
+                    let ch = self.consume_char().unwrap();
+
+                    // ToDo: finish getting 32, 64
+                },
+                    
+                Some(c) if c.is_alphanumeric() => {
+                    return tokens::Error(format!("Invalid suffix {}. Did you mean u or i?", c).to_string());
+                },
+                
+                // If eof or other just return the numeric token without a suffix
+                _ => ()
+            };
 
         } else if self.current_slice().starts_with("0b") {
             // Found binary: 0b[01_]+
 
             self.buffer_pos += 2;
-            result.push_str("0b");
+            number.push_str("0b");
 
             // Formatting the same as the hex case above.
-            result.push_str(self.consume_while(|ch| match ch {
+            number.push_str(self.consume_while(|ch| match ch {
                 '0' | '1' | '_' => true,
                  _              => false
             }).as_slice());
 
-            // ToDo: Get valid suffix for bin. Same as int?
+            if number.as_slice() == "0b" {
+                return tokens::Error("Found invalid binary value.".to_string());
+            }
 
+            // ToDo: Possibly find a suffix
+            
         } else {
             // Found int: [0-9]+ or float: [0-9]+.[0-9]+
 
-            result.push_str(self.consume_while(|ch| match ch {
+            number.push_str(self.consume_while(|ch| match ch {
                 '0'..'9' => true,
                  _       => false
             }).as_slice());
 
+            // ToDo: Possibly find a suffix
+
             match self.next_char() {
                 // Float decimal point:
-                '.' => {
-                    result.push_char(self.consume_char());
+                Some('.') => {
+                    number.push_char(self.consume_char().unwrap());
 
                     let fractional = self.consume_while(|ch| match ch {
                         '0'..'9' => true,
@@ -323,7 +355,7 @@ impl Lexer {
                         return tokens::Error("Invalid floating point number.".to_string());
 
                     } else {
-                        result.push_str(fractional.as_slice());
+                        number.push_str(fractional.as_slice());
                     }
 
                     // Float suffixes:
@@ -332,19 +364,20 @@ impl Lexer {
 
                 // Int suffixes:
                 // ToDo: will we need other int sizes?
-                'i' | 'u' => {
-                    result.push_char(self.consume_char());
+                Some('i')| Some('u') => {
+                    number.push_char(self.consume_char().unwrap());
 
                     // Ensure there are no additional alpha chars
-                    if self.next_char().is_alphabetic() {
-                        return tokens::Error("Invalid suffix.".to_string());
-                    }
+                    
+//                    if self.next_char().is_alphabetic() {
+//                        return tokens::Error(format!("Invalid suffix.", c).to_string());
+//                    }
 
                 },
 
                 // Ensure there are no additional alpha chars
-                c if c.is_alphabetic() => {
-                    return tokens::Error("Invalid suffix".to_string());
+                Some(c) if c.is_alphabetic() => {
+                    return tokens::Error(format!("Invalid suffix {}. Did you mean f?", c).to_string());
                 },
 
                 // Presumably any other remaining char is valid, ie punctuation {,[ etc
@@ -352,12 +385,8 @@ impl Lexer {
             };
         }
 
-        match result.as_slice() {
-            "0x" => tokens::Error("Invalid hex value.".to_string()), 
-            "0b" => tokens::Error("Invalid binary value.".to_string()),
-             _   => tokens::Numeric(result)
-        }
-    }
+        tokens::Numeric(number) // , suffix)
+     }
 
     fn consume_comment(&mut self) -> Token {
         let mut result = String::new();
@@ -365,46 +394,52 @@ impl Lexer {
         // Consume 2nd '>'
         self.consume_char();
 
-        if self.next_char() == '>' {
+        match self.next_char() {
             // Multiline comments must end in <<< else error
-            let mut sequence = 0u;
+            Some('>') => {
+                let mut sequence = 0u;
 
-            // Consume 3rd '>'
-            self.consume_char();
+                // Consume 3rd '>'
+                self.consume_char();
 
-            result.push_str(self.consume_while(ref |ch| match ch {
-                '<' => {
-                    sequence += 1;
-
-                    if sequence == 3 {
-                        return false;
+                result.push_str(self.consume_while(ref |ch| match ch {
+                    '<' => {
+                        sequence += 1;
+                        
+                        if sequence == 3 {
+                            return false;
+                        }
+                        true
+                    },
+                    _  => {
+                        sequence = 0;
+                        true
                     }
-                    true
-                },
-                 _  => {
-                     sequence = 0;
-                     true
-                 }
-            }).as_slice());
+                }).as_slice());
 
-            err_if_eof!(self, "Hit eof before end of multi-line comment.");
+                // Should be able to consume the last <
+                match self.consume_char() {
+                    Some('<') => (),
+                    _         => return tokens::Error("Hit eof before end of multi-line comment.".to_string())
+                }
 
-            // Remove >> from end of the comment
-            result.pop_char();
-            result.pop_char();
-
-            // Consume the last >
-            self.consume_char();
-        }
-        else {
+                // Remove << from end of the comment
+                result.pop_char();
+                result.pop_char();
+            },
 
             // Single line comments eat up anything until newline or eof
-            result.push_str(self.consume_while(|ch| match ch {
-                '\n' => false,
-                _ => true
-            }).as_slice());
-        }
+            Some(_) => {
+                result.push_str(self.consume_while(|ch| match ch {
+                    '\n' => false,
+                    _ => true
+                }).as_slice());
+            },
 
+            // Single line comment w/ EOF at start should be valid:
+            None => ()
+        }
+        
         tokens::Comment(result)
     }
 
@@ -418,7 +453,7 @@ impl Lexer {
                 count += 1;
                 true
             },
-             _   => false
+            _    => false
         });
 
         tokens::Indent(count)
@@ -445,27 +480,28 @@ impl Lexer {
         // Consume first '
         self.consume_char();
 
-        err_if_eof!(self, "Hit eof before end of character literal.");
-
+        // Get the character or two if escaped
         match self.consume_char() {
-            '\\' => {
-                err_if_eof!(self, "Hit eof before end of character literal.");
-
-                match Lexer::escape_char(self.consume_char()) {
-                    Ok(esc) => ch = esc,
-                    Err(msg)=> return tokens::Error(msg)
+            Some('\\') => {
+                match self.consume_char() {
+                    Some(ch2) => {
+                        match Lexer::escape_char(ch2) {
+                            Ok(esc)  => ch = esc,
+                            Err(msg) => return tokens::Error(msg)
+                        }
+                    },
+                    None => return tokens::Error("Hit eof before end of character literal.".to_string())
                 };
             },
-
-            '\'' => return tokens::Error("Empty character literal is invalid.".to_string()),
-            c    => ch = c
+            Some('\'') => return tokens::Error("Empty character literal is invalid.".to_string()),
+            Some(c)    => ch = c,
+            None       => return tokens::Error("Hit eof before end of character literal.".to_string())
         };
 
-        err_if_eof!(self, "Hit eof before end of character literal.");
-
+        // Get the final '
         match self.consume_char() {
-            '\'' => tokens::CharLiteral(ch),
-            _    => tokens::Error("Char literal was not closed with a '".to_string())
+            Some('\'')     => tokens::CharLiteral(ch),
+            Some(_) | None => tokens::Error("Char literal was not closed with a '".to_string())
         }
     }
 
@@ -473,23 +509,23 @@ impl Lexer {
         // ToDo: Handle character escapes for strs
 
         let mut result = String::new();
-        let mut escape = false;
+        //let mut escape = false;
 
         // Consume first "
         self.consume_char();
 
-        err_if_eof!(self, "Hit eof before end of string literal.");
+        if self.eof() {
+            return tokens::Error("Hit eof before end of string literal.".to_string());
+        }
 
         result.push_str(self.consume_while(ref |ch| match ch {
             '\"' => false,
             _ => true
         }).as_slice());
 
-        err_if_eof!(self, "Hit eof before end of string literal.");
-
-        // Consume last "
-        self.consume_char();
-
-        tokens::StrLiteral(result)
+        match self.consume_char() {
+            Some(ch) => tokens::StrLiteral(result),
+            None     => tokens::Error("Hit eof before end of string literal.".to_string())
+        }
     }    
 }

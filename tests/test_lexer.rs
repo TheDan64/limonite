@@ -3,7 +3,7 @@ extern crate limonite;
 use std::io::File;
 use std::io::BufferedReader;
 use limonite::syntax::lexer::{Lexer, Tokenizer};
-use limonite::syntax::core::tokens::{Token, Comment, Keyword, Identifier, Indent, Punctuation, BoolLiteral, StrLiteral, Type, EOF};
+use limonite::syntax::core::tokens::{Token, Comment, Keyword, Identifier, Indent, Punctuation, BoolLiteral, StrLiteral, EOF};
 use limonite::syntax::core::keywords::{If, Print};
 use limonite::syntax::core::punctuation::{Comma, ParenOpen, ParenClose};
 
