@@ -5,7 +5,7 @@ use syntax::core::types::Types;
 #[deriving(Show, PartialEq)]
 pub enum Token {
     // 42, 42, 0x2A, 0b101010, -42.0, 42 ... and a suffix
-    Numeric(String),
+    Numeric(String, Option<Types>),
 
     // Variables, fn names
     Identifier(String),

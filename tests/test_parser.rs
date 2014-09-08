@@ -33,7 +33,7 @@ impl Tokenizer for MockLexer {
 #[test]
 fn test_variable_int_declaration() {
     let mLexer = MockLexer::new(vec![Keyword(Var), Identifier("meow".to_string()),
-                                     Punctuation(Equals), Numeric("3".to_string())]);
+                                     Punctuation(Equals), Numeric("3".to_string(), None)]);
     let mut parser = Parser::new(mLexer);
 
     // parser.parse();

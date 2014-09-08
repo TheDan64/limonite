@@ -18,8 +18,8 @@ pub struct Lexer {
     pub status of line and column number deprecated, please use get_tok_line(), get_tok_column()
 
     ******/
-    pub line_number: uint,
-    pub column_number: uint,
+    line_number: uint,
+    column_number: uint,
     buffer_pos: uint,
     line_start: uint,
     input: String
@@ -84,7 +84,7 @@ impl Tokenizer for Lexer {
 
                             self.multi_punc_token([ch, ch2])
                         },
-                        Some(_) | None => self.single_punc_token(ch)
+                        _ => self.single_punc_token(ch)
                     }
                 },
 
@@ -93,8 +93,8 @@ impl Tokenizer for Lexer {
                     self.consume_char();
 
                     match self.next_char() {
-                        Some('>')       => self.consume_comment(),
-                        Some(_) | None  => self.single_punc_token('>')
+                        Some('>') => self.consume_comment(),
+                        _         => self.single_punc_token('>')
                     }
                 },
 
@@ -273,10 +273,53 @@ impl Lexer {
         }
     }
 
+    // Find a sequence of 32 or 64
+    fn consume_32_64(&mut self, type_: char) -> Result<String, String> {
+        // ch is the starting character, ie i, u, f
+        let mut string = String::from_char(1, type_);
+
+        match self.next_char() {
+            Some('3') => {
+                string.push_char(self.consume_char().unwrap());
+                
+                match self.next_char() {
+                    Some('2')  => {
+                        string.push_char(self.consume_char().unwrap());
+
+                        Ok(string)
+                    },
+                    Some('\n') | // NL & CR have pesky visual effects.
+                    Some('\r') => Err(format!("Invalid suffix {}. Did you mean {}32?", string, type_)),
+                    Some(chr)  => Err(format!("Invalid suffix {}{}. Did you mean {0}2?", string, self.consume_char().unwrap()).to_string()),
+                    None       => Err(format!("Hit EOF when looking for suffix {}32.", type_).to_string())
+                }
+            },
+            Some('6') => {
+                string.push_char(self.consume_char().unwrap());
+                
+                match self.next_char() {
+                    Some('4')  => {
+                        string.push_char(self.consume_char().unwrap());
+                        
+                        Ok(string)
+                    },
+                    Some('\n') | // NL & CR have pesky visual effects.
+                    Some('\r') => Err(format!("Invalid suffix {}. Did you mean {}64?", string, type_)),
+                    Some(chr)  => Err(format!("Invalid suffix {}{}. Did you mean {0}4?", string, self.consume_char().unwrap()).to_string()),
+                    None       => Err(format!("Hit EOF when looking for suffix {}64.", type_).to_string())
+                }
+            },
+            Some('\n') | // NL & CR have pesky visual effects.
+            Some('\r') => Err(format!("Invalid suffix {}. Did you mean {1}32 or {1}64?", string, type_)),
+            Some(chr)  => Err(format!("Invalid suffix {}{}. Did you mean {0}32 or {0}64?", string, self.consume_char().unwrap()).to_string()),
+            None       => Err(format!("Hit EOF when looking for a suffix {0}32 or {0}64.", type_).to_string())
+        }
+    }
+
     // Determines what type of number it is and consume it
     fn consume_numeric(&mut self) -> Token {
         let mut number = String::new();
-        let mut suffix = String::new();
+        let mut suffix = None;
 
         if self.current_slice().starts_with("0x") {
             // Found hexadecimal: 0x[0-9a-fA-F_]+
@@ -287,26 +330,35 @@ impl Lexer {
             // Cant do += for String, and push_str looks better than
             // number = number + self.consume...
             number.push_str(self.consume_while(|ch| match ch {
-                '0'..'9' | 'a'..'f' | 'A'..'F' => true,
-                 _                             => false
+                '0'..'9' |
+                'a'..'f' |
+                'A'..'F' |
+                '_' => true,
+                 _  => false
             }).as_slice());
 
             if number.as_slice() == "0x" {
-                return tokens::Error("Found invalid hexadecimal value".to_string());
+                return tokens::Error("No hexadecimal value was found.".to_string());
             }
 
-            // Possibly find a suffix
-
+            // Attempt to find a suffix if one exists
             match self.next_char() {
                 Some('u') |
                 Some('i') => {
                     let ch = self.consume_char().unwrap();
-
-                    // ToDo: finish getting 32, 64
-                },
+                    let mut string = String::new();
                     
+                    match self.consume_32_64(ch) {
+                        Ok(s)    => string.push_str(s.as_slice()),
+                        Err(err) => return tokens::Error(err)
+                    };
+
+                    suffix = from_str::<Types>(string.as_slice());
+                },
+
+                // Found some other suffix, ie 0x42o
                 Some(c) if c.is_alphanumeric() => {
-                    return tokens::Error(format!("Invalid suffix {}. Did you mean u or i?", c).to_string());
+                    return tokens::Error(format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", c).to_string());
                 },
                 
                 // If eof or other just return the numeric token without a suffix
@@ -321,25 +373,48 @@ impl Lexer {
 
             // Formatting the same as the hex case above.
             number.push_str(self.consume_while(|ch| match ch {
-                '0' | '1' | '_' => true,
-                 _              => false
+                '0' |
+                '1' |
+                '_' => true,
+                 _  => false
             }).as_slice());
 
             if number.as_slice() == "0b" {
-                return tokens::Error("Found invalid binary value.".to_string());
+                return tokens::Error("No binary value was found.".to_string());
             }
 
-            // ToDo: Possibly find a suffix
+            // Attempt to find a suffix if one exists
+            match self.next_char() {
+                Some('u') |
+                Some('i') => {
+                    let ch = self.consume_char().unwrap();
+                    let mut string = String::new();
+                    
+                    match self.consume_32_64(ch) {
+                        Ok(s)    => string.push_str(s.as_slice()),
+                        Err(err) => return tokens::Error(err)
+                    };
+
+                    suffix = from_str::<Types>(string.as_slice());
+                },
+
+                // Found some other suffix, ie 0x42o
+                Some(c) if c.is_alphabetic() => {
+                    return tokens::Error(format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", self.consume_char().unwrap()).to_string());
+                },
+                
+                // If eof or other just return the numeric token without a suffix
+                _ => ()
+            };
             
         } else {
             // Found int: [0-9]+ or float: [0-9]+.[0-9]+
 
             number.push_str(self.consume_while(|ch| match ch {
-                '0'..'9' => true,
-                 _       => false
+                '0'..'9' |
+                '_' => true,
+                 _  => false
             }).as_slice());
-
-            // ToDo: Possibly find a suffix
 
             match self.next_char() {
                 // Float decimal point:
@@ -347,37 +422,58 @@ impl Lexer {
                     number.push_char(self.consume_char().unwrap());
 
                     let fractional = self.consume_while(|ch| match ch {
-                        '0'..'9' => true,
-                         _       => false
+                        '0'..'9' |
+                        '_' => true,
+                         _  => false
                     });
 
-                    if fractional.as_slice() == "" {
-                        return tokens::Error("Invalid floating point number.".to_string());
-
-                    } else {
-                        number.push_str(fractional.as_slice());
+                    // Check if no decimal values were found
+                    match fractional.as_slice() {
+                        "" => return tokens::Error("Invalid floating point number.".to_string()),
+                        _  => number.push_str(fractional.as_slice())
                     }
 
-                    // Float suffixes:
-                    // ToDo: find f32, f64?
+                    // Find float suffixes
+                    match self.next_char() {
+                        Some('f') => {
+                            let ch = self.consume_char().unwrap();
+                            let mut string = String::new();
+
+                            match self.consume_32_64(ch) {
+                                Ok(s)    => string.push_str(s.as_slice()),
+                                Err(err) => return tokens::Error(err)
+                            };
+                            
+                            suffix = from_str::<Types>(string.as_slice());
+                        },
+
+                        // Found some other suffix, ie 0x42o
+                        Some(c) if c.is_alphabetic() => {
+                            return tokens::Error(format!("Invalid suffix {}. Did you mean f32, f64?", self.consume_char().unwrap()).to_string());
+                        },
+                        
+                        // No suffix found, can hit punctuation or other
+                        _ => ()
+                    }
                 },
 
                 // Int suffixes:
-                // ToDo: will we need other int sizes?
-                Some('i')| Some('u') => {
-                    number.push_char(self.consume_char().unwrap());
-
-                    // Ensure there are no additional alpha chars
+                Some('u') |
+                Some('i') => {
+                    let ch = self.consume_char().unwrap();
+                    let mut string = String::new();
                     
-//                    if self.next_char().is_alphabetic() {
-//                        return tokens::Error(format!("Invalid suffix.", c).to_string());
-//                    }
+                    match self.consume_32_64(ch) {
+                        Ok(s)    => string.push_str(s.as_slice()),
+                        Err(err) => return tokens::Error(err)
+                    };
 
+                    suffix = from_str::<Types>(string.as_slice());
                 },
 
-                // Ensure there are no additional alpha chars
+                // Found some other suffix, ie 0x42o
                 Some(c) if c.is_alphabetic() => {
-                    return tokens::Error(format!("Invalid suffix {}. Did you mean f?", c).to_string());
+                    return tokens::Error(format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", self.consume_char().unwrap()).to_string());
                 },
 
                 // Presumably any other remaining char is valid, ie punctuation {,[ etc
@@ -385,7 +481,7 @@ impl Lexer {
             };
         }
 
-        tokens::Numeric(number) // , suffix)
+        tokens::Numeric(number, suffix)
      }
 
     fn consume_comment(&mut self) -> Token {

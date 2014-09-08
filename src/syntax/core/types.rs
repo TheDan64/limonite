@@ -30,7 +30,7 @@ pub enum Types {
     Float64Bit,
 
     // None
-    None_
+    NoneType
 }
 
 impl FromStr for Types {
@@ -45,7 +45,7 @@ impl FromStr for Types {
             "u64"  => Some(UInt64Bit),
             "f32"  => Some(Float32Bit),
             "f64"  => Some(Float64Bit),
-            "None" => Some(None_),
+            "None" => Some(NoneType),
             _      => None
         }
     }
