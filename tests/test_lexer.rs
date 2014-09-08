@@ -3,10 +3,11 @@ extern crate limonite;
 use std::io::File;
 use std::io::BufferedReader;
 use limonite::syntax::lexer::{Lexer, Tokenizer};
-use limonite::syntax::core::tokens::{Token, Comment, Error, Keyword, Identifier, Indent, Numeric, Punctuation, BoolLiteral, StrLiteral, EOF};
-use limonite::syntax::core::keywords::{If, Print};
-use limonite::syntax::core::types::{Int32Bit, Int64Bit, UInt32Bit, UInt64Bit, Float32Bit, Float64Bit};
-use limonite::syntax::core::punctuation::{Comma, ParenOpen, ParenClose};
+use limonite::syntax::core::tokens::{Token, Comment, Error, Keyword, Identifier,
+                                     Indent, Numeric, Punctuation, Type, BoolLiteral, CharLiteral, StrLiteral, EOF};
+use limonite::syntax::core::keywords::{If, Is, Print, Fn, Var, Def, Return};
+use limonite::syntax::core::types::{Int32Bit, Int64Bit, UInt32Bit, UInt64Bit, Float32Bit, Float64Bit, Str};
+use limonite::syntax::core::punctuation::{Comma, Equals, ParenOpen, ParenClose, PlusEquals, RightThinArrow};
 
 fn cmp_tokens(mut lexer: Lexer, vec: Vec<Token>) {
     let mut tok: Token;
@@ -102,6 +103,24 @@ fn test_numerics() {
                               Error("Invalid suffix f. Did you mean f32 or f64?".to_string()), Indent(0),
                               Error("Invalid suffix f3. Did you mean f32?".to_string()), Indent(0),
                               Error("Invalid suffix f31. Did you mean f32?".to_string()), EOF];
+
+    cmp_tokens(lexer, desired_output);
+}
+
+#[test]
+fn test_functions() {
+    let path = Path::new("tests/lang/test_functions.lim");
+    let file = BufferedReader::new(File::open(&path));
+    let lexer = Lexer::new(file);
+    let desired_output = vec![Keyword(Fn), Identifier("basic_func".to_string()), Punctuation(ParenOpen), Punctuation(ParenClose),
+                              Punctuation(RightThinArrow), Type(Str), Indent(1),
+                              Keyword(Def), Identifier("ch".to_string()), Punctuation(Equals), CharLiteral('g'), Indent(1),
+                              Keyword(Var), Identifier("string".to_string()), Punctuation(Equals), StrLiteral("strin".to_string()), Indent(0),
+                              Indent(1),
+                              Keyword(If), Identifier("ch".to_string()), Keyword(Is), CharLiteral('g'), Punctuation(Comma), Indent(2),
+                              Identifier("string".to_string()), Punctuation(PlusEquals), Identifier("ch".to_string()), Indent(0), 
+                              Indent(1),
+                              Keyword(Return), Identifier("string".to_string()), EOF];
 
     cmp_tokens(lexer, desired_output);
 }

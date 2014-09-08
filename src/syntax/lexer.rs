@@ -68,9 +68,8 @@ impl Tokenizer for Lexer {
                 self.single_punc_token(ch)
             },
 
-            // Find multi-char(+=, -=, ..) punctuations or not
+            // Find multi-char(+=, -=, ..) or the single-char version
             Some('+') |
-            Some('-') |
             Some('*') |
             Some('/') |
             Some('%') => {
@@ -78,15 +77,29 @@ impl Tokenizer for Lexer {
                 
                 match self.next_char() {
                     Some('=') => {
-                        let ch2 = self.consume_char().unwrap();
+                        self.consume_char();
                         
-                        self.multi_punc_token([ch, ch2])
+                        self.multi_punc_token([ch, '='])
                     },
                     _ => self.single_punc_token(ch)
                 }
             },
-            
-            // Find comments, otherwise '>' punctuation
+
+            // Find -> punctuation or -
+            Some('-') => {
+                self.consume_char();
+
+                match self.next_char() {
+                    Some('>') => {
+                        self.consume_char();
+
+                        self.multi_punc_token(['-', '>'])
+                    },
+                    _ => self.single_punc_token('-')
+                }
+            },
+
+            // Find >> and >>> comments, otherwise '>' punctuation
             Some('>') => {
                 self.consume_char();
                 

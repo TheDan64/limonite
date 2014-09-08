@@ -1,0 +1,8 @@
+fn basic_func() -> str
+	def ch = 'g'
+	var string = "strin"
+
+	if ch is 'g',
+		string += ch
+
+	return string

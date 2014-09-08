@@ -35,10 +35,10 @@ pub enum Punctuations {
     // '<'
     LessThan,
 
-    // '>='
+    // ">="
     GreaterThanEqual,
 
-    // '<='
+    // "<="
     LessThanEqual,
 
     // '+'
@@ -62,20 +62,23 @@ pub enum Punctuations {
     // '='
     Equals,
 
-    // '+='
+    // "+="
     PlusEquals,
 
-    // '-='
+    // "-="
     MinusEquals,
 
-    // '*='
+    // "*="
     AsteriskEquals,
 
-    // '/='
+    // "/="
     SlashEquals,
 
-    // '%='
-    PercentEquals
+    // "%="
+    PercentEquals,
+
+    // "->"
+    RightThinArrow
 }
 
 impl FromStr for Punctuations {
@@ -86,6 +89,7 @@ impl FromStr for Punctuations {
             "*=" => Some(AsteriskEquals),
             "/=" => Some(SlashEquals),
             "%=" => Some(PercentEquals),
+            "->" => Some(RightThinArrow),
             _    => None
         }
     }
