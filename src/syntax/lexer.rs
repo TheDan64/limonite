@@ -28,87 +28,84 @@ pub struct Lexer {
 impl Tokenizer for Lexer {
     // Parse the file where it left off and return the next token
     fn get_tok(&mut self) -> Token {
-        // ToDo: More lexing!
-        loop {
-            if self.eof() {
-                return tokens::EOF;
-            }
-
-            self.consume_whitespace();
-
-            return match self.next_char() {
-                // Find Keywords and Identifiers
-                Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
-
-                // Find ints, floats, hex, and bin numeric values
-                Some(n) if n.is_digit() => self.consume_numeric(),
-
-                // Count tabs: \n\t*
-                Some('\n') => self.consume_tabs(),
-
-                // Error: Found tabs without preceeding newline
-                Some('\t') => {
-                    self.consume_char().unwrap();
-
-                    tokens::Error("Found an out of place tab.".to_string())
-                },
-
-                // Find single char punctuations
-                Some('(') | Some(')') |
-                Some('[') | Some(']') |
-                Some('{') | Some('}') |
-                Some('.') |
-                Some(',') |
-                Some(':') |
-                Some('<') |
-                Some('~') |
-                Some('=') => {
-                    // Dumb: cant do self.single_punc_token(self.consume_char().unwrap()) due to borrowing
-                    // But the following works.
-                    let ch = self.consume_char().unwrap();
-
-                    self.single_punc_token(ch)
-                },
-
-                // Find multi-char(+=, -=, ..) punctuations or not
-                Some('+') |
-                Some('-') |
-                Some('*') |
-                Some('/') |
-                Some('%') => {
-                    let ch = self.consume_char().unwrap();
-
-                    match self.next_char() {
-                        Some('=') => {
-                            let ch2 = self.consume_char().unwrap();
-
-                            self.multi_punc_token([ch, ch2])
-                        },
-                        _ => self.single_punc_token(ch)
-                    }
-                },
-
-                // Find comments, otherwise '>' punctuation
-                Some('>') => {
-                    self.consume_char();
-
-                    match self.next_char() {
-                        Some('>') => self.consume_comment(),
-                        _         => self.single_punc_token('>')
-                    }
-                },
-
-                // Find character literals, 'c', including ascii escape chars
-                Some('\'') => self.consume_char_literal(),
-
-                // Find string literals, "String"
-                Some('\"') => self.consume_string_literal(),
-
-                Some(ch) => tokens::Error(format!("Unknown character '{}'.", ch).to_string()),
-
-                None => tokens::EOF
-            };
+        if self.eof() {
+            return tokens::EOF;
         }
+
+        self.consume_whitespace();
+        
+        return match self.next_char() {
+            // Find Keywords and Identifiers
+            Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
+
+            // Find ints, floats, hex, and bin numeric values
+            Some(n) if n.is_digit() => self.consume_numeric(),
+
+            // Count tabs: \n\t*
+            Some('\n') => self.consume_tabs(),
+
+            // Error: Found tabs without preceeding newline
+            Some('\t') => {
+                self.consume_char().unwrap();
+                
+                tokens::Error("Found an out of place tab.".to_string())
+            },
+            
+            // Find single char punctuations
+            Some('(') | Some(')') |
+            Some('[') | Some(']') |
+            Some('{') | Some('}') |
+            Some('.') |
+            Some(',') |
+            Some(':') |
+            Some('<') |
+            Some('~') |
+            Some('=') => {
+                // Dumb: cant do self.single_punc_token(self.consume_char().unwrap()) due to borrowing
+                // But the following works.
+                let ch = self.consume_char().unwrap();
+
+                self.single_punc_token(ch)
+            },
+
+            // Find multi-char(+=, -=, ..) punctuations or not
+            Some('+') |
+            Some('-') |
+            Some('*') |
+            Some('/') |
+            Some('%') => {
+                let ch = self.consume_char().unwrap();
+                
+                match self.next_char() {
+                    Some('=') => {
+                        let ch2 = self.consume_char().unwrap();
+                        
+                        self.multi_punc_token([ch, ch2])
+                    },
+                    _ => self.single_punc_token(ch)
+                }
+            },
+            
+            // Find comments, otherwise '>' punctuation
+            Some('>') => {
+                self.consume_char();
+                
+                match self.next_char() {
+                    Some('>') => self.consume_comment(),
+                    _         => self.single_punc_token('>')
+                }
+            },
+
+            // Find character literals, 'c', including ascii escape chars
+            Some('\'') => self.consume_char_literal(),
+
+            // Find string literals, "String"
+            Some('\"') => self.consume_string_literal(),
+            
+            Some(ch) => tokens::Error(format!("Unknown character '{}'.", ch).to_string()),
+            
+            None => tokens::EOF
+        };
     }
 }
 
