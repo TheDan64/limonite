@@ -358,7 +358,10 @@ impl Lexer {
 
                 // Found some other suffix, ie 0x42o
                 Some(c) if c.is_alphanumeric() => {
-                    return tokens::Error(format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", c).to_string());
+                    let ch = self.consume_char().unwrap();
+                    let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
+
+                    return tokens::Error(err.to_string());
                 },
                 
                 // If eof or other just return the numeric token without a suffix
@@ -400,7 +403,10 @@ impl Lexer {
 
                 // Found some other suffix, ie 0x42o
                 Some(c) if c.is_alphabetic() => {
-                    return tokens::Error(format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", self.consume_char().unwrap()).to_string());
+                    let ch = self.consume_char().unwrap();
+                    let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
+
+                    return tokens::Error(err.to_string());
                 },
                 
                 // If eof or other just return the numeric token without a suffix
@@ -449,7 +455,10 @@ impl Lexer {
 
                         // Found some other suffix, ie 0x42o
                         Some(c) if c.is_alphabetic() => {
-                            return tokens::Error(format!("Invalid suffix {}. Did you mean f32, f64?", self.consume_char().unwrap()).to_string());
+                            let ch = self.consume_char().unwrap();
+                            let err = format!("Invalid suffix {}. Did you mean f32, f64?", ch);
+
+                            return tokens::Error(err.to_string());
                         },
                         
                         // No suffix found, can hit punctuation or other
@@ -473,7 +482,10 @@ impl Lexer {
 
                 // Found some other suffix, ie 0x42o
                 Some(c) if c.is_alphabetic() => {
-                    return tokens::Error(format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", self.consume_char().unwrap()).to_string());
+                    let ch = self.consume_char().unwrap();
+                    let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
+
+                    return tokens::Error(err.to_string());
                 },
 
                 // Presumably any other remaining char is valid, ie punctuation {,[ etc

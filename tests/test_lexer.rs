@@ -86,7 +86,7 @@ fn test_numerics() {
                               Comment(" Invalid".to_string()), Indent(0),
                               Error("No hexadecimal value was found.".to_string()), Indent(0),
                               Error("No hexadecimal value was found.".to_string()), Identifier("z".to_string()), Indent(0),
-                              Error("Invalid suffix z. Did you mean u32, u64, i32, or i64?".to_string()), Identifier("z".to_string()), Indent(0),
+                              Error("Invalid suffix z. Did you mean u32, u64, i32, or i64?".to_string()), Indent(0),
                               Error("Invalid suffix i3. Did you mean i32?".to_string()), Indent(0),
                               Error("Invalid suffix i31. Did you mean i32?".to_string()), Indent(0),
                               Error("Invalid suffix i6. Did you mean i64?".to_string()), Indent(0),
