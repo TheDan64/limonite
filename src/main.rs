@@ -20,7 +20,9 @@ fn main() {
         Ok(f)  => f,
         Err(e) => fail!("Failed to open file. File error: {}", e),
     };
-    let lexer = Lexer::new(BufferedReader::new(file));
+    let input_string = BufferedReader::new(file).read_to_string().unwrap();
+
+    let lexer = Lexer::new(input_string.as_slice());
     let mut parser = Parser::new(lexer);
     parser.parse()
 }

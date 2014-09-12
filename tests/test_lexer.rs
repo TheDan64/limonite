@@ -30,8 +30,8 @@ fn cmp_tokens(mut lexer: Lexer, vec: Vec<Token>) {
 #[test]
 fn test_hello_world() {
     let path = Path::new("tests/lang/test_hello_world.lim");
-    let file = BufferedReader::new(File::open(&path));
-    let lexer = Lexer::new(file);
+    let input_string = BufferedReader::new(File::open(&path)).read_to_string().unwrap();
+    let lexer = Lexer::new(input_string.as_slice());
     let desired_output = vec![Comment(" Hello World!".to_string()), Indent(0),
                               Indent(0),
                               Keyword(Print), Punctuation(ParenOpen), StrLiteral("Hello World!".to_string()), Punctuation(ParenClose), EOF];
@@ -42,8 +42,8 @@ fn test_hello_world() {
 #[test]
 fn test_indentation() {
     let path = Path::new("tests/lang/test_indentation.lim");
-    let file = BufferedReader::new(File::open(&path));
-    let lexer = Lexer::new(file);
+    let input_string = BufferedReader::new(File::open(&path)).read_to_string().unwrap();
+    let lexer = Lexer::new(input_string.as_slice());
     let desired_output = vec![Comment("\n    Test of indentation and a few keywords.\n".to_string()), Indent(0),
                               Indent(0),
                               Keyword(If), BoolLiteral(true), Punctuation(Comma), Indent(1),
@@ -58,8 +58,8 @@ fn test_indentation() {
 #[test]
 fn test_numerics() {
     let path = Path::new("tests/lang/test_numerics.lim");
-    let file = BufferedReader::new(File::open(&path));
-    let lexer = Lexer::new(file);
+    let input_string = BufferedReader::new(File::open(&path)).read_to_string().unwrap();
+    let lexer = Lexer::new(input_string.as_slice());
     let desired_output = vec![Comment(" Valid".to_string()), Indent(0),
                               Numeric("0xF3a".to_string(), None), Indent(0),
                               Numeric("0xfff".to_string(), Some(Int32Bit)), Indent(0),
@@ -110,8 +110,8 @@ fn test_numerics() {
 #[test]
 fn test_functions() {
     let path = Path::new("tests/lang/test_functions.lim");
-    let file = BufferedReader::new(File::open(&path));
-    let lexer = Lexer::new(file);
+    let input_string = BufferedReader::new(File::open(&path)).read_to_string().unwrap();
+    let lexer = Lexer::new(input_string.as_slice());
     let desired_output = vec![Keyword(Fn), Identifier("basic_func".to_string()), Punctuation(ParenOpen), Punctuation(ParenClose),
                               Punctuation(RightThinArrow), Type(Str), Indent(1),
                               Keyword(Def), Identifier("ch".to_string()), Punctuation(Equals), CharLiteral('g'), Indent(1),

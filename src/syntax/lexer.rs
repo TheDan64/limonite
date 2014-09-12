@@ -12,7 +12,7 @@ pub trait Tokenizer {
 
 // A Lexer that keeps track of the current line and column position
 // as well as the position in the char input stream.
-pub struct Lexer {
+pub struct Lexer<'a> {
     /*****
 
     pub status of line and column number deprecated, please use get_tok_line(), get_tok_column()
@@ -22,10 +22,11 @@ pub struct Lexer {
     column_number: uint,
     buffer_pos: uint,
     line_start: uint,
-    input: String
+    input: &'a str,
+    lines: Vec<&'a str>
 }
 
-impl Tokenizer for Lexer {
+impl<'a> Tokenizer for Lexer<'a> {
     // Parse the file where it left off and return the next token
     fn get_tok(&mut self) -> Token {
         if self.eof() {
@@ -122,21 +123,27 @@ impl Tokenizer for Lexer {
     }
 }
 
-impl Lexer {
+impl<'a> Lexer<'a> {
     // Create a new lexer instance
-    pub fn new<B: Buffer>(mut fileReader: B) -> Lexer {
+    pub fn new(slice: &'a str) -> Lexer<'a> {
+//        let slice = fileReader.read_to_string().unwrap().as_slice();
+
         Lexer {
             line_number: 1,
             column_number: 1,
             buffer_pos: 0,
             line_start: 0,
-            input: fileReader.read_to_string().unwrap()
+            input: slice,
+            lines: slice.lines().collect()
         }
     }
 
     // ToDo: figure out a way to change this to take an index
-    pub fn current_line(&mut self) -> String {
-        let tmp = self.buffer_pos;
+    pub fn current_line(&mut self, index: i64) -> String {
+
+
+        String::new()
+/*        let tmp = self.buffer_pos;
         let mut result = String::new();
 
         self.buffer_pos = self.line_start;
@@ -148,11 +155,11 @@ impl Lexer {
 
         self.buffer_pos = tmp;
 
-        result
+        result*/
     }
 
     fn current_slice(&mut self) -> &str {
-        self.input.as_slice().slice_from(self.buffer_pos)
+        self.input.slice_from(self.buffer_pos)
     }
 
     // Gets the next char and sets the position forward in the buffer
@@ -178,7 +185,7 @@ impl Lexer {
     // Gets the next char
     fn next_char(&self) -> Option<char> {
         match self.eof() {
-            false => Some(self.input.as_slice().char_at(self.buffer_pos)),
+            false => Some(self.input.char_at(self.buffer_pos)),
             true  => None
         }
     }
