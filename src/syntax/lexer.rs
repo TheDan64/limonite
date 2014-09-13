@@ -126,8 +126,6 @@ impl<'a> Tokenizer for Lexer<'a> {
 impl<'a> Lexer<'a> {
     // Create a new lexer instance
     pub fn new(slice: &'a str) -> Lexer<'a> {
-//        let slice = fileReader.read_to_string().unwrap().as_slice();
-
         Lexer {
             line_number: 1,
             column_number: 1,
@@ -138,24 +136,16 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    // ToDo: figure out a way to change this to take an index
-    pub fn current_line(&mut self, index: i64) -> String {
+    // get_line takes a line number(1..self.lines.len()), not an index (0..self.lines.len()-1)
+    pub fn get_line(&mut self, line: uint) -> Option<&str> {
+        match line {
+            // Out of bounds
+            l if l < 1 => None,
+            l if l > self.lines.len() => None,
 
-
-        String::new()
-/*        let tmp = self.buffer_pos;
-        let mut result = String::new();
-
-        self.buffer_pos = self.line_start;
-
-        result.push_str(self.consume_while(|ch| match ch {
-            '\n' => false,
-            _    => true
-        }).as_slice());
-
-        self.buffer_pos = tmp;
-
-        result*/
+            // Return the line
+            _ => Some(self.lines[line - 1])
+        }
     }
 
     fn current_slice(&mut self) -> &str {
