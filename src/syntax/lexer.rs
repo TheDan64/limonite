@@ -13,11 +13,6 @@ pub trait Tokenizer {
 // A Lexer that keeps track of the current line and column position
 // as well as the position in the char input stream.
 pub struct Lexer<'a> {
-    /*****
-
-    pub status of line and column number deprecated, please use get_tok_line(), get_tok_column()
-
-    ******/
     line_number: uint,
     column_number: uint,
     buffer_pos: uint,
@@ -185,26 +180,46 @@ impl<'a> Lexer<'a> {
         return self.buffer_pos >= self.input.len();
     }
 
-    // Thanks to mbrubeck of Mozilla for this consume_while fn as
-    // well eof() and next_char() examples :)
-    fn consume_while(&mut self, test: |char| -> bool) -> String {
-        let mut result = String::new();
+    // Thanks to mbrubeck of Mozilla for the base of this consume_while
+    // fn as well eof() and next_char() examples :)
+    fn consume_while(&mut self, test: |char| -> bool, escape: bool) -> &str {
+        let mut result: &'a str = "";
 
         // Always unwrapping as the loop checks eof.
         while !self.eof() && test(self.next_char().unwrap()) {
-            match self.next_char().unwrap() {
+            match self.next_char() {
                 // Ignore any carriage returns
-                '\r' => {
-                    self.consume_char().unwrap();
+                Some('\r') => {
+                    self.consume_char();
+
+                    continue;
+                },
+
+                // Handle escape chars if escape flag is set
+                Some('\\') if escape => {
+                    self.consume_char();
+
+                    match self.consume_char() {
+                        Some(ch) => match Lexer::escape_char(ch) {
+                            Ok(chr) => result = concat!(result, chr),
+
+                            // Currently no way to handle this error
+                            // So I'm returning the char as is
+                            Err(_)  => result = concat!(result, ch)
+                        },
+
+                        // EOF
+                        None => result = concat!(result, '\\')
+                    }
 
                     continue;
                 },
                 
-                _   => result.push_char(self.consume_char().unwrap())
+                _  => result += self.consume_char().unwrap()
             };
         }
 
-        result
+        result.as_slice()
     }
 
     // Single char puncuations: (, [, ., ...
@@ -246,7 +261,7 @@ impl<'a> Lexer<'a> {
             '\n' | '\t'            => false,
             w if w.is_whitespace() => true,
             _                      => false
-        });
+        }, false);
     }
 
     // Identifiers: [a-zA-Z_][a-zA-z0-9_]*
@@ -258,12 +273,12 @@ impl<'a> Lexer<'a> {
             a if a.is_alphanumeric() => true,
             '_'                      => true,
              _                       => false
-        });
+        }, false);
 
         // ToDo: Consolodate the following somehow?
         // Idea: one big from_str fn for ident/keyword/type/boollits?
 
-        match from_str::<Keywords>(ident.as_slice()) {
+        match from_str::<Keywords>(ident) {
             Some(key) => return tokens::Keyword(key),
             None      => ()
         };
@@ -274,9 +289,9 @@ impl<'a> Lexer<'a> {
             _       => ()
         }
 
-        match from_str::<Types>(ident.as_slice()) {
+        match from_str::<Types>(ident) {
             Some(type_) => tokens::Type(type_),
-            _           => tokens::Identifier(ident)
+            _           => tokens::Identifier(ident.to_string())
         }
     }
 
@@ -287,11 +302,11 @@ impl<'a> Lexer<'a> {
 
         match self.next_char() {
             Some('3') => {
-                string.push_char(self.consume_char().unwrap());
+                string.push(self.consume_char().unwrap());
                 
                 match self.next_char() {
                     Some('2')  => {
-                        string.push_char(self.consume_char().unwrap());
+                        string.push(self.consume_char().unwrap());
 
                         Ok(string)
                     },
@@ -302,11 +317,11 @@ impl<'a> Lexer<'a> {
                 }
             },
             Some('6') => {
-                string.push_char(self.consume_char().unwrap());
+                string.push(self.consume_char().unwrap());
                 
                 match self.next_char() {
                     Some('4')  => {
-                        string.push_char(self.consume_char().unwrap());
+                        string.push(self.consume_char().unwrap());
                         
                         Ok(string)
                     },
@@ -337,12 +352,12 @@ impl<'a> Lexer<'a> {
             // Cant do += for String, and push_str looks better than
             // number = number + self.consume...
             number.push_str(self.consume_while(|ch| match ch {
-                '0'..'9' |
-                'a'..'f' |
-                'A'..'F' |
+                '0'...'9' |
+                'a'...'f' |
+                'A'...'F' |
                 '_' => true,
                  _  => false
-            }).as_slice());
+            }, false));
 
             if number.as_slice() == "0x" {
                 return tokens::Error("No hexadecimal value was found.".to_string());
@@ -387,7 +402,7 @@ impl<'a> Lexer<'a> {
                 '1' |
                 '_' => true,
                  _  => false
-            }).as_slice());
+            }, false));
 
             if number.as_slice() == "0b" {
                 return tokens::Error("No binary value was found.".to_string());
@@ -424,26 +439,26 @@ impl<'a> Lexer<'a> {
             // Found int: [0-9]+ or float: [0-9]+.[0-9]+
 
             number.push_str(self.consume_while(|ch| match ch {
-                '0'..'9' |
+                '0'...'9' |
                 '_' => true,
                  _  => false
-            }).as_slice());
+            }, false));
 
             match self.next_char() {
                 // Float decimal point:
                 Some('.') => {
-                    number.push_char(self.consume_char().unwrap());
+                    number.push(self.consume_char().unwrap());
 
                     let fractional = self.consume_while(|ch| match ch {
-                        '0'..'9' |
+                        '0'...'9' |
                         '_' => true,
                          _  => false
-                    });
+                    }, false);
 
                     // Check if no decimal values were found
-                    match fractional.as_slice() {
+                    match fractional {
                         "" => return tokens::Error("Invalid floating point number.".to_string()),
-                        _  => number.push_str(fractional.as_slice())
+                        _  => number.push_str(fractional)
                     }
 
                     // Find float suffixes
@@ -517,7 +532,7 @@ impl<'a> Lexer<'a> {
                 // Consume 3rd '>'
                 self.consume_char();
 
-                result.push_str(self.consume_while(ref |ch| match ch {
+                result.push_str(self.consume_while(|ch| match ch {
                     '<' => {
                         sequence += 1;
                         
@@ -530,7 +545,7 @@ impl<'a> Lexer<'a> {
                         sequence = 0;
                         true
                     }
-                }).as_slice());
+                }, false));
 
                 // Should be able to consume the last <
                 match self.consume_char() {
@@ -539,8 +554,8 @@ impl<'a> Lexer<'a> {
                 }
 
                 // Remove << from end of the comment
-                result.pop_char();
-                result.pop_char();
+                result.pop();
+                result.pop();
             },
 
             // Single line comments eat up anything until newline or eof
@@ -548,7 +563,7 @@ impl<'a> Lexer<'a> {
                 result.push_str(self.consume_while(|ch| match ch {
                     '\n' => false,
                     _ => true
-                }).as_slice());
+                }, false));
             },
 
             // Single line comment w/ EOF at start should be valid:
@@ -563,13 +578,13 @@ impl<'a> Lexer<'a> {
 
         // Consume the newline token, count tabs
         self.consume_char();
-        self.consume_while(ref |ch| match ch {
+        self.consume_while(|ch| match ch {
             '\t' => {
                 count += 1;
                 true
             },
             _    => false
-        });
+        }, false);
 
         tokens::Indent(count)
     }
@@ -621,22 +636,19 @@ impl<'a> Lexer<'a> {
     }
 
     fn consume_string_literal(&mut self) -> Token {
-        // ToDo: Handle character escapes for strs
-
         let mut result = String::new();
-        //let mut escape = false;
 
         // Consume first "
         self.consume_char();
 
         if self.eof() {
-            return tokens::Error("Hit eof before end of string literal.".to_string());
+            return tokens::Error("Hit EOF before end of string literal.".to_string());
         }
 
-        result.push_str(self.consume_while(ref |ch| match ch {
+        result.push_str(self.consume_while(|ch| match ch {
             '\"' => false,
             _ => true
-        }).as_slice());
+        }, true));
 
         match self.consume_char() {
             Some(ch) => tokens::StrLiteral(result),
