@@ -159,7 +159,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     break
                 }
                 _ => {
-                    fail!("Invalid token at the top level {}", cur_token);
+                    panic!("Invalid token at the top level {}", cur_token);
                 }
             };
 
@@ -176,7 +176,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     }
                 }
                 Err(e) => {
-                    fail!("Error on line: {} col: {}, {}", e.line, e.column, e.messgage);
+                    panic!("Error on line: {} col: {}, {}", e.line, e.column, e.messgage);
                 }
             }
         }

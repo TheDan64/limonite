@@ -243,7 +243,7 @@ impl<'a> Lexer<'a> {
             '%' => punctuation::Percent,
             '~' => punctuation::Tilde,
             '=' => punctuation::Equals,
-             _  => fail!(format!("Lexer error: hit what should be an unreachable single punctuation type {}", ch))
+             _  => panic!(format!("Lexer error: hit what should be an unreachable single punctuation type {}", ch))
         })
     }
 
