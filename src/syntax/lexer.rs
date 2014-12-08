@@ -310,7 +310,7 @@ impl<'a> Lexer<'a> {
                     },
                     Some('\n') | // NL & CR have pesky visual effects.
                     Some('\r') => Err(format!("Invalid suffix {}. Did you mean {}32?", string, type_)),
-                    Some(chr)  => Err(format!("Invalid suffix {}{}. Did you mean {0}2?", string, self.consume_char().unwrap()).to_string()),
+                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}2?", string, self.consume_char().unwrap()).to_string()),
                     None       => Err(format!("Hit EOF when looking for suffix {}32.", type_).to_string())
                 }
             },
@@ -325,13 +325,13 @@ impl<'a> Lexer<'a> {
                     },
                     Some('\n') | // NL & CR have pesky visual effects.
                     Some('\r') => Err(format!("Invalid suffix {}. Did you mean {}64?", string, type_)),
-                    Some(chr)  => Err(format!("Invalid suffix {}{}. Did you mean {0}4?", string, self.consume_char().unwrap()).to_string()),
+                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}4?", string, self.consume_char().unwrap()).to_string()),
                     None       => Err(format!("Hit EOF when looking for suffix {}64.", type_).to_string())
                 }
             },
             Some('\n') | // NL & CR have pesky visual effects.
             Some('\r') => Err(format!("Invalid suffix {}. Did you mean {1}32 or {1}64?", string, type_)),
-            Some(chr)  => Err(format!("Invalid suffix {}{}. Did you mean {0}32 or {0}64?", string, self.consume_char().unwrap()).to_string()),
+            Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}32 or {0}64?", string, self.consume_char().unwrap()).to_string()),
             None       => Err(format!("Hit EOF when looking for a suffix {0}32 or {0}64.", type_).to_string())
         }
     }
@@ -649,7 +649,7 @@ impl<'a> Lexer<'a> {
         }, true).as_slice());
 
         match self.consume_char() {
-            Some(ch) => Token::StrLiteral(result),
+            Some(_)  => Token::StrLiteral(result),
             None     => Token::Error("Hit eof before end of string literal.".to_string())
         }
     }    
