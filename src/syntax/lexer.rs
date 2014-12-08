@@ -201,15 +201,15 @@ impl<'a> Lexer<'a> {
 
                     match self.consume_char() {
                         Some(ch) => match Lexer::escape_char(ch) {
-                            Ok(chr) => result = concat!(result, chr),
+                            Ok(chr) => result += chr,
 
                             // Currently no way to handle this error
                             // So I'm returning the char as is
-                            Err(_)  => result = concat!(result, ch)
+                            Err(_)  => result += ch
                         },
 
                         // EOF
-                        None => result = concat!(result, '\\')
+                        None => result += '\\'
                     }
 
                     continue;

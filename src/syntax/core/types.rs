@@ -1,4 +1,4 @@
-use std::from_str::FromStr;
+use std::str::FromStr;
 
 #[deriving(Show, PartialEq)]
 pub enum Types {
