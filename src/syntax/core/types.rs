@@ -36,16 +36,16 @@ pub enum Types {
 impl FromStr for Types {
     fn from_str(s: &str) -> Option<Types> {
         match s {
-            "bool" => Some(Bool),
-            "str"  => Some(Str),
-            "char" => Some(Char),
-            "i32"  => Some(Int32Bit),
-            "i64"  => Some(Int64Bit),
-            "u32"  => Some(UInt32Bit),
-            "u64"  => Some(UInt64Bit),
-            "f32"  => Some(Float32Bit),
-            "f64"  => Some(Float64Bit),
-            "None" => Some(NoneType),
+            "bool" => Some(Types::Bool),
+            "str"  => Some(Types::Str),
+            "char" => Some(Types::Char),
+            "i32"  => Some(Types::Int32Bit),
+            "i64"  => Some(Types::Int64Bit),
+            "u32"  => Some(Types::UInt32Bit),
+            "u64"  => Some(Types::UInt64Bit),
+            "f32"  => Some(Types::Float32Bit),
+            "f64"  => Some(Types::Float64Bit),
+            "None" => Some(Types::NoneType),
             _      => None
         }
     }

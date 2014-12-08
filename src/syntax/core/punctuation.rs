@@ -84,12 +84,12 @@ pub enum Punctuations {
 impl FromStr for Punctuations {
     fn from_str(s: &str) -> Option<Punctuations> {
         match s {
-            "+=" => Some(PlusEquals),
-            "-=" => Some(MinusEquals),
-            "*=" => Some(AsteriskEquals),
-            "/=" => Some(SlashEquals),
-            "%=" => Some(PercentEquals),
-            "->" => Some(RightThinArrow),
+            "+=" => Some(Punctuations::PlusEquals),
+            "-=" => Some(Punctuations::MinusEquals),
+            "*=" => Some(Punctuations::AsteriskEquals),
+            "/=" => Some(Punctuations::SlashEquals),
+            "%=" => Some(Punctuations::PercentEquals),
+            "->" => Some(Punctuations::RightThinArrow),
             _    => None
         }
     }

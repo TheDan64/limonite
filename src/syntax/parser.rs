@@ -5,7 +5,7 @@ use syntax::core::tokens;
 use syntax::core::tokens::Token;
 use syntax::core::keywords;
 use syntax::core::keywords::Keywords;
-use syntax::core::punctuation;
+use syntax::core::punctuation::Punctuations;
 
 pub struct Error {
     pub line: u64,
@@ -22,9 +22,9 @@ enum Expr {
 impl Expr {
     fn gen_code(&self) -> () {
         match *self {
-            Integer(node) => (),
-            UInteger(node) => (),
-            Float(node) => (),
+            Expr::Integer(node) => (),
+            Expr::UInteger(node) => (),
+            Expr::Float(node) => (),
         }
     }
 }
@@ -95,10 +95,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
     fn parse_declaration(&mut self) -> Result<Option<Expr>, Error> {
         let token = self.next_token();
         match token {
-            tokens::Identifier(name) => {
+            Token::Identifier(name) => {
                 let token1 = self.next_token();
                 match token1 {
-                    // tokens::Punctuation(punc) => {
+                    // Token::Punctuation(punc) => {
                     //     match punc {
                     //         punctuation::Assign => {
                     //             self.parse_expression()
@@ -106,13 +106,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     //         _ => Err(self.write_error("Invalid Punctuation here"))
                     //     }
                     // }
-                    tokens::Punctuation(punctuation::Equals) => {
+                    Token::Punctuation(Punctuations::Equals) => {
                         self.parse_expression()
                     }
                     _ => Err(self.write_error("Invalid sequence"))
                 }
             },
-            tokens::Error(msg) => Err(self.write_error(msg.as_slice())),
+            Token::Error(msg) => Err(self.write_error(msg.as_slice())),
             _ => Err(self.expect_error("", "a variable name", "something else"))
         }
     }
@@ -120,7 +120,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     // Handles top-level keywords to start parsing them
     fn handle_keywords(&mut self, keyword: Keywords) -> Result<Option<Expr>, Error> {
         match keyword {
-            keywords::Def => {
+            Keywords::Def => {
                 self.parse_declaration()
             }
             _ => Err(self.write_error(format!("Unsupported keyword {}.", keyword).as_slice()))
@@ -137,7 +137,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let value = 0;
         // This would normally check the ending on the thing slash information
         // about the number to pick int, uint, or float
-        Ok(Some(Integer(IntegerAST { val: value })))
+        Ok(Some(Expr::Integer(IntegerAST { val: value })))
     }
 
     // Parse the file
@@ -149,13 +149,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
             let result: Result<Option<Expr>, Error>;
 
             result = match cur_token {
-                tokens::Keyword(ref keyword) => {
+                Token::Keyword(ref keyword) => {
                     self.handle_keywords(*keyword)
                 }
-                tokens::Identifier(ref repr) => {
+                Token::Identifier(ref repr) => {
                     self.parse_expression()
                 }
-                tokens::EOF => {
+                Token::EOF => {
                     break
                 }
                 _ => {
