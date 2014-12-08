@@ -1,9 +1,6 @@
 use std::string::String;
-
 use syntax::lexer::Tokenizer;
-use syntax::core::tokens;
 use syntax::core::tokens::Token;
-use syntax::core::keywords;
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
 

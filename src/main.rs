@@ -18,7 +18,7 @@ fn main() {
     let path = Path::new(filename);
     let file = match File::open(&path) {
         Ok(f)  => f,
-        Err(e) => fail!("Failed to open file. File error: {}", e),
+        Err(e) => panic!("Failed to open file. File error: {}", e),
     };
     let input_string = BufferedReader::new(file).read_to_string().unwrap();
 

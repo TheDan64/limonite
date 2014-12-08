@@ -1,9 +1,6 @@
 use syntax::core::keywords::Keywords;
-use syntax::core::types;
 use syntax::core::types::Types;
-use syntax::core::tokens;
 use syntax::core::tokens::Token;
-use syntax::core::punctuation;
 use syntax::core::punctuation::Punctuations;
 
 pub trait Tokenizer {
@@ -35,7 +32,7 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
 
             // Find ints, floats, hex, and bin numeric values
-            Some(n) if n.is_digit() => self.consume_numeric(),
+            Some(n) if n.is_digit(10) => self.consume_numeric(),
 
             // Count tabs: \n\t*
             Some('\n') => self.consume_tabs(),
@@ -75,7 +72,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                     Some('=') => {
                         self.consume_char();
                         
-                        self.multi_punc_token([ch, '='])
+                        self.multi_punc_token(&[ch, '='])
                     },
                     _ => self.single_punc_token(ch)
                 }
@@ -89,7 +86,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                     Some('>') => {
                         self.consume_char();
 
-                        self.multi_punc_token(['-', '>'])
+                        self.multi_punc_token(&['-', '>'])
                     },
                     _ => self.single_punc_token('-')
                 }
@@ -182,8 +179,9 @@ impl<'a> Lexer<'a> {
 
     // Thanks to mbrubeck of Mozilla for the base of this consume_while
     // fn as well eof() and next_char() examples :)
-    fn consume_while(&mut self, test: |char| -> bool, escape: bool) -> &str {
-        let mut result: &'a str = "";
+    fn consume_while(&mut self, test: |char| -> bool, escape: bool) -> String {
+        //let mut result: &'a str = "";
+        let mut result = String::new();
 
         // Always unwrapping as the loop checks eof.
         while !self.eof() && test(self.next_char().unwrap()) {
@@ -201,25 +199,25 @@ impl<'a> Lexer<'a> {
 
                     match self.consume_char() {
                         Some(ch) => match Lexer::escape_char(ch) {
-                            Ok(chr) => result += chr,
+                            Ok(chr) => result.push(chr),
 
                             // Currently no way to handle this error
                             // So I'm returning the char as is
-                            Err(_)  => result += ch
+                            Err(_)  => result.push(ch)
                         },
 
                         // EOF
-                        None => result += '\\'
+                        None => result.push('\\')
                     }
 
                     continue;
                 },
                 
-                _  => result += self.consume_char().unwrap()
+                _  => result.push(self.consume_char().unwrap())
             };
         }
 
-        result.as_slice()
+        result
     }
 
     // Single char puncuations: (, [, ., ...
@@ -278,7 +276,7 @@ impl<'a> Lexer<'a> {
         // ToDo: Consolodate the following somehow?
         // Idea: one big from_str fn for ident/keyword/type/boollits?
 
-        match from_str::<Keywords>(ident) {
+        match from_str::<Keywords>(ident.as_slice()) {
             Some(key) => return Token::Keyword(key),
             None      => ()
         };
@@ -289,7 +287,7 @@ impl<'a> Lexer<'a> {
             _       => ()
         }
 
-        match from_str::<Types>(ident) {
+        match from_str::<Types>(ident.as_slice()) {
             Some(type_) => Token::Type(type_),
             _           => Token::Identifier(ident.to_string())
         }
@@ -357,7 +355,7 @@ impl<'a> Lexer<'a> {
                 'A'...'F' |
                 '_' => true,
                  _  => false
-            }, false));
+            }, false).as_slice());
 
             if number.as_slice() == "0x" {
                 return Token::Error("No hexadecimal value was found.".to_string());
@@ -402,7 +400,7 @@ impl<'a> Lexer<'a> {
                 '1' |
                 '_' => true,
                  _  => false
-            }, false));
+            }, false).as_slice());
 
             if number.as_slice() == "0b" {
                 return Token::Error("No binary value was found.".to_string());
@@ -442,7 +440,7 @@ impl<'a> Lexer<'a> {
                 '0'...'9' |
                 '_' => true,
                  _  => false
-            }, false));
+            }, false).as_slice());
 
             match self.next_char() {
                 // Float decimal point:
@@ -456,9 +454,9 @@ impl<'a> Lexer<'a> {
                     }, false);
 
                     // Check if no decimal values were found
-                    match fractional {
+                    match fractional.as_slice() {
                         "" => return Token::Error("Invalid floating point number.".to_string()),
-                        _  => number.push_str(fractional)
+                        _  => number.push_str(fractional.as_slice())
                     }
 
                     // Find float suffixes
@@ -545,7 +543,7 @@ impl<'a> Lexer<'a> {
                         sequence = 0;
                         true
                     }
-                }, false));
+                }, false).as_slice());
 
                 // Should be able to consume the last <
                 match self.consume_char() {
@@ -563,7 +561,7 @@ impl<'a> Lexer<'a> {
                 result.push_str(self.consume_while(|ch| match ch {
                     '\n' => false,
                     _ => true
-                }, false));
+                }, false).as_slice());
             },
 
             // Single line comment w/ EOF at start should be valid:
@@ -648,7 +646,7 @@ impl<'a> Lexer<'a> {
         result.push_str(self.consume_while(|ch| match ch {
             '\"' => false,
             _ => true
-        }, true));
+        }, true).as_slice());
 
         match self.consume_char() {
             Some(ch) => Token::StrLiteral(result),
