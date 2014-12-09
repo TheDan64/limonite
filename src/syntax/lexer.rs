@@ -1,11 +1,9 @@
 use syntax::core::keywords::Keywords;
-use syntax::core::keywords::Keywords::{Def, Fn, If, Is, Print, Return, Var};
 use syntax::core::punctuation::Punctuations;
-use syntax::core::punctuation::Punctuations::{Asterisk, CBracketClose, CBracketOpen, Colon, Comma, Equals, GreaterThan, LessThan, Minus, ParenClose, ParenOpen, Percent, Period, Plus, PlusEquals, RightThinArrow, SBracketClose, SBracketOpen, Slash, Tilde};
+use syntax::core::punctuation::Punctuations::{Asterisk, CBracketClose, CBracketOpen, Colon, Comma, Equals, GreaterThan, LessThan, Minus, ParenClose, ParenOpen, Percent, Period, Plus, PlusEquals, SBracketClose, SBracketOpen, Slash, Tilde};
 use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Punctuation, StrLiteral, Type};
 use syntax::core::types::Types;
-use syntax::core::types::Types::{Float32Bit, Float64Bit, Int32Bit, Int64Bit, Str, UInt32Bit, UInt64Bit};
 
 pub trait Tokenizer {
     fn get_tok(&mut self) -> Token;

@@ -1,6 +1,7 @@
 use std::string::String;
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Token;
+use syntax::core::tokens::Token::{EOF, Identifier, Keyword, Punctuation};
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
 
@@ -92,10 +93,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
     fn parse_declaration(&mut self) -> Result<Option<Expr>, Error> {
         let token = self.next_token();
         match token {
-            Token::Identifier(name) => {
+            Identifier(name) => {
                 let token1 = self.next_token();
                 match token1 {
-                    // Token::Punctuation(punc) => {
+                    // Punctuation(punc) => {
                     //     match punc {
                     //         punctuation::Assign => {
                     //             self.parse_expression()
@@ -103,7 +104,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     //         _ => Err(self.write_error("Invalid Punctuation here"))
                     //     }
                     // }
-                    Token::Punctuation(Punctuations::Equals) => {
+                    Punctuation(Punctuations::Equals) => {
                         self.parse_expression()
                     }
                     _ => Err(self.write_error("Invalid sequence"))
@@ -146,13 +147,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
             let result: Result<Option<Expr>, Error>;
 
             result = match cur_token {
-                Token::Keyword(ref keyword) => {
+                Keyword(ref keyword) => {
                     self.handle_keywords(*keyword)
                 }
-                Token::Identifier(ref repr) => {
+                Identifier(ref repr) => {
                     self.parse_expression()
                 }
-                Token::EOF => {
+                EOF => {
                     break
                 }
                 _ => {
