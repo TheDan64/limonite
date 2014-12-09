@@ -1,7 +1,11 @@
 use syntax::core::keywords::Keywords;
-use syntax::core::types::Types;
-use syntax::core::tokens::Token;
+use syntax::core::keywords::Keywords::{Def, Fn, If, Is, Print, Return, Var};
 use syntax::core::punctuation::Punctuations;
+use syntax::core::punctuation::Punctuations::{Asterisk, CBracketClose, CBracketOpen, Colon, Comma, Equals, GreaterThan, LessThan, Minus, ParenClose, ParenOpen, Percent, Period, Plus, PlusEquals, RightThinArrow, SBracketClose, SBracketOpen, Slash, Tilde};
+use syntax::core::tokens::Token;
+use syntax::core::tokens::Token::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Punctuation, StrLiteral, Type};
+use syntax::core::types::Types;
+use syntax::core::types::Types::{Float32Bit, Float64Bit, Int32Bit, Int64Bit, Str, UInt32Bit, UInt64Bit};
 
 pub trait Tokenizer {
     fn get_tok(&mut self) -> Token;
@@ -22,7 +26,7 @@ impl<'a> Tokenizer for Lexer<'a> {
     // Parse the file where it left off and return the next token
     fn get_tok(&mut self) -> Token {
         if self.eof() {
-            return Token::EOF;
+            return EOF;
         }
 
         self.consume_whitespace();
@@ -41,7 +45,7 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some('\t') => {
                 self.consume_char().unwrap();
                 
-                Token::Error("Found an out of place tab.".to_string())
+                Error("Found an out of place tab.".to_string())
             },
             
             // Find single char punctuations
@@ -108,9 +112,9 @@ impl<'a> Tokenizer for Lexer<'a> {
             // Find string literals, "String"
             Some('\"') => self.consume_string_literal(),
             
-            Some(ch) => Token::Error(format!("Unknown character '{}'.", ch).to_string()),
+            Some(ch) => Error(format!("Unknown character '{}'.", ch).to_string()),
             
-            None => Token::EOF
+            None => EOF
         };
     }
 }
@@ -222,25 +226,25 @@ impl<'a> Lexer<'a> {
 
     // Single char puncuations: (, [, ., ...
     fn single_punc_token(&mut self, ch: char) -> Token {
-        Token::Punctuation(match ch {
-            '(' => Punctuations::ParenOpen,
-            ')' => Punctuations::ParenClose,
-            '[' => Punctuations::SBracketOpen,
-            ']' => Punctuations::SBracketClose,
-            '{' => Punctuations::CBracketOpen,
-            '}' => Punctuations::CBracketClose,
-            '.' => Punctuations::Period,
-            ',' => Punctuations::Comma,
-            ':' => Punctuations::Colon,
-            '>' => Punctuations::GreaterThan,
-            '<' => Punctuations::LessThan,
-            '+' => Punctuations::Plus,
-            '-' => Punctuations::Minus,
-            '*' => Punctuations::Asterisk,
-            '/' => Punctuations::Slash,
-            '%' => Punctuations::Percent,
-            '~' => Punctuations::Tilde,
-            '=' => Punctuations::Equals,
+        Punctuation(match ch {
+            '(' => ParenOpen,
+            ')' => ParenClose,
+            '[' => SBracketOpen,
+            ']' => SBracketClose,
+            '{' => CBracketOpen,
+            '}' => CBracketClose,
+            '.' => Period,
+            ',' => Comma,
+            ':' => Colon,
+            '>' => GreaterThan,
+            '<' => LessThan,
+            '+' => Plus,
+            '-' => Minus,
+            '*' => Asterisk,
+            '/' => Slash,
+            '%' => Percent,
+            '~' => Tilde,
+            '=' => Equals,
              _  => panic!(format!("Lexer error: hit what should be an unreachable single punctuation type {}", ch))
         })
     }
@@ -250,7 +254,7 @@ impl<'a> Lexer<'a> {
         let string = String::from_chars(vec);
         let punct = from_str::<Punctuations>(string.as_slice()).unwrap();
         
-        Token::Punctuation(punct)
+        Punctuation(punct)
     }
 
     // Consume non newline whitespace
@@ -277,19 +281,19 @@ impl<'a> Lexer<'a> {
         // Idea: one big from_str fn for ident/keyword/type/boollits?
 
         match from_str::<Keywords>(ident.as_slice()) {
-            Some(key) => return Token::Keyword(key),
+            Some(key) => return Keyword(key),
             None      => ()
         };
 
         match ident.as_slice() {
-            "True"  => return Token::BoolLiteral(true),
-            "False" => return Token::BoolLiteral(false),
+            "True"  => return BoolLiteral(true),
+            "False" => return BoolLiteral(false),
             _       => ()
         }
 
         match from_str::<Types>(ident.as_slice()) {
-            Some(type_) => Token::Type(type_),
-            _           => Token::Identifier(ident.to_string())
+            Some(type_) => Type(type_),
+            _           => Identifier(ident.to_string())
         }
     }
 
@@ -358,7 +362,7 @@ impl<'a> Lexer<'a> {
             }, false).as_slice());
 
             if number.as_slice() == "0x" {
-                return Token::Error("No hexadecimal value was found.".to_string());
+                return Error("No hexadecimal value was found.".to_string());
             }
 
             // Attempt to find a suffix if one exists
@@ -370,7 +374,7 @@ impl<'a> Lexer<'a> {
                     
                     match self.consume_32_64(ch) {
                         Ok(s)    => string.push_str(s.as_slice()),
-                        Err(err) => return Token::Error(err)
+                        Err(err) => return Error(err)
                     };
 
                     suffix = from_str::<Types>(string.as_slice());
@@ -381,7 +385,7 @@ impl<'a> Lexer<'a> {
                     let ch = self.consume_char().unwrap();
                     let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
 
-                    return Token::Error(err.to_string());
+                    return Error(err.to_string());
                 },
                 
                 // If eof or other just return the numeric token without a suffix
@@ -403,7 +407,7 @@ impl<'a> Lexer<'a> {
             }, false).as_slice());
 
             if number.as_slice() == "0b" {
-                return Token::Error("No binary value was found.".to_string());
+                return Error("No binary value was found.".to_string());
             }
 
             // Attempt to find a suffix if one exists
@@ -415,7 +419,7 @@ impl<'a> Lexer<'a> {
                     
                     match self.consume_32_64(ch) {
                         Ok(s)    => string.push_str(s.as_slice()),
-                        Err(err) => return Token::Error(err)
+                        Err(err) => return Error(err)
                     };
 
                     suffix = from_str::<Types>(string.as_slice());
@@ -426,7 +430,7 @@ impl<'a> Lexer<'a> {
                     let ch = self.consume_char().unwrap();
                     let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
 
-                    return Token::Error(err.to_string());
+                    return Error(err.to_string());
                 },
                 
                 // If eof or other just return the numeric token without a suffix
@@ -455,7 +459,7 @@ impl<'a> Lexer<'a> {
 
                     // Check if no decimal values were found
                     match fractional.as_slice() {
-                        "" => return Token::Error("Invalid floating point number.".to_string()),
+                        "" => return Error("Invalid floating point number.".to_string()),
                         _  => number.push_str(fractional.as_slice())
                     }
 
@@ -467,7 +471,7 @@ impl<'a> Lexer<'a> {
 
                             match self.consume_32_64(ch) {
                                 Ok(s)    => string.push_str(s.as_slice()),
-                                Err(err) => return Token::Error(err)
+                                Err(err) => return Error(err)
                             };
                             
                             suffix = from_str::<Types>(string.as_slice());
@@ -478,7 +482,7 @@ impl<'a> Lexer<'a> {
                             let ch = self.consume_char().unwrap();
                             let err = format!("Invalid suffix {}. Did you mean f32, f64?", ch);
 
-                            return Token::Error(err.to_string());
+                            return Error(err.to_string());
                         },
                         
                         // No suffix found, can hit punctuation or other
@@ -494,7 +498,7 @@ impl<'a> Lexer<'a> {
                     
                     match self.consume_32_64(ch) {
                         Ok(s)    => string.push_str(s.as_slice()),
-                        Err(err) => return Token::Error(err)
+                        Err(err) => return Error(err)
                     };
 
                     suffix = from_str::<Types>(string.as_slice());
@@ -505,7 +509,7 @@ impl<'a> Lexer<'a> {
                     let ch = self.consume_char().unwrap();
                     let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
 
-                    return Token::Error(err.to_string());
+                    return Error(err.to_string());
                 },
 
                 // Presumably any other remaining char is valid, ie punctuation {,[ etc
@@ -513,7 +517,7 @@ impl<'a> Lexer<'a> {
             };
         }
 
-        Token::Numeric(number, suffix)
+        Numeric(number, suffix)
      }
 
     fn consume_comment(&mut self) -> Token {
@@ -548,7 +552,7 @@ impl<'a> Lexer<'a> {
                 // Should be able to consume the last <
                 match self.consume_char() {
                     Some('<') => (),
-                    _         => return Token::Error("Hit eof before end of multi-line comment.".to_string())
+                    _         => return Error("Hit eof before end of multi-line comment.".to_string())
                 }
 
                 // Remove << from end of the comment
@@ -568,7 +572,7 @@ impl<'a> Lexer<'a> {
             None => ()
         }
         
-        Token::Comment(result)
+        Comment(result)
     }
 
     fn consume_tabs(&mut self) -> Token {
@@ -584,7 +588,7 @@ impl<'a> Lexer<'a> {
             _    => false
         }, false);
 
-        Token::Indent(count)
+        Indent(count)
     }
 
     fn escape_char(ch: char) -> Result<char, String> {
@@ -615,21 +619,21 @@ impl<'a> Lexer<'a> {
                     Some(ch2) => {
                         match Lexer::escape_char(ch2) {
                             Ok(esc)  => ch = esc,
-                            Err(msg) => return Token::Error(msg)
+                            Err(msg) => return Error(msg)
                         }
                     },
-                    None => return Token::Error("Hit eof before end of character literal.".to_string())
+                    None => return Error("Hit eof before end of character literal.".to_string())
                 };
             },
-            Some('\'') => return Token::Error("Empty character literal is invalid.".to_string()),
+            Some('\'') => return Error("Empty character literal is invalid.".to_string()),
             Some(c)    => ch = c,
-            None       => return Token::Error("Hit eof before end of character literal.".to_string())
+            None       => return Error("Hit eof before end of character literal.".to_string())
         };
 
         // Get the final '
         match self.consume_char() {
-            Some('\'')     => Token::CharLiteral(ch),
-            Some(_) | None => Token::Error("Char literal was not closed with a '".to_string())
+            Some('\'')     => CharLiteral(ch),
+            Some(_) | None => Error("Char literal was not closed with a '".to_string())
         }
     }
 
@@ -640,7 +644,7 @@ impl<'a> Lexer<'a> {
         self.consume_char();
 
         if self.eof() {
-            return Token::Error("Hit EOF before end of string literal.".to_string());
+            return Error("Hit EOF before end of string literal.".to_string());
         }
 
         result.push_str(self.consume_while(|ch| match ch {
@@ -649,8 +653,8 @@ impl<'a> Lexer<'a> {
         }, true).as_slice());
 
         match self.consume_char() {
-            Some(_)  => Token::StrLiteral(result),
-            None     => Token::Error("Hit eof before end of string literal.".to_string())
+            Some(_)  => StrLiteral(result),
+            None     => Error("Hit eof before end of string literal.".to_string())
         }
     }    
 }
