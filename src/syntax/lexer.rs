@@ -45,7 +45,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                 Error("Found an out of place tab.".to_string())
             },
             
-            // Find single char punctuations
+            // Find single-char punctuations
             Some('(') | Some(')') |
             Some('[') | Some(']') |
             Some('{') | Some('}') |
@@ -55,7 +55,7 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some('<') |
             Some('~') |
             Some('=') => {
-                // Dumb: cant do self.punctuation_token(self.consume_char().unwrap()) due to borrowing
+                // Dumb: cant do self.punctuation_token(&[self.consume_char().unwrap()]) due to borrowing
                 // But the following works.
                 let ch = self.consume_char().unwrap();
 
@@ -181,7 +181,6 @@ impl<'a> Lexer<'a> {
     // Thanks to mbrubeck of Mozilla for the base of this consume_while
     // fn as well eof() and next_char() examples :)
     fn consume_while(&mut self, test: |char| -> bool, escape: bool) -> String {
-        //let mut result: &'a str = "";
         let mut result = String::new();
 
         // Always unwrapping as the loop checks eof.
@@ -203,8 +202,8 @@ impl<'a> Lexer<'a> {
                             Ok(chr) => result.push(chr),
 
                             // Currently no way to handle this error
-                            // So I'm returning the char as is
-                            Err(_)  => result.push(ch)
+                            // So the fake escape char is ignored
+                            Err(_)  => ()
                         },
 
                         // EOF
@@ -263,11 +262,11 @@ impl<'a> Lexer<'a> {
             "True"  => return BoolLiteral(true),
             "False" => return BoolLiteral(false),
             _       => ()
-        }
+        };
 
         match from_str::<Types>(ident.as_slice()) {
-            Some(type_) => Type(type_),
-            _           => Identifier(ident.to_string())
+            Some(t) => Type(t),
+            _       => Identifier(ident.to_string())
         }
     }
 
@@ -594,7 +593,7 @@ impl<'a> Lexer<'a> {
                         match Lexer::escape_char(ch2) {
                             Ok(esc)  => ch = esc,
                             Err(msg) => return Error(msg)
-                        }
+                        };
                     },
                     None => return Error("Hit eof before end of character literal.".to_string())
                 };

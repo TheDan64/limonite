@@ -81,9 +81,6 @@ pub enum Punctuations {
     RightThinArrow
 }
 
-// Possible ToDo: Single char punctuation is currently
-// handled by the lexer. Move it here?
-
 impl FromStr for Punctuations {
     fn from_str(s: &str) -> Option<Punctuations> {
         match s {
