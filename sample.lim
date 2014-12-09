@@ -29,10 +29,10 @@ class DescendantObject from Object
         <<<
         
         var a = 34
+        var a = 3 >> This is an error because it redeclares `a`
         var b = 34u
         var c >> This is an error because uninitialised variables are dumb
-        var d = 3 >> This is also an error because it redeclares `a`
-        def e = "Cannot change"
+        def d = "This is a constant value and cannot change"
         
         if a < 3 and a > 4 or 3 <= a,
             whatever()
@@ -43,7 +43,9 @@ class DescendantObject from Object
         for var i in 1..6,
             dosomething()
             
-        for var i in 1..3 by 2s,
+        >> This essentially reduces the list/iterator based on position
+        >> IE ['a', 'b', 'c'] by 2 -> ['a', 'c'] 
+        for var i in 1..5 by 2,
             do_something_else()
         
         def obj = Object(3)
@@ -53,28 +55,18 @@ class DescendantObject from Object
         assert obj is obj2 >> False
         assert obj equals obj2 >> True
         
-        while a is not equal 4,
+        while a not equals 4,
             dosomething()
         
         return 343
 
-
-
 >>> Possible stuff
-    Explicit equivalence (maybe)
-        if 5.5 is about 5,
-    
     Bound checking
         if 5 < a < 6,
     
     Anonymous functions
         a = lambda -> 6 if b || c else 3
-    
-    Multiline comments:
-        >>> This is a comment
-            that has multiple lines.
-        <<<
-    
+        
     Classes and inheritance
-        class Descendant from Ancestor,
+        class Descendant from Ancestor
 <<<

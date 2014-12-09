@@ -19,6 +19,6 @@ Limonite is a relatively basic programming language written in rust using LLVM a
 
     Run the following commands
 
-        git clone git@github.com:TheDan64/limonite.git
+        git clone https://github.com/TheDan64/limonite.git
         cd limonite
         cargo build
