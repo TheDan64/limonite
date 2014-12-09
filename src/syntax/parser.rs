@@ -11,6 +11,7 @@ pub struct Error {
     pub messgage: String,
 }
 
+#[allow(dead_code)]
 enum Expr {
     Integer(IntegerAST),
     UInteger(UIntegerAST),
@@ -18,6 +19,7 @@ enum Expr {
 }
 
 impl Expr {
+    #[allow(unused_variables)]
     fn gen_code(&self) -> () {
         match *self {
             Expr::Integer(node) => (),
@@ -27,19 +29,22 @@ impl Expr {
     }
 }
 
+#[allow(dead_code)]
 struct IntegerAST {
     val: i64,
 }
 
+#[allow(dead_code)]
 struct UIntegerAST {
     val: u64,
 }
 
-
+#[allow(dead_code)]
 struct FloatAST {
     val: f64,
 }
 
+#[allow(dead_code)]
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     indentation: u64,
@@ -82,6 +87,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     // Ensures that the indentation matches the current level of indentation
+    #[allow(dead_code)]
     fn check_indentation(&self, depth: u64) -> Result<Option<Expr>, Error> {
         if self.indentation == depth {
             return Ok(None);
@@ -90,6 +96,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     // Parses a variable or constant declaration
+    #[allow(unused_variables)]
     fn parse_declaration(&mut self) -> Result<Option<Expr>, Error> {
         let token = self.next_token();
         match token {
@@ -130,6 +137,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     // Parse numbers into their correct representation
+    #[allow(dead_code)]
     fn parse_number(&mut self, num: &str) -> Result<Option<Expr>, Error> {
         println!("{}", num);
         let value = 0;
@@ -139,6 +147,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     // Parse the file
+    #[allow(unused_variables)]
     pub fn parse(&mut self) {
         self.start();
         let cur_token = self.next_token();

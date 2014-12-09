@@ -40,12 +40,12 @@ class DescendantObject from Object
             meow()
         . >> Optional period for sake of sentence
         
-        for var i in 1..6,
+        for i in 1..6,
             dosomething()
             
         >> This essentially reduces the list/iterator based on position
         >> IE ['a', 'b', 'c'] by 2 -> ['a', 'c'] 
-        for var i in 1..5 by 2,
+        for i in 1..5 by 2,
             do_something_else()
         
         def obj = Object(3)

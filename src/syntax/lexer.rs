@@ -13,8 +13,9 @@ pub trait Tokenizer {
 pub struct Lexer<'a> {
     line_number: uint,
     column_number: uint,
+    error_start: (uint, uint),
+    error_end: (uint, uint),
     buffer_pos: uint,
-    line_start: uint,
     input: &'a str,
     lines: Vec<&'a str>
 }
@@ -27,8 +28,10 @@ impl<'a> Tokenizer for Lexer<'a> {
         }
 
         self.consume_whitespace();
+
+        self.error_start = (self.line_number, self.column_number);
         
-        return match self.next_char() {
+        let tok = match self.next_char() {
             // Find Keywords and Identifiers
             Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
 
@@ -113,6 +116,10 @@ impl<'a> Tokenizer for Lexer<'a> {
             
             None => EOF
         };
+
+        self.error_end = (self.line_number, self.column_number);
+
+        tok
     }
 }
 
@@ -122,8 +129,9 @@ impl<'a> Lexer<'a> {
         Lexer {
             line_number: 1,
             column_number: 1,
+            error_start: (0, 0),
+            error_end: (0, 0),
             buffer_pos: 0,
-            line_start: 0,
             input: slice,
             lines: slice.lines().collect()
         }
@@ -141,6 +149,13 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    pub fn get_error_pos(&self) -> (uint, uint, uint, uint) {
+        let (start_line, start_column) = self.error_start;
+        let (end_line, end_column) = self.error_end;
+
+        (start_line, start_column, end_line, end_column)
+    }
+
     fn current_slice(&mut self) -> &str {
         self.input.slice_from(self.buffer_pos)
     }
@@ -153,7 +168,6 @@ impl<'a> Lexer<'a> {
                 self.column_number += 1;
                 
                 if ch == '\n' {
-                    self.line_start = self.buffer_pos;
                     self.line_number += 1;
                     self.column_number = 1;
                 }
