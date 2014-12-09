@@ -1,6 +1,5 @@
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
-use syntax::core::punctuation::Punctuations::{Asterisk, CBracketClose, CBracketOpen, Colon, Comma, Equals, GreaterThan, LessThan, Minus, ParenClose, ParenOpen, Percent, Period, Plus, PlusEquals, SBracketClose, SBracketOpen, Slash, Tilde};
 use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Punctuation, StrLiteral, Type};
 use syntax::core::types::Types;
@@ -56,11 +55,11 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some('<') |
             Some('~') |
             Some('=') => {
-                // Dumb: cant do self.single_punc_token(self.consume_char().unwrap()) due to borrowing
+                // Dumb: cant do self.punctuation_token(self.consume_char().unwrap()) due to borrowing
                 // But the following works.
                 let ch = self.consume_char().unwrap();
 
-                self.single_punc_token(ch)
+                self.punctuation_token(&[ch])
             },
 
             // Find multi-char(+=, -=, ..) or the single-char version
@@ -74,9 +73,9 @@ impl<'a> Tokenizer for Lexer<'a> {
                     Some('=') => {
                         self.consume_char();
                         
-                        self.multi_punc_token(&[ch, '='])
+                        self.punctuation_token(&[ch, '='])
                     },
-                    _ => self.single_punc_token(ch)
+                    _ => self.punctuation_token(&[ch])
                 }
             },
 
@@ -88,9 +87,9 @@ impl<'a> Tokenizer for Lexer<'a> {
                     Some('>') => {
                         self.consume_char();
 
-                        self.multi_punc_token(&['-', '>'])
+                        self.punctuation_token(&['-', '>'])
                     },
-                    _ => self.single_punc_token('-')
+                    _ => self.punctuation_token(&['-'])
                 }
             },
 
@@ -100,7 +99,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                 
                 match self.next_char() {
                     Some('>') => self.consume_comment(),
-                    _         => self.single_punc_token('>')
+                    _         => self.punctuation_token(&['>'])
                 }
             },
 
@@ -222,37 +221,14 @@ impl<'a> Lexer<'a> {
         result
     }
 
-    // Single char puncuations: (, [, ., ...
-    fn single_punc_token(&mut self, ch: char) -> Token {
-        Punctuation(match ch {
-            '(' => ParenOpen,
-            ')' => ParenClose,
-            '[' => SBracketOpen,
-            ']' => SBracketClose,
-            '{' => CBracketOpen,
-            '}' => CBracketClose,
-            '.' => Period,
-            ',' => Comma,
-            ':' => Colon,
-            '>' => GreaterThan,
-            '<' => LessThan,
-            '+' => Plus,
-            '-' => Minus,
-            '*' => Asterisk,
-            '/' => Slash,
-            '%' => Percent,
-            '~' => Tilde,
-            '=' => Equals,
-             _  => panic!(format!("Lexer error: hit what should be an unreachable single punctuation type {}", ch))
-        })
-    }
-
-    // Multi char punctuations: +=, -=, ...
-    fn multi_punc_token(&mut self, vec: &[char]) -> Token {
+    // Single and multi char punctuations: *, -, +=, -=, ...
+    fn punctuation_token(&mut self, vec: &[char]) -> Token {
         let string = String::from_chars(vec);
-        let punct = from_str::<Punctuations>(string.as_slice()).unwrap();
-        
-        Punctuation(punct)
+
+        Punctuation(match from_str::<Punctuations>(string.as_slice()) {
+            Some(p) => p,
+            None    => panic!(format!("Lexer error: hit what should be an unreachable punctuation type {}", string.as_slice()))
+        })
     }
 
     // Consume non newline whitespace
