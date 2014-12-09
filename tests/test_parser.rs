@@ -4,9 +4,9 @@ use std::vec::MoveItems;
 
 use limonite::syntax::lexer::Tokenizer;
 use limonite::syntax::parser::Parser;
-use limonite::syntax::core::tokens::{Token, EOF, Keyword, Identifier, Punctuation, Numeric};
-use limonite::syntax::core::keywords::{Var};
-use limonite::syntax::core::punctuation::{Equals};
+use limonite::syntax::core::tokens::Token;
+use limonite::syntax::core::keywords::Keywords;
+use limonite::syntax::core::punctuation::Punctuations;
 
 struct MockLexer {
     tokens: MoveItems<Token>,
@@ -15,7 +15,7 @@ struct MockLexer {
 impl MockLexer {
     fn new(v: Vec<Token>) -> MockLexer {
         MockLexer {
-            tokens: v.move_iter()
+            tokens: v.into_iter()
         }
     }
 }
@@ -25,15 +25,15 @@ impl Tokenizer for MockLexer {
         let next = self.tokens.next();
         match next {
             Some(tok) => tok,
-            None => EOF,
+            None => Token::EOF,
         }
     }
 }
 
 #[test]
 fn test_variable_int_declaration() {
-    let mLexer = MockLexer::new(vec![Keyword(Var), Identifier("meow".to_string()),
-                                     Punctuation(Equals), Numeric("3".to_string(), None)]);
+    let mLexer = MockLexer::new(vec![Token::Keyword(Keywords::Var), Token::Identifier("meow".to_string()),
+                                     Token::Punctuation(Punctuations::Equals), Token::Numeric("3".to_string(), None)]);
     let mut parser = Parser::new(mLexer);
 
     // parser.parse();
