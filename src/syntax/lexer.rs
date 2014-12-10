@@ -224,11 +224,7 @@ impl<'a> Lexer<'a> {
         while !self.eof() && test(self.next_char().unwrap()) {
             match self.next_char() {
                 // Ignore any carriage returns
-                Some('\r') => {
-                    self.consume_char();
-
-                    continue;
-                },
+                Some('\r') => { self.consume_char(); },
 
                 // Handle escape chars if escape flag is set
                 Some('\\') if escape => {
@@ -238,21 +234,19 @@ impl<'a> Lexer<'a> {
                         Some(ch) => match Lexer::escape_char(ch) {
                             Ok(chr) => result.push(chr),
 
-                            // Currently no way to handle this error
-                            // So the fake escape char is ignored
-                            Err(_)  => ()
+                            // Currently no way to handle this error of unrecognised
+                            // escapes in here (in strings most likely) so panic for now
+                            Err(e)  => panic!(format!("Lexer error: Unhandled escape error: \"{}\"", e))
                         },
 
-                        // EOF
-                        None => result.push('\\')
-                    }
-
-                    continue;
+                        // EOF, should never happen. Panicing incase it does.
+                        None => panic!("Lexer error: Unhandled escape error: Escaped EOF.")
+                    };
                 },
                 
                 _  => result.push(self.consume_char().unwrap())
             };
-        }
+        };
 
         result
     }
