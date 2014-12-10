@@ -102,6 +102,8 @@ impl FromStr for Punctuations {
             "%"  => Some(Punctuations::Percent),
             "~"  => Some(Punctuations::Tilde),
             "="  => Some(Punctuations::Equals),
+            ">=" => Some(Punctuations::GreaterThanEqual),
+            "<=" => Some(Punctuations::LessThanEqual),
             "+=" => Some(Punctuations::PlusEquals),
             "-=" => Some(Punctuations::MinusEquals),
             "*=" => Some(Punctuations::AsteriskEquals),

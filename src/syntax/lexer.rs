@@ -55,7 +55,6 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some('.') |
             Some(',') |
             Some(':') |
-            Some('<') |
             Some('~') |
             Some('=') => {
                 // Dumb: cant do self.punctuation_token(&[self.consume_char().unwrap()]) due to borrowing
@@ -82,7 +81,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                 }
             },
 
-            // Find -> punctuation or -
+            // Find -, -=, -> punctuation
             Some('-') => {
                 self.consume_char();
 
@@ -92,19 +91,43 @@ impl<'a> Tokenizer for Lexer<'a> {
 
                         self.punctuation_token(&['-', '>'])
                     },
+                    Some('=') => {
+                        self.consume_char();
+
+                        self.punctuation_token(&['-', '='])
+                    }
                     _ => self.punctuation_token(&['-'])
                 }
             },
 
-            // Find >> and >>> comments, otherwise '>' punctuation
+            // Find >> and >>> comments, otherwise > or >= punctuation
             Some('>') => {
                 self.consume_char();
                 
                 match self.next_char() {
                     Some('>') => self.consume_comment(),
-                    _         => self.punctuation_token(&['>'])
+                    Some('=') => {
+                        self.consume_char();
+
+                        self.punctuation_token(&['>', '='])
+                    },
+                    _ => self.punctuation_token(&['>'])
                 }
             },
+
+            // Find < and <= punctuation
+            Some('<') => {
+                self.consume_char();
+
+                match self.next_char() {
+                    Some('=') => {
+                        self.consume_char();
+
+                        self.punctuation_token(&['<', '='])
+                    },
+                    _ => self.punctuation_token(&['<'])
+                }
+            }
 
             // Find character literals, 'c', including ascii escape chars
             Some('\'') => self.consume_char_literal(),
