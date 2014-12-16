@@ -22,9 +22,9 @@ impl Expr {
     #[allow(unused_variables)]
     fn gen_code(&self) -> () {
         match *self {
-            Expr::Integer(node) => (),
-            Expr::UInteger(node) => (),
-            Expr::Float(node) => (),
+            Expr::Integer(ref node) => (),
+            Expr::UInteger(ref node) => (),
+            Expr::Float(ref node) => (),
         }
     }
 }
@@ -150,23 +150,23 @@ impl<TokType: Tokenizer> Parser<TokType> {
     #[allow(unused_variables)]
     pub fn parse(&mut self) {
         self.start();
-        let cur_token = self.next_token();
+
         loop {
             // Parse the token into the next node of the AST
             let result: Result<Option<Expr>, Error>;
 
-            result = match cur_token {
-                Keyword(ref keyword) => {
-                    self.handle_keywords(*keyword)
+            result = match self.next_token() {
+                Keyword(keyword) => { // This is no longer compiling due to a move error
+                    self.handle_keywords(keyword)
                 }
-                Identifier(ref repr) => {
+                Identifier(repr) => {
                     self.parse_expression()
                 }
                 EOF => {
                     break
                 }
-                _ => {
-                    panic!("Invalid token at the top level {}", cur_token);
+                tok => {
+                    panic!("Invalid token at the top level {}", tok);
                 }
             };
 

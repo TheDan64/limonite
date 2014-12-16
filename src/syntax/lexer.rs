@@ -240,6 +240,7 @@ impl<'a> Lexer<'a> {
                         },
 
                         // EOF, should never happen. Panicing incase it does.
+                        // Possibly: Do nothing (), the string handler should error at EOF for you.
                         None => panic!("Lexer error: Unhandled escape error: Escaped EOF.")
                     };
                 },
