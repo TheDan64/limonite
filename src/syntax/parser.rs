@@ -128,7 +128,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             Keywords::Def => {
                 self.parse_declaration()
             }
-            _ => Err(self.write_error(format!("Unsupported keyword {}.", keyword).as_slice()))
+            _ => Err(self.write_error(format!("Unsupported keyword {:?}.", keyword).as_slice()))
         }
     }
 
@@ -166,7 +166,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     break
                 }
                 tok => {
-                    panic!("Invalid token at the top level {}", tok);
+                    panic!("Invalid token at the top level {:?}", tok);
                 }
             };
 

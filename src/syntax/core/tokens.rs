@@ -2,7 +2,7 @@ use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
 use syntax::core::types::Types;
 
-#[deriving(Show, PartialEq)]
+#[derive(Show, PartialEq)]
 pub enum Token {
     // 42, 42, 0x2A, 0b101010, -42.0, 42 ... and a suffix
     Numeric(String, Option<Types>),
@@ -11,7 +11,7 @@ pub enum Token {
     Identifier(String),
 
     // Count the number of tabs after a newline
-    Indent(u32),
+    Indent(usize),
 
     // True, False
     BoolLiteral(bool),
