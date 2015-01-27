@@ -167,7 +167,7 @@ impl<'a> Lexer<'a> {
         (start_line, start_column, end_line, end_column)
     }
 
-    fn current_slice(&mut self) -> &str {
+    fn current_slice(&self) -> &str {
         self.input.slice_from(self.buffer_pos)
     }
 
@@ -241,7 +241,7 @@ impl<'a> Lexer<'a> {
     }
 
     // Single and multi char punctuations: *, -, +=, -=, ...
-    fn punctuation_token(&mut self, punc: &str) -> Token {
+    fn punctuation_token(&self, punc: &str) -> Token {
         Punctuation(match punc.parse() {
             Some(p) => p,
             None    => panic!(format!("Lexer error: hit what should be an unreachable punctuation type {}", punc))

@@ -18,9 +18,9 @@ fn display_info() {
 
 fn main() {
     match os::args().len() {
-        0 ... 1 => return display_info(),
-        2       => (),
-        _       => return // Invalid?
+        0 | 1 => display_info(),
+        2     => (),
+        _     => return // Invalid?
     }
 
     let ref file_name = os::args()[1];

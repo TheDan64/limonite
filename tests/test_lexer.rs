@@ -17,13 +17,13 @@ fn cmp_tokens(mut lexer: Lexer, vec: Vec<Token>) {
  
         if tok == *desired_tok { continue; }
 
-        panic!(format!("Unexpected token `{0}` found. Expected `{1}`.", tok, desired_tok));
+        panic!(format!("Unexpected token `{0:?}` found. Expected `{1:?}`.", tok, desired_tok));
     }
 
     tok = lexer.get_tok();
 
     if tok != EOF {
-        panic!(format!("Unexpected token `{}` found. Expected `EOF`", tok));
+        panic!(format!("Unexpected token `{:?}` found. Expected `EOF`", tok));
     }
 }
 
