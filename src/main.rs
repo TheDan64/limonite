@@ -17,10 +17,8 @@ fn display_info() {
 }
 
 fn main() {
-    match os::args().len() {
-        0 | 1 => display_info(),
-        2     => (),
-        _     => return // Invalid?
+    if os::args().len() != 2 {
+        return display_info();
     }
 
     let ref file_name = os::args()[1];
@@ -35,5 +33,5 @@ fn main() {
     let lexer = Lexer::new(input_string.as_slice());
     let mut parser = Parser::new(lexer);
 
-    parser.parse()
+    parser.parse();
 }

@@ -620,8 +620,8 @@ impl<'a> Lexer<'a> {
 
         // Get the final '
         match self.consume_char() {
-            Some('\'')     => CharLiteral(ch),
-            Some(_) | None => Error("Char literal was not closed with a '".to_string())
+            Some('\'') => CharLiteral(ch),
+            _          => Error("Char literal was not closed with a '".to_string())
         }
     }
 

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-#[derive(Copy, Show, PartialEq)]
+#[derive(Copy, Debug, PartialEq)]
 pub enum Types {
     // bool
     Bool,
