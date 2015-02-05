@@ -1,6 +1,6 @@
 extern crate limonite;
 
-use std::vec::MoveItems;
+use std::vec::IntoIter;
 
 use limonite::syntax::lexer::Tokenizer;
 use limonite::syntax::parser::Parser;
@@ -10,7 +10,7 @@ use limonite::syntax::core::keywords::Keywords::{Var};
 use limonite::syntax::core::punctuation::Punctuations::{Equals};
 
 struct MockLexer {
-    tokens: MoveItems<Token>,
+    tokens: IntoIter<Token>
 }
 
 impl MockLexer {
