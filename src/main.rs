@@ -2,8 +2,8 @@
 #![crate_type = "bin"]
 
 use std::os;
-use std::io::BufferedReader;
-use std::io::File;
+use std::old_io::BufferedReader;
+use std::old_io::File;
 
 use syntax::lexer::Lexer;
 use syntax::parser::Parser;

@@ -1,7 +1,7 @@
 extern crate limonite;
 
-use std::io::File;
-use std::io::BufferedReader;
+use std::old_io::File;
+use std::old_io::BufferedReader;
 use limonite::syntax::core::keywords::Keywords::{Def, Fn, If, Is, Print, Return, Var};
 use limonite::syntax::core::punctuation::Punctuations::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
 use limonite::syntax::core::tokens::Token;
