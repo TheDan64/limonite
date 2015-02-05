@@ -30,7 +30,7 @@ fn main() {
 
     let input_string = BufferedReader::new(file).read_to_string().unwrap();
 
-    let lexer = Lexer::new(input_string.as_slice());
+    let lexer = Lexer::new(&input_string[]);
     let mut parser = Parser::new(lexer);
 
     parser.parse();
