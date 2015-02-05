@@ -82,35 +82,37 @@ pub enum Punctuations {
 }
 
 impl FromStr for Punctuations {
-    fn from_str(s: &str) -> Option<Punctuations> {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Punctuations, String> {
         match s {
-            "("  => Some(Punctuations::ParenOpen),
-            ")"  => Some(Punctuations::ParenClose),
-            "["  => Some(Punctuations::SBracketOpen),
-            "]"  => Some(Punctuations::SBracketClose),
-            "{"  => Some(Punctuations::CBracketOpen),
-            "}"  => Some(Punctuations::CBracketClose),
-            "."  => Some(Punctuations::Period),
-            ","  => Some(Punctuations::Comma),
-            ":"  => Some(Punctuations::Colon),
-            ">"  => Some(Punctuations::GreaterThan),
-            "<"  => Some(Punctuations::LessThan),
-            "+"  => Some(Punctuations::Plus),
-            "-"  => Some(Punctuations::Minus),
-            "*"  => Some(Punctuations::Asterisk),
-            "/"  => Some(Punctuations::Slash),
-            "%"  => Some(Punctuations::Percent),
-            "~"  => Some(Punctuations::Tilde),
-            "="  => Some(Punctuations::Equals),
-            ">=" => Some(Punctuations::GreaterThanEqual),
-            "<=" => Some(Punctuations::LessThanEqual),
-            "+=" => Some(Punctuations::PlusEquals),
-            "-=" => Some(Punctuations::MinusEquals),
-            "*=" => Some(Punctuations::AsteriskEquals),
-            "/=" => Some(Punctuations::SlashEquals),
-            "%=" => Some(Punctuations::PercentEquals),
-            "->" => Some(Punctuations::RightThinArrow),
-            _    => None
+            "("  => Ok(Punctuations::ParenOpen),
+            ")"  => Ok(Punctuations::ParenClose),
+            "["  => Ok(Punctuations::SBracketOpen),
+            "]"  => Ok(Punctuations::SBracketClose),
+            "{"  => Ok(Punctuations::CBracketOpen),
+            "}"  => Ok(Punctuations::CBracketClose),
+            "."  => Ok(Punctuations::Period),
+            ","  => Ok(Punctuations::Comma),
+            ":"  => Ok(Punctuations::Colon),
+            ">"  => Ok(Punctuations::GreaterThan),
+            "<"  => Ok(Punctuations::LessThan),
+            "+"  => Ok(Punctuations::Plus),
+            "-"  => Ok(Punctuations::Minus),
+            "*"  => Ok(Punctuations::Asterisk),
+            "/"  => Ok(Punctuations::Slash),
+            "%"  => Ok(Punctuations::Percent),
+            "~"  => Ok(Punctuations::Tilde),
+            "="  => Ok(Punctuations::Equals),
+            ">=" => Ok(Punctuations::GreaterThanEqual),
+            "<=" => Ok(Punctuations::LessThanEqual),
+            "+=" => Ok(Punctuations::PlusEquals),
+            "-=" => Ok(Punctuations::MinusEquals),
+            "*=" => Ok(Punctuations::AsteriskEquals),
+            "/=" => Ok(Punctuations::SlashEquals),
+            "%=" => Ok(Punctuations::PercentEquals),
+            "->" => Ok(Punctuations::RightThinArrow),
+            s    => Err(format!("Invalid Punctuation Token match: {}", s))
         }
     }
 }

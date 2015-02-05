@@ -31,33 +31,35 @@ pub enum Keywords {
 }
 
 impl FromStr for Keywords {
-    fn from_str(s: &str) -> Option<Keywords> {
+    type Err = ();
+    
+    fn from_str(s: &str) -> Result<Keywords, ()> {
         match s {
-            "and"      => Some(Keywords::And),
-            "or"       => Some(Keywords::Or),
-            "not"      => Some(Keywords::Not),
-            "is"       => Some(Keywords::Is),
-            "class"    => Some(Keywords::Class),
-            "fn"       => Some(Keywords::Fn),
-            "var"      => Some(Keywords::Var),
-            "def"      => Some(Keywords::Def),
-            "assert"   => Some(Keywords::Assert),
-            "else"     => Some(Keywords::Else),
-            "if"       => Some(Keywords::If),
-            "for"      => Some(Keywords::For),
-            "while"    => Some(Keywords::While),
-            "return"   => Some(Keywords::Return),
-            "equals"   => Some(Keywords::Equals),
-            "use"      => Some(Keywords::Use),
-            "from"     => Some(Keywords::From),
-            "as"       => Some(Keywords::As),
-            "when"     => Some(Keywords::When),
-            "throws"   => Some(Keywords::Throws),
-            "break"    => Some(Keywords::Break),
-            "continue" => Some(Keywords::Continue),
-            "pass"     => Some(Keywords::Pass),
-            "print"    => Some(Keywords::Print),
-            _          => None
+            "and"      => Ok(Keywords::And),
+            "or"       => Ok(Keywords::Or),
+            "not"      => Ok(Keywords::Not),
+            "is"       => Ok(Keywords::Is),
+            "class"    => Ok(Keywords::Class),
+            "fn"       => Ok(Keywords::Fn),
+            "var"      => Ok(Keywords::Var),
+            "def"      => Ok(Keywords::Def),
+            "assert"   => Ok(Keywords::Assert),
+            "else"     => Ok(Keywords::Else),
+            "if"       => Ok(Keywords::If),
+            "for"      => Ok(Keywords::For),
+            "while"    => Ok(Keywords::While),
+            "return"   => Ok(Keywords::Return),
+            "equals"   => Ok(Keywords::Equals),
+            "use"      => Ok(Keywords::Use),
+            "from"     => Ok(Keywords::From),
+            "as"       => Ok(Keywords::As),
+            "when"     => Ok(Keywords::When),
+            "throws"   => Ok(Keywords::Throws),
+            "break"    => Ok(Keywords::Break),
+            "continue" => Ok(Keywords::Continue),
+            "pass"     => Ok(Keywords::Pass),
+            "print"    => Ok(Keywords::Print),
+            _          => Err(())
         }
     }
 }

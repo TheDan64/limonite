@@ -34,19 +34,21 @@ pub enum Types {
 }
 
 impl FromStr for Types {
-    fn from_str(s: &str) -> Option<Types> {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Types, ()> {
         match s {
-            "bool" => Some(Types::Bool),
-            "str"  => Some(Types::Str),
-            "char" => Some(Types::Char),
-            "i32"  => Some(Types::Int32Bit),
-            "i64"  => Some(Types::Int64Bit),
-            "u32"  => Some(Types::UInt32Bit),
-            "u64"  => Some(Types::UInt64Bit),
-            "f32"  => Some(Types::Float32Bit),
-            "f64"  => Some(Types::Float64Bit),
-            "None" => Some(Types::NoneType),
-            _      => None
+            "bool" => Ok(Types::Bool),
+            "str"  => Ok(Types::Str),
+            "char" => Ok(Types::Char),
+            "i32"  => Ok(Types::Int32Bit),
+            "i64"  => Ok(Types::Int64Bit),
+            "u32"  => Ok(Types::UInt32Bit),
+            "u64"  => Ok(Types::UInt64Bit),
+            "f32"  => Ok(Types::Float32Bit),
+            "f64"  => Ok(Types::Float64Bit),
+            "None" => Ok(Types::NoneType),
+            _      => Err(())
         }
     }
 }

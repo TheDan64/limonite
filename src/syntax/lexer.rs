@@ -1,5 +1,7 @@
 use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::*;
+use syntax::core::types::Types;
+use syntax::core::keywords::Keywords;
 
 pub trait Tokenizer {
     fn get_tok(&mut self) -> Token;
@@ -54,8 +56,6 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some(':') |
             Some('~') |
             Some('=') => {
-                // Dumb that you cant do this due to borrowing: self.punctuation_token(self.consume_char().unwrap().to_string().as_slice())
-
                 let punc = self.consume_char().unwrap().to_string();
 
                 self.punctuation_token(punc.as_slice())
@@ -243,8 +243,8 @@ impl<'a> Lexer<'a> {
     // Single and multi char punctuations: *, -, +=, -=, ...
     fn punctuation_token(&self, punc: &str) -> Token {
         Punctuation(match punc.parse() {
-            Some(p) => p,
-            None    => panic!(format!("Lexer error: hit what should be an unreachable punctuation type {}", punc))
+            Ok(p)  => p,
+            Err(e) => panic!(e)
         })
     }
 
@@ -268,20 +268,21 @@ impl<'a> Lexer<'a> {
              _                       => false
         }, false);
 
-        if let Some(key) = ident.as_slice().parse() {
-            return Keyword(key);
-        }
-
         match ident.as_slice() {
             "True"  => return BoolLiteral(true),
             "False" => return BoolLiteral(false),
             _       => ()
         };
 
-        match ident.as_slice().parse() {
-            Some(t) => Type(t),
-            _       => Identifier(ident.to_string())
+        if let Ok(key) = ident.as_slice().parse::<Keywords>() {
+            return Keyword(key);
         }
+
+        if let Ok(t) = ident.as_slice().parse::<Types>() {
+            return Type(t);
+        }
+
+        Identifier(ident.to_string())
     }
 
     // Find a sequence of 32 or 64
@@ -331,7 +332,7 @@ impl<'a> Lexer<'a> {
     // Determines what type of number it is and consume it
     fn consume_numeric(&mut self) -> Token {
         let mut number = String::new();
-        let mut suffix = None;
+        let mut suffix: Result<Types, ()> = Err(()); // Will be None at .ok() call
 
         if self.current_slice().starts_with("0x") {
             // Found hexadecimal: 0x[0-9a-fA-F_]+
@@ -365,7 +366,7 @@ impl<'a> Lexer<'a> {
                         Err(err) => return Error(err)
                     };
 
-                    suffix = string.as_slice().parse();
+                    suffix = string.as_slice().parse::<Types>();
                 },
 
                 // Found some other suffix, ie 0x42o
@@ -410,7 +411,7 @@ impl<'a> Lexer<'a> {
                         Err(err) => return Error(err)
                     };
 
-                    suffix = string.as_slice().parse();
+                    suffix = string.as_slice().parse::<Types>();
                 },
 
                 // Found some other suffix, ie 0x42o
@@ -461,8 +462,8 @@ impl<'a> Lexer<'a> {
                                 Ok(s)    => string.push_str(s.as_slice()),
                                 Err(err) => return Error(err)
                             };
-                            
-                            suffix = string.as_slice().parse();
+
+                            suffix = string.as_slice().parse::<Types>();
                         },
 
                         // Found some other suffix, ie 0x42o
@@ -489,7 +490,7 @@ impl<'a> Lexer<'a> {
                         Err(err) => return Error(err)
                     };
 
-                    suffix = string.as_slice().parse();
+                    suffix = string.as_slice().parse::<Types>();
                 },
 
                 // Found some other suffix, ie 0x42o
@@ -505,7 +506,7 @@ impl<'a> Lexer<'a> {
             };
         }
 
-        Numeric(number, suffix)
+        Numeric(number, suffix.ok())
      }
 
     fn consume_comment(&mut self) -> Token {
