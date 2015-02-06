@@ -204,35 +204,15 @@ impl<'a> Lexer<'a> {
         return self.buffer_pos >= self.input.len();
     }
 
-    fn consume_while<F: FnMut(char) -> bool>(&mut self, test: &mut F, escape: bool) -> String {
+    fn consume_while<F: FnMut(char) -> bool>(&mut self, test: &mut F) -> String {
         let mut result = String::new();
 
         // Always unwrapping as the loop checks eof.
         while !self.eof() && test(self.next_char().unwrap()) {
-            match self.next_char() {
+            match self.consume_char().unwrap() {
                 // Ignore any carriage returns
-                Some('\r') => { self.consume_char(); },
-
-                // Handle escape chars if escape flag is set
-                Some('\\') if escape => {
-                    self.consume_char();
-
-                    match self.consume_char() {
-                        Some(ch) => match Lexer::escape_char(ch) {
-                            Ok(chr) => result.push(chr),
-
-                            // Currently no way to handle this error of unrecognised
-                            // escapes in here (in strings most likely) so panic for now
-                            Err(e)  => panic!(format!("Lexer error: Unhandled escape error: \"{}\"", e))
-                        },
-
-                        // EOF, should never happen. Panicing incase it does.
-                        // Possibly: Do nothing (), the string handler should error at EOF for you.
-                        None => panic!("Lexer error: Unhandled escape error: Escaped EOF.")
-                    };
-                },
-                
-                _  => result.push(self.consume_char().unwrap())
+                '\r' => continue,
+                ch   => result.push(ch)
             };
         };
 
@@ -253,7 +233,7 @@ impl<'a> Lexer<'a> {
             '\n' | '\t'            => false,
             w if w.is_whitespace() => true,
             _                      => false
-        }, false);
+        });
     }
 
     // Identifiers: [a-zA-Z_][a-zA-z0-9_]*
@@ -265,7 +245,7 @@ impl<'a> Lexer<'a> {
             a if a.is_alphanumeric() => true,
             '_'                      => true,
              _                       => false
-        }, false);
+        });
 
         match &ident[] {
             "True"  => return BoolLiteral(true),
@@ -347,7 +327,7 @@ impl<'a> Lexer<'a> {
                 'A'...'F' |
                 '_' => true,
                  _  => false
-            }, false)[]);
+            })[]);
 
             if &number[] == "0x" {
                 return Error("No hexadecimal value was found.".to_string());
@@ -392,7 +372,7 @@ impl<'a> Lexer<'a> {
                 '1' |
                 '_' => true,
                  _  => false
-            }, false)[]);
+            })[]);
 
             if &number[] == "0b" {
                 return Error("No binary value was found.".to_string());
@@ -432,7 +412,7 @@ impl<'a> Lexer<'a> {
                 '0'...'9' |
                 '_' => true,
                  _  => false
-            }, false)[]);
+            })[]);
 
             match self.next_char() {
                 // Float decimal point:
@@ -443,7 +423,7 @@ impl<'a> Lexer<'a> {
                         '0'...'9' |
                         '_' => true,
                          _  => false
-                    }, false);
+                    });
 
                     // Check if no decimal values were found
                     match &fractional[] {
@@ -535,7 +515,7 @@ impl<'a> Lexer<'a> {
                         sequence = 0;
                         true
                     }
-                }, false)[]);
+                })[]);
 
                 // Should be able to consume the last <
                 match self.consume_char() {
@@ -553,7 +533,7 @@ impl<'a> Lexer<'a> {
                 result.push_str(&self.consume_while(&mut |ch| match ch {
                     '\n' => false,
                     _ => true
-                }, false)[]);
+                })[]);
             },
 
             // Single line comment w/ EOF at start should be valid:
@@ -574,7 +554,7 @@ impl<'a> Lexer<'a> {
                 true
             },
             _    => false
-        }, false);
+        });
 
         Indent(count)
     }
@@ -590,7 +570,7 @@ impl<'a> Lexer<'a> {
             'r' => Ok('\r'),
             't' => Ok('\t'),
 //            '\n'=> Ok(''), // Escape newline?
-            _   => Err(format!("Unknown character escape: {}", ch).to_string())
+            _   => Err(format!("Unknown character escape: \\{}", ch).to_string())
         }
     }
 
@@ -625,24 +605,36 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    // This is currently set up to accept multi line strings
     fn consume_string_literal(&mut self) -> Token {
         let mut result = String::new();
 
         // Consume first "
         self.consume_char();
 
-        if self.eof() {
-            return Error("Hit EOF before end of string literal.".to_string());
-        }
+        // Consume until closing "
+        loop {
+            match self.consume_char() {
+                // Ignore any carriage returns
+                Some('\r') => continue,
 
-        result.push_str(&self.consume_while(&mut |ch| match ch {
-            '\"' => false,
-            _ => true
-        }, true)[]);
+                // Handle Escape chars
+                Some('\\') => {
+                    if let Some(ch) = self.consume_char() {
+                        match Lexer::escape_char(ch) {
+                            Ok(ch) => result.push(ch),
+                            Err(e) => return Error(e)
+                        }
+                    }
+                },
 
-        match self.consume_char() {
-            Some(_)  => StrLiteral(result),
-            None     => Error("Hit eof before end of string literal.".to_string())
-        }
+                // End at a closing "
+                Some('\"') => return StrLiteral(result),
+                Some(ch)   => result.push(ch),
+                None       => break
+            };
+        };
+
+        return Error("Hit EOF before end of string literal.".to_string());
     }    
 }
