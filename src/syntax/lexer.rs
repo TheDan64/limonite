@@ -124,7 +124,7 @@ impl<'a> Tokenizer for Lexer<'a> {
             // Find string literals, "String"
             Some('\"') => self.consume_string_literal(),
             
-            Some(ch) => Error(format!("Unknown character '{}'.", ch).to_string()),
+            Some(ch) => Error(format!("Unknown character '{}'.", ch)),
             
             None => EOF
         };
@@ -282,8 +282,8 @@ impl<'a> Lexer<'a> {
                     },
                     Some('\n') | // NL & CR have pesky visual effects.
                     Some('\r') => Err(format!("Invalid suffix {}. Did you mean {}32?", string, prefix)),
-                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}2?", string, self.consume_char().unwrap()).to_string()),
-                    None       => Err(format!("Hit EOF when looking for suffix {}32.", prefix).to_string())
+                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}2?", string, self.consume_char().unwrap())),
+                    None       => Err(format!("Hit EOF when looking for suffix {}32.", prefix))
                 }
             },
             Some('6') => {
@@ -297,21 +297,21 @@ impl<'a> Lexer<'a> {
                     },
                     Some('\n') | // NL & CR have pesky visual effects.
                     Some('\r') => Err(format!("Invalid suffix {}. Did you mean {}64?", string, prefix)),
-                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}4?", string, self.consume_char().unwrap()).to_string()),
-                    None       => Err(format!("Hit EOF when looking for suffix {}64.", prefix).to_string())
+                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}4?", string, self.consume_char().unwrap())),
+                    None       => Err(format!("Hit EOF when looking for suffix {}64.", prefix))
                 }
             },
             Some('\n') | // NL & CR have pesky visual effects.
             Some('\r') => Err(format!("Invalid suffix {}. Did you mean {1}32 or {1}64?", string, prefix)),
-            Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}32 or {0}64?", string, self.consume_char().unwrap()).to_string()),
-            None       => Err(format!("Hit EOF when looking for a suffix {0}32 or {0}64.", prefix).to_string())
+            Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}32 or {0}64?", string, self.consume_char().unwrap())),
+            None       => Err(format!("Hit EOF when looking for a suffix {0}32 or {0}64.", prefix))
         }
     }
 
     // Determines what type of number it is and consume it
     fn consume_numeric(&mut self) -> Token {
         let mut number = String::new();
-        let mut suffix: Result<Types, ()> = Err(()); // Will be None at .ok() call
+        let mut suffix = String::new();
 
         if self.current_slice().starts_with("0x") {
             // Found hexadecimal: 0x[0-9a-fA-F_]+
@@ -338,14 +338,11 @@ impl<'a> Lexer<'a> {
                 Some('u') |
                 Some('i') => {
                     let ch = self.consume_char().unwrap();
-                    let mut string = String::new();
                     
                     match self.consume_32_64(ch) {
-                        Ok(s)    => string.push_str(&s[]),
+                        Ok(s)    => suffix.push_str(&s[]),
                         Err(err) => return Error(err)
                     };
-
-                    suffix = string[].parse::<Types>();
                 },
 
                 // Found some other suffix, ie 0x42o
@@ -383,14 +380,11 @@ impl<'a> Lexer<'a> {
                 Some('u') |
                 Some('i') => {
                     let ch = self.consume_char().unwrap();
-                    let mut string = String::new();
-                    
+
                     match self.consume_32_64(ch) {
-                        Ok(s)    => string.push_str(&s[]),
+                        Ok(s)    => suffix.push_str(&s[]),
                         Err(err) => return Error(err)
                     };
-
-                    suffix = string[].parse::<Types>();
                 },
 
                 // Found some other suffix, ie 0x42o
@@ -435,14 +429,11 @@ impl<'a> Lexer<'a> {
                     match self.next_char() {
                         Some('f') => {
                             let ch = self.consume_char().unwrap();
-                            let mut string = String::new();
 
                             match self.consume_32_64(ch) {
-                                Ok(s)    => string.push_str(&s[]),
+                                Ok(s)    => suffix.push_str(&s[]),
                                 Err(err) => return Error(err)
                             };
-
-                            suffix = string[].parse::<Types>();
                         },
 
                         // Found some other suffix, ie 0x42o
@@ -462,14 +453,11 @@ impl<'a> Lexer<'a> {
                 Some('u') |
                 Some('i') => {
                     let ch = self.consume_char().unwrap();
-                    let mut string = String::new();
                     
                     match self.consume_32_64(ch) {
-                        Ok(s)    => string.push_str(&s[]),
+                        Ok(s)    => suffix.push_str(&s[]),
                         Err(err) => return Error(err)
                     };
-
-                    suffix = string[].parse::<Types>();
                 },
 
                 // Found some other suffix, ie 0x42o
@@ -485,7 +473,7 @@ impl<'a> Lexer<'a> {
             };
         }
 
-        Numeric(number, suffix.ok())
+        Numeric(number, suffix[].parse::<Types>().ok())
      }
 
     fn consume_comment(&mut self) -> Token {
@@ -570,7 +558,7 @@ impl<'a> Lexer<'a> {
             'r' => Ok('\r'),
             't' => Ok('\t'),
 //            '\n'=> Ok(''), // Escape newline?
-            _   => Err(format!("Unknown character escape: \\{}", ch).to_string())
+            _   => Err(format!("Unknown character escape: \\{}", ch))
         }
     }
 
