@@ -1,7 +1,7 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
 
-use std::os;
+use std::env;
 use std::old_io::BufferedReader;
 use std::old_io::File;
 
@@ -17,11 +17,13 @@ fn display_info() {
 }
 
 fn main() {
-    if os::args().len() != 2 {
+    let args: Vec<String> = env::args().map(|x| x.into_string().unwrap()).collect();
+
+    if args.len() != 2 {
         return display_info();
     }
 
-    let ref file_name = os::args()[1];
+    let ref file_name = args[1];
     let path = Path::new(file_name);
     let file = match File::open(&path) {
         Ok(f)  => f,
