@@ -2,9 +2,14 @@
 
 name = "limonite"
 version = "0.0.2"
-authors = [ "thadancardin@gmail.com",
-            "thadan64@gmail.com" ]
+authors = [
+    "thadancardin@gmail.com",
+    "thadan64@gmail.com"
+]
+description = "The Limonite language compiler"
+repository = "https://github.com/TheDan64/limonite.git"
 
 [[bin]]
 
 name = "limonite"
+path = "src/main.rs"
