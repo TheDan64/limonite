@@ -17,7 +17,7 @@ fn display_info() {
 }
 
 fn main() {
-    let args: Vec<String> = env::args().map(|x| x.into_string().unwrap()).collect();
+    let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
         return display_info();
