@@ -18,7 +18,7 @@ pub enum Expr {
 	// Fn call with args.
 	// ToDo: Vec<Option<Expr>> for optional args?
 	FnCallExpr(Box<Expr>, Vec<Expr>),
-	// Decale a function with a name, args, and expr
+	// Declare a function with a name, args, and expr
 	// ToDo: Have a Vec of a struct for optional arg values?
 	// ToDo: Does return type go here?
 	FnDeclExpr(String, Vec<String>, Box<Expr>),
