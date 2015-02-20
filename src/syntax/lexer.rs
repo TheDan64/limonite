@@ -55,6 +55,7 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some('.') |
             Some(',') |
             Some(':') |
+            Some('^') |
             Some('~') |
             Some('=') => {
                 let punc = self.consume_char().unwrap().to_string();

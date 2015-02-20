@@ -29,6 +29,9 @@ pub enum Punctuations {
     // ':'
     Colon,
 
+    // '^'
+    Caret,
+
     // '>'
     GreaterThan,
 
@@ -95,6 +98,7 @@ impl FromStr for Punctuations {
             "."  => Ok(Punctuations::Period),
             ","  => Ok(Punctuations::Comma),
             ":"  => Ok(Punctuations::Colon),
+            "^"  => Ok(Punctuations::Caret),
             ">"  => Ok(Punctuations::GreaterThan),
             "<"  => Ok(Punctuations::LessThan),
             "+"  => Ok(Punctuations::Plus),

@@ -4,27 +4,28 @@ use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::{EOF, Identifier, Keyword, Punctuation};
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
+use syntax::ast::expr::Expr;
 
 pub struct Error {
     pub line: u64,
     pub column: u64,
-    pub messgage: String,
+    pub message: String,
 }
 
 #[allow(dead_code)]
-enum Expr {
+enum OldExpr {
     Integer(IntegerAST),
     UInteger(UIntegerAST),
     Float(FloatAST),
 }
 
-impl Expr {
+impl OldExpr {
     #[allow(unused_variables)]
     fn gen_code(&self) -> () {
         match *self {
-            Expr::Integer(ref node) => (),
-            Expr::UInteger(ref node) => (),
-            Expr::Float(ref node) => (),
+            OldExpr::Integer(ref node) => (),
+            OldExpr::UInteger(ref node) => (),
+            OldExpr::Float(ref node) => (),
         }
     }
 }
@@ -69,7 +70,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Error {
             line: 1,
             column: 1,
-            messgage: msg.to_string(),
+            message: msg.to_string(),
         }
     }
 
@@ -88,7 +89,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Ensures that the indentation matches the current level of indentation
     #[allow(dead_code)]
-    fn check_indentation(&self, depth: u64) -> Result<Option<Expr>, Error> {
+    fn check_indentation(&self, depth: u64) -> Result<Option<OldExpr>, Error> {
         if self.indentation == depth {
             return Ok(None);
         }
@@ -97,7 +98,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Parses a variable or constant declaration
     #[allow(unused_variables)]
-    fn parse_declaration(&mut self) -> Result<Option<Expr>, Error> {
+    fn parse_declaration(&mut self) -> Result<Option<OldExpr>, Error> {
         let token = self.next_token();
         match token {
             Identifier(name) => {
@@ -123,7 +124,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     // Handles top-level keywords to start parsing them
-    fn handle_keywords(&mut self, keyword: Keywords) -> Result<Option<Expr>, Error> {
+    fn handle_keywords(&mut self, keyword: Keywords) -> Result<Option<OldExpr>, Error> {
         match keyword {
             Keywords::Def => {
                 self.parse_declaration()
@@ -132,18 +133,18 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    fn parse_expression(&self) -> Result<Option<Expr>, Error> {
+    fn parse_expression(&self) -> Result<Option<OldExpr>, Error> {
         Ok(None)
     }
 
     // Parse numbers into their correct representation
     #[allow(dead_code)]
-    fn parse_number(&mut self, num: &str) -> Result<Option<Expr>, Error> {
+    fn parse_number(&mut self, num: &str) -> Result<Option<OldExpr>, Error> {
         println!("{}", num);
         let value = 0;
         // This would normally check the ending on the thing slash information
         // about the number to pick int, uint, or float
-        Ok(Some(Expr::Integer(IntegerAST { val: value })))
+        Ok(Some(OldExpr::Integer(IntegerAST { val: value })))
     }
 
     // Parse the file
@@ -153,18 +154,18 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         loop {
             // Parse the token into the next node of the AST
-            let result: Result<Option<Expr>, Error>;
+            let result: Result<Option<OldExpr>, Error>;
 
             result = match self.next_token() {
                 Keyword(keyword) => { // This is no longer compiling due to a move error
                     self.handle_keywords(keyword)
-                }
+                },
                 Identifier(repr) => {
                     self.parse_expression()
-                }
+                },
                 EOF => {
                     break
-                }
+                },
                 tok => {
                     panic!("Invalid token at the top level {:?}", tok);
                 }
@@ -177,15 +178,15 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     match value {
                         Some(node) => {
                             node.gen_code();
-                        }
+                        },
                         None => {
                         }
                     }
-                }
+                },
                 Err(e) => {
-                    panic!("Error on line: {} col: {}, {}", e.line, e.column, e.messgage);
+                    panic!("Error on line: {} col: {}, {}", e.line, e.column, e.message);
                 }
-            }
+            };
         }
     }
 }
