@@ -75,7 +75,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     fn expect_error(&self, reason: &str, expect: &str, got: &str) -> Error {
-        self.write_error(&format!("{}. Expected {}, but got {}", reason, expect, got)[])
+        self.write_error(&format!("{}. Expected {}, but got {}", reason, expect, got))
     }
 
     // Perform any necessary on-start actions
@@ -118,7 +118,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     _ => Err(self.write_error("Invalid sequence"))
                 }
             },
-            Token::Error(msg) => Err(self.write_error(&msg[])),
+            Token::Error(msg) => Err(self.write_error(&msg)),
             _ => Err(self.expect_error("", "a variable name", "something else"))
         }
     }
@@ -129,7 +129,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             Keywords::Def => {
                 self.parse_declaration()
             },
-            _ => Err(self.write_error(&format!("Unsupported keyword {:?}.", keyword)[]))
+            _ => Err(self.write_error(&format!("Unsupported keyword {:?}.", keyword)))
         }
     }
 

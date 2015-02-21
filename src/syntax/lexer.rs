@@ -60,7 +60,7 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some('=') => {
                 let punc = self.consume_char().unwrap().to_string();
 
-                self.punctuation_token(&punc[])
+                self.punctuation_token(&punc)
             },
 
             // Find multi-char(+=, -=, ..) or the single-char version
@@ -74,7 +74,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                     punc.push(self.consume_char().unwrap());
                 }   
 
-                self.punctuation_token(&punc[])
+                self.punctuation_token(&punc)
             },
 
             // Find -, -=, -> punctuation
@@ -87,7 +87,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                     _ => ()
                 }
 
-                self.punctuation_token(&punc[])
+                self.punctuation_token(&punc)
             },
 
             // Find >> and >>> comments, otherwise > or >= punctuation
@@ -248,17 +248,17 @@ impl<'a> Lexer<'a> {
              _                       => false
         });
 
-        match &ident[] {
+        match &ident[..] {
             "True"  => return BoolLiteral(true),
             "False" => return BoolLiteral(false),
             _       => ()
         };
 
-        if let Ok(key) = ident[].parse::<Keywords>() {
+        if let Ok(key) = ident.parse::<Keywords>() {
             return Keyword(key);
         }
 
-        if let Ok(t) = ident[].parse::<Types>() {
+        if let Ok(t) = ident.parse::<Types>() {
             return Type(t);
         }
 
@@ -328,9 +328,9 @@ impl<'a> Lexer<'a> {
                 'A'...'F' |
                 '_' => true,
                  _  => false
-            })[]);
+            }));
 
-            if &number[] == "0x" {
+            if &number[..] == "0x" {
                 return Error("No hexadecimal value was found.".to_string());
             }
 
@@ -341,7 +341,7 @@ impl<'a> Lexer<'a> {
                     let ch = self.consume_char().unwrap();
                     
                     match self.consume_32_64(ch) {
-                        Ok(s)    => suffix.push_str(&s[]),
+                        Ok(s)    => suffix.push_str(&s),
                         Err(err) => return Error(err)
                     };
                 },
@@ -370,9 +370,9 @@ impl<'a> Lexer<'a> {
                 '1' |
                 '_' => true,
                  _  => false
-            })[]);
+            }));
 
-            if &number[] == "0b" {
+            if &number[..] == "0b" {
                 return Error("No binary value was found.".to_string());
             }
 
@@ -383,7 +383,7 @@ impl<'a> Lexer<'a> {
                     let ch = self.consume_char().unwrap();
 
                     match self.consume_32_64(ch) {
-                        Ok(s)    => suffix.push_str(&s[]),
+                        Ok(s)    => suffix.push_str(&s),
                         Err(err) => return Error(err)
                     };
                 },
@@ -407,7 +407,7 @@ impl<'a> Lexer<'a> {
                 '0'...'9' |
                 '_' => true,
                  _  => false
-            })[]);
+            }));
 
             match self.next_char() {
                 // Float decimal point:
@@ -421,9 +421,9 @@ impl<'a> Lexer<'a> {
                     });
 
                     // Check if no decimal values were found
-                    match &fractional[] {
+                    match &fractional[..] {
                         "" => return Error("Invalid floating point number.".to_string()),
-                        _  => number.push_str(&fractional[])
+                        _  => number.push_str(&fractional)
                     }
 
                     // Find float suffixes
@@ -432,7 +432,7 @@ impl<'a> Lexer<'a> {
                             let ch = self.consume_char().unwrap();
 
                             match self.consume_32_64(ch) {
-                                Ok(s)    => suffix.push_str(&s[]),
+                                Ok(s)    => suffix.push_str(&s),
                                 Err(err) => return Error(err)
                             };
                         },
@@ -456,7 +456,7 @@ impl<'a> Lexer<'a> {
                     let ch = self.consume_char().unwrap();
                     
                     match self.consume_32_64(ch) {
-                        Ok(s)    => suffix.push_str(&s[]),
+                        Ok(s)    => suffix.push_str(&s),
                         Err(err) => return Error(err)
                     };
                 },
@@ -474,7 +474,7 @@ impl<'a> Lexer<'a> {
             };
         }
 
-        Numeric(number, suffix[].parse::<Types>().ok())
+        Numeric(number, suffix.parse::<Types>().ok())
      }
 
     fn consume_comment(&mut self) -> Token {
@@ -486,7 +486,7 @@ impl<'a> Lexer<'a> {
         match self.next_char() {
             // Multiline comments must end in <<< else error
             Some('>') => {
-                let mut sequence = 0us;
+                let mut sequence = 0usize;
 
                 // Consume 3rd '>'
                 self.consume_char();
@@ -504,7 +504,7 @@ impl<'a> Lexer<'a> {
                         sequence = 0;
                         true
                     }
-                })[]);
+                }));
 
                 // Should be able to consume the last <
                 match self.consume_char() {
@@ -522,7 +522,7 @@ impl<'a> Lexer<'a> {
                 result.push_str(&self.consume_while(&mut |ch| match ch {
                     '\n' => false,
                     _ => true
-                })[]);
+                }));
             },
 
             // Single line comment w/ EOF at start should be valid:
@@ -533,7 +533,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn consume_tabs(&mut self) -> Token {
-        let mut count = 0us;
+        let mut count = 0usize;
 
         // Consume the newline token, count tabs
         self.consume_char();
