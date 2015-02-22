@@ -81,10 +81,9 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some('-') => {
                 let mut punc = self.consume_char().unwrap().to_string();
 
-                // ToDo: Change this to if let?
-                match self.next_char() {
-                    Some('>') | Some('=') => punc.push(self.consume_char().unwrap()),
-                    _ => ()
+                // = and > are adjacent chars, provides a nice if let:
+                if let Some("="...">") = self.next_char() {
+                    punc.push(self.consume_char().unwrap())
                 }
 
                 self.punctuation_token(&punc)
@@ -154,7 +153,7 @@ impl<'a> Lexer<'a> {
     pub fn get_line(&mut self, line: usize) -> Option<&str> {
         match line {
             // Out of bounds
-            l if l < 1 => None,
+            l if l == 0 => None,
             l if l > self.lines.len() => None,
 
             // Return the line
