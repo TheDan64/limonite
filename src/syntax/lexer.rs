@@ -82,7 +82,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                 let mut punc = self.consume_char().unwrap().to_string();
 
                 // = and > are adjacent chars, provides a nice if let:
-                if let Some("="...">") = self.next_char() {
+                if let Some('='...'>') = self.next_char() {
                     punc.push(self.consume_char().unwrap())
                 }
 
@@ -149,7 +149,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    // get_line takes a line number(1..self.lines.len()), not an index (0..self.lines.len()-1)
+    // get_line takes a line number(1...self.lines.len()), not an index (0...self.lines.len()-1)
     pub fn get_line(&mut self, line: usize) -> Option<&str> {
         match line {
             // Out of bounds
