@@ -1,12 +1,12 @@
 use std::string::String;
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Token;
-use syntax::core::tokens::Token::{EOF, Identifier, Keyword, Punctuation};
+use syntax::core::tokens::Token::*;
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
 use syntax::ast::expr::Expr;
 
-pub struct Error {
+pub struct ErrorMsg {
     pub line: u64,
     pub column: u64,
     pub message: String,
@@ -66,15 +66,15 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Create an error from the current lexer's
     // state, and a message
-    fn write_error(&self, msg: &str) -> Error {
-        Error {
+    fn write_error(&self, msg: &str) -> ErrorMsg {
+        ErrorMsg {
             line: 1,
             column: 1,
             message: msg.to_string(),
         }
     }
 
-    fn expect_error(&self, reason: &str, expect: &str, got: &str) -> Error {
+    fn expect_error(&self, reason: &str, expect: &str, got: &str) -> ErrorMsg {
         self.write_error(&format!("{}. Expected {}, but got {}", reason, expect, got))
     }
 
@@ -89,7 +89,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Ensures that the indentation matches the current level of indentation
     #[allow(dead_code)]
-    fn check_indentation(&self, depth: u64) -> Result<Option<OldExpr>, Error> {
+    fn check_indentation(&self, depth: u64) -> Result<Option<OldExpr>, ErrorMsg> {
         if self.indentation == depth {
             return Ok(None);
         }
@@ -98,7 +98,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Parses a variable or constant declaration
     #[allow(unused_variables)]
-    fn parse_declaration(&mut self) -> Result<Option<OldExpr>, Error> {
+    fn parse_declaration(&mut self) -> Result<Option<OldExpr>, ErrorMsg> {
         let token = self.next_token();
         match token {
             Identifier(name) => {
@@ -114,17 +114,17 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     // }
                     Punctuation(Punctuations::Equals) => {
                         self.parse_expression()
-                    }
+                    },
                     _ => Err(self.write_error("Invalid sequence"))
                 }
             },
-            Token::Error(msg) => Err(self.write_error(&msg)),
+            Error(msg) => Err(self.write_error(&msg)),
             _ => Err(self.expect_error("", "a variable name", "something else"))
         }
     }
 
     // Handles top-level keywords to start parsing them
-    fn handle_keywords(&mut self, keyword: Keywords) -> Result<Option<OldExpr>, Error> {
+    fn handle_keywords(&mut self, keyword: Keywords) -> Result<Option<OldExpr>, ErrorMsg> {
         match keyword {
             Keywords::Def => {
                 self.parse_declaration()
@@ -133,13 +133,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    fn parse_expression(&self) -> Result<Option<OldExpr>, Error> {
+    fn parse_expression(&self) -> Result<Option<OldExpr>, ErrorMsg> {
         Ok(None)
     }
 
     // Parse numbers into their correct representation
     #[allow(dead_code)]
-    fn parse_number(&mut self, num: &str) -> Result<Option<OldExpr>, Error> {
+    fn parse_number(&mut self, num: &str) -> Result<Option<OldExpr>, ErrorMsg> {
         println!("{}", num);
         let value = 0;
         // This would normally check the ending on the thing slash information
@@ -154,20 +154,49 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         loop {
             // Parse the token into the next node of the AST
-            let result: Result<Option<OldExpr>, Error>;
+            let result: Result<Option<OldExpr>, ErrorMsg>;
+            let token = self.next_token();
 
-            result = match self.next_token() {
-                Keyword(keyword) => { // This is no longer compiling due to a move error
-                    self.handle_keywords(keyword)
+            // Debug:
+            println!("{:?}", token);
+
+            result = match token {
+                Numeric(string, type_) => {
+                    panic!("Unimplemented top level token 'Numeric'");
                 },
                 Identifier(repr) => {
                     self.parse_expression()
                 },
-                EOF => {
-                    break
+                Indent(depth) => {
+                    panic!("Unimplemented top level token 'Indent'");
                 },
-                tok => {
-                    panic!("Invalid token at the top level {:?}", tok);
+                BoolLiteral(lit) => {
+                    panic!("Unimplemented top level token 'BoolLiteral'");
+                },
+                CharLiteral(lit) => {
+                    panic!("Unimplemented top level token 'CharLiteral'");
+                },
+                StrLiteral(lit) => {
+                    panic!("Unimplemented top level token 'StrLiteral'");
+                },
+                Keyword(keyword) => {
+                    self.handle_keywords(keyword)
+                },
+                Punctuation(punc) => {
+                    panic!("Unimplemented top level token 'Punctuation'");
+                },
+                Comment(text) => {
+                    // ToDo: Docstring, else ignore
+                    Ok(None)
+                },
+                Error(err) => {
+                    panic!("Unimplemented top level token 'Error'");
+                },
+                Type(type_) => {
+                    panic!("Unimplemented top level token 'Type'");
+                },
+                EOF => {
+                    Ok(None)
                 }
             };
 
