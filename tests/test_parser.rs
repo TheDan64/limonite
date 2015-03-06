@@ -29,6 +29,10 @@ impl Tokenizer for MockLexer {
             None => EOF,
         }
     }
+
+    fn get_error_pos(&self) -> (usize, usize, usize, usize) {
+        (1, 1, 1, 1)
+    }
 }
 
 #[test]
