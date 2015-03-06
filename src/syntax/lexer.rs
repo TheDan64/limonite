@@ -6,6 +6,7 @@ use syntax::core::punctuation::Punctuations;
 
 pub trait Tokenizer {
     fn get_tok(&mut self) -> Token;
+    fn get_error_pos(&self) -> (usize, usize, usize, usize);
 }
 
 // A Lexer that keeps track of the current line and column position
@@ -133,6 +134,13 @@ impl<'a> Tokenizer for Lexer<'a> {
 
         tok
     }
+
+    fn get_error_pos(&self) -> (usize, usize, usize, usize) {
+        let (start_line, start_column) = self.error_start;
+        let (end_line, end_column) = self.error_end;
+
+        (start_line, start_column, end_line, end_column)
+    }
 }
 
 impl<'a> Lexer<'a> {
@@ -159,13 +167,6 @@ impl<'a> Lexer<'a> {
             // Return the line
             _ => Some(self.lines[line - 1])
         }
-    }
-
-    pub fn get_error_pos(&self) -> (usize, usize, usize, usize) {
-        let (start_line, start_column) = self.error_start;
-        let (end_line, end_column) = self.error_end;
-
-        (start_line, start_column, end_line, end_column)
     }
 
     fn current_slice(&self) -> &str {

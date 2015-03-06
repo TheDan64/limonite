@@ -7,8 +7,8 @@ use syntax::core::punctuation::Punctuations;
 use syntax::ast::expr::Expr;
 
 pub struct ErrorMsg {
-    pub line: u64,
-    pub column: u64,
+    pub line: usize,
+    pub column: usize,
     pub message: String,
 }
 
@@ -67,9 +67,11 @@ impl<TokType: Tokenizer> Parser<TokType> {
     // Create an error from the current lexer's
     // state, and a message
     fn write_error(&self, msg: &str) -> ErrorMsg {
+        let (start_line, start_column, _, _) = self.lexer.get_error_pos();
+
         ErrorMsg {
-            line: 1,
-            column: 1,
+            line: start_line,
+            column: start_column,
             message: msg.to_string(),
         }
     }
@@ -190,7 +192,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     Ok(None)
                 },
                 Error(err) => {
-                    panic!("Unimplemented top level token 'Error'");
+                    Err(self.write_error(&err))
                 },
                 Type(type_) => {
                     panic!("Unimplemented top level token 'Type'");
