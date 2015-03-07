@@ -170,7 +170,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     self.parse_expression()
                 },
                 Indent(depth) => {
-                    panic!("Unimplemented top level token 'Indent'");
+                    // ToDo: Keep track of indentation level when preceeding a statement
+                    Ok(None)
                 },
                 BoolLiteral(lit) => {
                     panic!("Unimplemented top level token 'BoolLiteral'");
