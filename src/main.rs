@@ -1,6 +1,6 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
-#![feature(io, fs, path)]
+#![feature(io, path)]
 
 use std::env;
 use std::io::{BufReader, Read};
