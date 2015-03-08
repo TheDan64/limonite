@@ -49,6 +49,7 @@ struct FloatAST {
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     indentation: u64,
+    run_codegen: bool
 }
 
 impl<TokType: Tokenizer> Parser<TokType> {
@@ -56,6 +57,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Parser {
             lexer: tokenizer,
             indentation: 0,
+            run_codegen: true
         }
     }
 
@@ -209,7 +211,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 Ok(value) => {
                     match value {
                         Some(node) => {
-                            node.gen_code();
+//                            node.gen_code();
                         },
                         None => {
                         }

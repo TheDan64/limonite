@@ -3,7 +3,7 @@ use syntax::ast::op::*;
 
 #[derive(Debug, PartialEq)]
 pub struct ExprWrapper {
-	expr: Expr,
+	expr: Box<Expr>,
 	start_line: usize,
 	start_column: usize,
 	end_line: usize,
@@ -12,7 +12,7 @@ pub struct ExprWrapper {
 
 impl ExprWrapper {
 	// Create an associated expression with start and end positions
-	pub fn new(expr: Expr, startl: usize, startc: usize, endl: usize, endc: usize) -> ExprWrapper {
+	pub fn new(expr: Box<Expr>, startl: usize, startc: usize, endl: usize, endc: usize) -> ExprWrapper {
 		ExprWrapper {
 			expr: expr,
 			start_line: startl,
@@ -26,24 +26,24 @@ impl ExprWrapper {
 #[derive(Debug, PartialEq)]
 pub enum Expr {
 	// Operations between two expressions
-	NumOpExpr(NumOp, Box<ExprWrapper>, Box<ExprWrapper>),
+	NumOpExpr(NumOp, ExprWrapper, ExprWrapper),
 	// Operation on a single expression
-	UnaryOpExpr(UnaryOp, Box<ExprWrapper>),
+	UnaryOpExpr(UnaryOp, ExprWrapper),
 	// Constants such as numbers and strings
 	ConstExpr(Const),
 	// Run expression while conditional is true
-	WhileLoopExpr(Box<ExprWrapper>, Box<ExprWrapper>),
+	WhileLoopExpr(ExprWrapper, ExprWrapper),
 	// Run expression if condition true, optional elif, else
-	IfExpr(Box<ExprWrapper>, Box<ExprWrapper>, Option<Box<ExprWrapper>>),
+	IfExpr(ExprWrapper, ExprWrapper, Option<ExprWrapper>),
 	// Assign a value to an expression
-	AssignExpr(Box<ExprWrapper>, Box<ExprWrapper>),
+	AssignExpr(ExprWrapper, ExprWrapper),
 	// Fn call with args.
 	// ToDo: Vec<Option<ExprWrapper>> for optional args?
-	FnCallExpr(Box<ExprWrapper>, Vec<ExprWrapper>),
+	FnCallExpr(ExprWrapper, Vec<ExprWrapper>),
 	// Declare a function with a name, args, and expr
 	// ToDo: Have a Vec of a struct for optional arg values?
 	// ToDo: Does return type go here?
-	FnDeclExpr(String, Vec<String>, Box<ExprWrapper>),
+	FnDeclExpr(String, Vec<String>, ExprWrapper),
 	// Run consecutive expressions
 	BlockExpr(Vec<ExprWrapper>),
 	// Variable name and expression.
