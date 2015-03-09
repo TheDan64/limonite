@@ -4,9 +4,9 @@ use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::*;
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
-use syntax::ast::expr::Expr;
+use syntax::ast::expr::{Expr, ExprWrapper};
 
-pub struct ErrorMsg {
+pub struct ErrorWrapper {
     pub line: usize,
     pub column: usize,
     pub message: String,
@@ -20,7 +20,6 @@ enum OldExpr {
 }
 
 impl OldExpr {
-    #[allow(unused_variables)]
     fn gen_code(&self) -> () {
         match *self {
             OldExpr::Integer(ref node) => (),
@@ -49,15 +48,20 @@ struct FloatAST {
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     indentation: u64,
-    run_codegen: bool
+    run_codegen: bool,
+    ast_root: ExprWrapper
 }
 
 impl<TokType: Tokenizer> Parser<TokType> {
     pub fn new(tokenizer: TokType) -> Parser<TokType> {
+        let expr = Box::new(Expr::BlockExpr(Vec::new()));
+        let wrapper = ExprWrapper::new(expr, 0, 0, 0, 0);
+
         Parser {
             lexer: tokenizer,
             indentation: 0,
-            run_codegen: true
+            run_codegen: true,
+            ast_root: wrapper
         }
     }
 
@@ -68,18 +72,26 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Create an error from the current lexer's
     // state, and a message
-    fn write_error(&self, msg: &str) -> ErrorMsg {
+    fn write_error(&mut self, msg: &str) {
         let (start_line, start_column, _, _) = self.lexer.get_error_pos();
+        
+        self.run_codegen = false;
 
-        ErrorMsg {
-            line: start_line,
-            column: start_column,
-            message: msg.to_string(),
+        println!("Error on line: {} col: {}, {}", start_line, start_column, msg);
+
+        // Skip to the end of the line (at Indent token) and allow parsing to continue
+        loop {
+            // Note: This consumes the Indent token, which probably isnt ideal.
+            match self.next_token() {
+                Indent(_) => break,
+                EOF => break,
+                _ => ()
+            }
         }
     }
 
-    fn expect_error(&self, reason: &str, expect: &str, got: &str) -> ErrorMsg {
-        self.write_error(&format!("{}. Expected {}, but got {}", reason, expect, got))
+    fn expect_error(&mut self, reason: &str, expect: &str, got: &str) {
+        self.write_error(&format!("{}. Expected {}, but got {}", reason, expect, got));
     }
 
     // Perform any necessary on-start actions
@@ -93,20 +105,24 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Ensures that the indentation matches the current level of indentation
     #[allow(dead_code)]
-    fn check_indentation(&self, depth: u64) -> Result<Option<OldExpr>, ErrorMsg> {
+    fn check_indentation(&mut self, depth: u64) -> Option<OldExpr> {
         if self.indentation == depth {
-            return Ok(None);
+            return None;
         }
-        Err(self.write_error("Incorrect indentation level"))
+        
+        self.write_error("Incorrect indentation level");
+
+        None
     }
 
     // Parses a variable or constant declaration
     #[allow(unused_variables)]
-    fn parse_declaration(&mut self) -> Result<Option<OldExpr>, ErrorMsg> {
+    fn parse_declaration(&mut self) -> Option<OldExpr> {
         let token = self.next_token();
         match token {
             Identifier(name) => {
                 let token1 = self.next_token();
+
                 match token1 {
                     // Punctuation(punc) => {
                     //     match punc {
@@ -117,33 +133,38 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     //     }
                     // }
                     Punctuation(Punctuations::Equals) => {
-                        self.parse_expression()
+                        return self.parse_expression();
                     },
-                    _ => Err(self.write_error("Invalid sequence"))
+                    _ => self.write_error("Invalid sequence")
                 }
             },
-            Error(msg) => Err(self.write_error(&msg)),
-            _ => Err(self.expect_error("", "a variable name", "something else"))
+            Error(msg) => self.write_error(&msg),
+            _ => self.expect_error("", "a variable name", "something else")
         }
+
+        None
     }
 
     // Handles top-level keywords to start parsing them
-    fn handle_keywords(&mut self, keyword: Keywords) -> Result<Option<OldExpr>, ErrorMsg> {
+    fn handle_keywords(&mut self, keyword: Keywords) -> Option<OldExpr> {
         match keyword {
             Keywords::Def => {
                 self.parse_declaration()
             },
-            _ => Err(self.write_error(&format!("Unsupported keyword {:?}.", keyword)))
+            _ => {
+                self.write_error(&format!("Unsupported keyword {:?}.", keyword));
+                None
+            }
         }
     }
 
-    fn parse_expression(&self) -> Result<Option<OldExpr>, ErrorMsg> {
-        Ok(None)
+    fn parse_expression(&self) -> Option<OldExpr> {
+        None
     }
 
     // Parse numbers into their correct representation
     #[allow(dead_code)]
-    fn parse_number(&mut self, num: &str) -> Result<Option<OldExpr>, ErrorMsg> {
+    fn parse_number(&mut self, num: &str) -> Result<Option<OldExpr>, ErrorWrapper> {
         println!("{}", num);
         let value = 0;
         // This would normally check the ending on the thing slash information
@@ -156,24 +177,24 @@ impl<TokType: Tokenizer> Parser<TokType> {
     pub fn parse(&mut self) {
         self.start();
 
+        // Generate AST
         loop {
             // Parse the token into the next node of the AST
-            let result: Result<Option<OldExpr>, ErrorMsg>;
             let token = self.next_token();
 
             // Debug:
             println!("{:?}", token);
 
-            result = match token {
+            match token {
                 Numeric(string, type_) => {
                     panic!("Unimplemented top level token 'Numeric'");
                 },
                 Identifier(repr) => {
-                    self.parse_expression()
+//                    self.parse_expression()
+                    panic!("Unimplemented top level token 'Identifier'");
                 },
                 Indent(depth) => {
                     // ToDo: Keep track of indentation level when preceeding a statement
-                    Ok(None)
                 },
                 BoolLiteral(lit) => {
                     panic!("Unimplemented top level token 'BoolLiteral'");
@@ -185,42 +206,44 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     panic!("Unimplemented top level token 'StrLiteral'");
                 },
                 Keyword(keyword) => {
-                    self.handle_keywords(keyword)
+//                    self.handle_keywords(keyword)
+                    panic!("Unimplemented top level token 'Keyword'")
                 },
                 Punctuation(punc) => {
                     panic!("Unimplemented top level token 'Punctuation'");
                 },
                 Comment(text) => {
                     // ToDo: Docstring, else ignore
-                    Ok(None)
                 },
                 Error(err) => {
-                    Err(self.write_error(&err))
+                    self.write_error(&err);
                 },
                 Type(type_) => {
                     panic!("Unimplemented top level token 'Type'");
                 },
-                EOF => {
-                    Ok(None)
-                }
+                EOF => ()
             };
 
             // `result` can either raise an error or not return an AST,
             // deal with its potential values
-            match result {
-                Ok(value) => {
-                    match value {
-                        Some(node) => {
-//                            node.gen_code();
-                        },
-                        None => {
-                        }
-                    }
-                },
-                Err(e) => {
-                    panic!("Error on line: {} col: {}, {}", e.line, e.column, e.message);
-                }
-            };
+//             match result {
+//                 Ok(value) => {
+//                     match value {
+//                         Some(node) => {
+// //                            node.gen_code();
+//                         },
+//                         None => {
+//                         }
+//                     }
+//                 },
+//                 Err(e) => {
+//                     panic!("Error on line: {} col: {}, {}", e.line, e.column, e.message);
+//                 }
+//             };
         }
+
+        // Do semantic analysis on AST
+
+        // Run codegen if self.run_codegen == true (set to false when errors found)
     }
 }
