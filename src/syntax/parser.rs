@@ -29,7 +29,7 @@ struct FloatAST {
 
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
-    indentation: u64,
+    indentation: usize,
     run_codegen: bool,
     ast_root: ExprWrapper
 }
@@ -87,7 +87,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Ensures that the indentation matches the current level of indentation
     #[allow(dead_code)]
-    fn check_indentation(&mut self, depth: u64) -> Option<OldExpr> {
+    fn check_indentation(&mut self, depth: usize) -> Option<OldExpr> {
         if self.indentation == depth {
             return None;
         }
@@ -127,10 +127,29 @@ impl<TokType: Tokenizer> Parser<TokType> {
         None
     }
 
+    fn expect_token(&mut self, token: Token) -> bool {
+        if self.next_token() != token {
+            self.expect_error("", "", "");
+
+            return false;            
+        }
+
+        true
+    }
+
     // Parses a print function/statement
     fn parse_print_fn(&mut self) -> Option<ExprWrapper> {
+        if !self.expect_token(Punctuation(Punctuations::ParenOpen)) {
+            return None;
+        }
 
+        // Parse 1+ args here
 
+        if !self.expect_token(Punctuation(Punctuations::ParenClose)) {
+            return None;
+        }
+
+        // Return the ast of the print function
         None
     }
 
@@ -179,11 +198,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
             match token {
                 Numeric(string, type_) => {
-                    // If we had an intepreter mode, just print the value.
                     panic!("Unimplemented top level token 'Numeric'");
                 },
                 Identifier(repr) => {
-                    // Interpreter: print the value or representation
 //                    self.parse_expression()
                     panic!("Unimplemented top level token 'Identifier'");
                 },
@@ -204,7 +221,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 Keyword(keyword) => {
                     if let Some(exprwrapper) = self.handle_keywords(keyword) {
                         if let &mut Expr::BlockExpr(ref mut vec) = self.ast_root.get_expr() {
-                            vec.push(exprwrapper)
+                            vec.push(exprwrapper);
                         }
                     }
                 },
