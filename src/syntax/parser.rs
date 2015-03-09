@@ -131,7 +131,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         if self.next_token() != token {
             self.expect_error("", "", "");
 
-            return false;            
+            return false;
         }
 
         true
