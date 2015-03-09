@@ -1,32 +1,15 @@
-use std::string::String;
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::*;
 use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
-use syntax::ast::expr::{Expr, ExprWrapper};
-
-pub struct ErrorWrapper {
-    pub line: usize,
-    pub column: usize,
-    pub message: String,
-}
+use syntax::ast::expr::*;
 
 #[allow(dead_code)]
 enum OldExpr {
     Integer(IntegerAST),
     UInteger(UIntegerAST),
     Float(FloatAST),
-}
-
-impl OldExpr {
-    fn gen_code(&self) -> () {
-        match *self {
-            OldExpr::Integer(ref node) => (),
-            OldExpr::UInteger(ref node) => (),
-            OldExpr::Float(ref node) => (),
-        }
-    }
 }
 
 #[allow(dead_code)]
@@ -44,7 +27,6 @@ struct FloatAST {
     val: f64,
 }
 
-#[allow(dead_code)]
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     indentation: u64,
@@ -145,11 +127,21 @@ impl<TokType: Tokenizer> Parser<TokType> {
         None
     }
 
+    // Parses a print function/statement
+    fn parse_print_fn(&mut self) -> Option<ExprWrapper> {
+
+
+        None
+    }
+
     // Handles top-level keywords to start parsing them
-    fn handle_keywords(&mut self, keyword: Keywords) -> Option<OldExpr> {
+    fn handle_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
         match keyword {
-            Keywords::Def => {
-                self.parse_declaration()
+//            Keywords::Def => {
+//                self.parse_declaration()
+//            },
+            Keywords::Print => {
+                self.parse_print_fn()
             },
             _ => {
                 self.write_error(&format!("Unsupported keyword {:?}.", keyword));
@@ -164,12 +156,12 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Parse numbers into their correct representation
     #[allow(dead_code)]
-    fn parse_number(&mut self, num: &str) -> Result<Option<OldExpr>, ErrorWrapper> {
+    fn parse_number(&mut self, num: &str) -> Option<OldExpr> {
         println!("{}", num);
         let value = 0;
         // This would normally check the ending on the thing slash information
         // about the number to pick int, uint, or float
-        Ok(Some(OldExpr::Integer(IntegerAST { val: value })))
+        Some(OldExpr::Integer(IntegerAST { val: value }))
     }
 
     // Parse the file
@@ -187,14 +179,18 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
             match token {
                 Numeric(string, type_) => {
+                    // If we had an intepreter mode, just print the value.
                     panic!("Unimplemented top level token 'Numeric'");
                 },
                 Identifier(repr) => {
+                    // Interpreter: print the value or representation
 //                    self.parse_expression()
                     panic!("Unimplemented top level token 'Identifier'");
                 },
                 Indent(depth) => {
                     // ToDo: Keep track of indentation level when preceeding a statement
+                    // Might need look ahead to see if next token is Comment or Indent
+                    // which means you didn't actually dedent.
                 },
                 BoolLiteral(lit) => {
                     panic!("Unimplemented top level token 'BoolLiteral'");
@@ -206,8 +202,11 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     panic!("Unimplemented top level token 'StrLiteral'");
                 },
                 Keyword(keyword) => {
-//                    self.handle_keywords(keyword)
-                    panic!("Unimplemented top level token 'Keyword'")
+                    if let Some(exprwrapper) = self.handle_keywords(keyword) {
+                        if let &mut Expr::BlockExpr(ref mut vec) = self.ast_root.get_expr() {
+                            vec.push(exprwrapper)
+                        }
+                    }
                 },
                 Punctuation(punc) => {
                     panic!("Unimplemented top level token 'Punctuation'");
@@ -221,29 +220,16 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 Type(type_) => {
                     panic!("Unimplemented top level token 'Type'");
                 },
-                EOF => ()
+                EOF => break
             };
-
-            // `result` can either raise an error or not return an AST,
-            // deal with its potential values
-//             match result {
-//                 Ok(value) => {
-//                     match value {
-//                         Some(node) => {
-// //                            node.gen_code();
-//                         },
-//                         None => {
-//                         }
-//                     }
-//                 },
-//                 Err(e) => {
-//                     panic!("Error on line: {} col: {}, {}", e.line, e.column, e.message);
-//                 }
-//             };
         }
 
         // Do semantic analysis on AST
 
-        // Run codegen if self.run_codegen == true (set to false when errors found)
+
+        // Run codegen when no errors have been found
+        if self.run_codegen {
+            self.ast_root.gen_code();
+        }
     }
 }

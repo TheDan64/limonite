@@ -1,6 +1,11 @@
 use syntax::ast::consts::*;
 use syntax::ast::op::*;
 
+pub trait CodeGen {
+	// Not sure if this should return anything
+	fn gen_code(&self);
+}
+
 #[derive(Debug, PartialEq)]
 pub struct ExprWrapper {
 	expr: Box<Expr>,
@@ -8,6 +13,12 @@ pub struct ExprWrapper {
 	start_column: usize,
 	end_line: usize,
 	end_column: usize
+}
+
+impl CodeGen for ExprWrapper {
+	fn gen_code(&self) {
+		self.expr.gen_code();
+	}
 }
 
 impl ExprWrapper {
@@ -20,6 +31,10 @@ impl ExprWrapper {
 			end_line: endl,
 			end_column: endc
 		}
+	}
+
+	pub fn get_expr(&mut self) -> &mut Expr {
+		&mut *self.expr
 	}
 }
 
@@ -54,4 +69,18 @@ pub enum Expr {
 	IdentExpr(String)
 
 	// A lot more to come
+}
+
+impl CodeGen for Expr {
+	fn gen_code(&self) {
+		match *self {
+			Expr::BlockExpr(ref vec) => {
+				for expr in vec {
+					expr.gen_code();
+				}
+			},
+			// Codegen for others:
+			_ => ()
+		}
+	}
 }
