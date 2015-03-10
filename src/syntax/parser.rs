@@ -5,28 +5,6 @@ use syntax::core::keywords::Keywords;
 use syntax::core::punctuation::Punctuations;
 use syntax::ast::expr::*;
 
-#[allow(dead_code)]
-enum OldExpr {
-    Integer(IntegerAST),
-    UInteger(UIntegerAST),
-    Float(FloatAST),
-}
-
-#[allow(dead_code)]
-struct IntegerAST {
-    val: i64,
-}
-
-#[allow(dead_code)]
-struct UIntegerAST {
-    val: u64,
-}
-
-#[allow(dead_code)]
-struct FloatAST {
-    val: f64,
-}
-
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     indentation: usize,
@@ -87,7 +65,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Ensures that the indentation matches the current level of indentation
     #[allow(dead_code)]
-    fn check_indentation(&mut self, depth: usize) -> Option<OldExpr> {
+    fn check_indentation(&mut self, depth: usize) -> Option<ExprWrapper> {
         if self.indentation == depth {
             return None;
         }
@@ -99,7 +77,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Parses a variable or constant declaration
     #[allow(unused_variables)]
-    fn parse_declaration(&mut self) -> Option<OldExpr> {
+    #[allow(dead_code)]
+    fn parse_declaration(&mut self) -> Option<ExprWrapper> {
         let token = self.next_token();
         match token {
             Identifier(name) => {
@@ -169,18 +148,20 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    fn parse_expression(&self) -> Option<OldExpr> {
+    #[allow(dead_code)]
+    fn parse_expression(&self) -> Option<ExprWrapper> {
         None
     }
 
     // Parse numbers into their correct representation
+    #[allow(unused_variables)]
     #[allow(dead_code)]
-    fn parse_number(&mut self, num: &str) -> Option<OldExpr> {
+    fn parse_number(&mut self, num: &str) -> Option<ExprWrapper> {
         println!("{}", num);
         let value = 0;
         // This would normally check the ending on the thing slash information
         // about the number to pick int, uint, or float
-        Some(OldExpr::Integer(IntegerAST { val: value }))
+        None
     }
 
     // Parse the file
