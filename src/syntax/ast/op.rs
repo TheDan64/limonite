@@ -1,17 +1,17 @@
 #[derive(Debug, PartialEq)]
-pub enum NumOp {
+pub enum InfixOp {
 	// A + B
-	NumAdd,
+	InfixAdd,
 	// A - B
-	NumSub,
+	InfixSub,
 	// A / B
-	NumDiv,
+	InfixDiv,
 	// A * B
-	NumMul,
+	InfixMul,
 	// A % B
-	NumMod,
+	InfixMod,
 	// A ^ B
-	NumPow
+	InfixPow
 }
 
 #[derive(Debug, PartialEq)]
