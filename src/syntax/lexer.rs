@@ -2,7 +2,7 @@ use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::*;
 use syntax::core::types::Types;
 use syntax::core::keywords::Keywords;
-use syntax::core::punctuation::Punctuations;
+use syntax::core::symbols::Symbols;
 
 pub trait Tokenizer {
     fn get_tok(&mut self) -> Token;
@@ -49,7 +49,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                 Error("Found an out of place tab.".to_string())
             },
             
-            // Find single-char punctuations
+            // Find single-char symbolss
             Some('(') | Some(')') |
             Some('[') | Some(']') |
             Some('{') | Some('}') |
@@ -61,7 +61,7 @@ impl<'a> Tokenizer for Lexer<'a> {
             Some('=') => {
                 let punc = self.consume_char().unwrap().to_string();
 
-                self.punctuation_token(&punc)
+                self.symbols_token(&punc)
             },
 
             // Find multi-char(+=, -=, ..) or the single-char version
@@ -75,10 +75,10 @@ impl<'a> Tokenizer for Lexer<'a> {
                     punc.push(self.consume_char().unwrap());
                 }   
 
-                self.punctuation_token(&punc)
+                self.symbols_token(&punc)
             },
 
-            // Find -, -=, -> punctuation
+            // Find -, -=, -> symbols
             Some('-') => {
                 let mut punc = self.consume_char().unwrap().to_string();
 
@@ -87,10 +87,10 @@ impl<'a> Tokenizer for Lexer<'a> {
                     punc.push(self.consume_char().unwrap())
                 }
 
-                self.punctuation_token(&punc)
+                self.symbols_token(&punc)
             },
 
-            // Find >> and >>> comments, otherwise > or >= punctuation
+            // Find >> and >>> comments, otherwise > or >= symbols
             Some('>') => {
                 self.consume_char();
                 
@@ -99,13 +99,13 @@ impl<'a> Tokenizer for Lexer<'a> {
                     Some('=') => {
                         self.consume_char();
 
-                        self.punctuation_token(">=")
+                        self.symbols_token(">=")
                     },
-                    _ => self.punctuation_token(">")
+                    _ => self.symbols_token(">")
                 }
             },
 
-            // Find < and <= punctuation
+            // Find < and <= symbols
             Some('<') => {
                 self.consume_char();
 
@@ -113,9 +113,9 @@ impl<'a> Tokenizer for Lexer<'a> {
                     Some('=') => {
                         self.consume_char();
 
-                        self.punctuation_token("<=")
+                        self.symbols_token("<=")
                     },
-                    _ => self.punctuation_token("<")
+                    _ => self.symbols_token("<")
                 }
             },
 
@@ -220,9 +220,9 @@ impl<'a> Lexer<'a> {
         result
     }
 
-    // Single and multi char punctuations: *, -, +=, -=, ...
-    fn punctuation_token(&self, punc: &str) -> Token {
-        Punctuation(match punc.parse::<Punctuations>() {
+    // Single and multi char symbolss: *, -, +=, -=, ...
+    fn symbols_token(&self, punc: &str) -> Token {
+        Symbol(match punc.parse::<Symbols>() {
             Ok(p)  => p,
             Err(e) => panic!(e)
         })
@@ -445,7 +445,7 @@ impl<'a> Lexer<'a> {
                             return Error(err.to_string());
                         },
                         
-                        // No suffix found, can hit punctuation or other
+                        // No suffix found, can hit symbols or other
                         _ => ()
                     }
                 },
@@ -469,7 +469,7 @@ impl<'a> Lexer<'a> {
                     return Error(err.to_string());
                 },
 
-                // Presumably any other remaining char is valid, ie punctuation {,[ etc
+                // Presumably any other remaining char is valid, ie symbols {,[ etc
                 _ => ()
             };
         }

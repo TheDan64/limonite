@@ -33,6 +33,16 @@ impl ExprWrapper {
 		}
 	}
 
+	pub fn new_default(expr: Box<Expr>) -> ExprWrapper {
+		ExprWrapper {
+			expr: expr,
+			start_line: 0,
+			start_column: 0,
+			end_line: 0,
+			end_column: 0, 
+        }
+    }
+
 	pub fn get_expr(&mut self) -> &mut Expr {
 		&mut *self.expr
 	}
