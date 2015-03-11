@@ -5,7 +5,7 @@ use std::vec::IntoIter;
 use limonite::syntax::lexer::Tokenizer;
 use limonite::syntax::parser::Parser;
 use limonite::syntax::core::tokens::Token;
-use limonite::syntax::core::tokens::Token::{EOF, Identifier, Keyword, Numeric, Symbol};
+use limonite::syntax::core::tokens::Token::{EOF, Identifier, Keyword, Symbol};
 use limonite::syntax::core::keywords::Keywords;
 use limonite::syntax::core::symbols::Symbols;
 
