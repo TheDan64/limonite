@@ -106,20 +106,19 @@ impl<TokType: Tokenizer> Parser<TokType> {
         None
     }
 
-    fn expect_token(&mut self, token: &Token, nextToken: Token) -> bool {
-        if token == token {
+    fn expect_token(&self, token: &Token, next_token: Token) -> bool {
+        if *token == next_token {
             return true;
         }
-        self.expect_error("", "", "");
         return false;
     }
 
     fn collect_args(&mut self) -> Option<Vec<ExprWrapper>> {
         let mut args = Vec::new();
-        let tok = self.next_token();
         let mut seen_one_arg = false;
         println!("Before While");
-        while true {
+        loop {
+            let tok = self.next_token();
             if self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
                 println!("hit the close paren {:?}, which is {:?}", tok, Symbol(Symbols::ParenClose));
                 return Some(args);
@@ -144,14 +143,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         self.write_error(&format!("Invalid syntax."));
                         return None;
                     }
+                    seen_one_arg = true;
                     continue;
                 }
             } else {
                 return None;
             }
-            let tok = self.next_token();
         }
-        None
     }
 
     // Parses a print function/statement
@@ -162,7 +160,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
 
         println!("Before Collect");
-        let args = self.collect_args();
+        // let args = self.collect_args();
+        self.collect_args();
         return None;
         // Return the ast of the print function
     }
