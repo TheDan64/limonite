@@ -43,10 +43,16 @@ fn test_print() {
         Identifier("meow".to_string()),
         Symbol(Symbols::Comma),
         Identifier("meow".to_string()),
+        Symbol(Symbols::Comma),
+        Identifier("meow".to_string()),
         Symbol(Symbols::ParenClose),
     ]);
     let mut parser = Parser::new(lexer);
     parser.parse();
+    let ast = parser.get_ast().get_expr();
+    println!("{:?}", ast);
+
+    assert!(ast != ast);
 }
 
 #[test]

@@ -1,6 +1,7 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
-#![feature(io, path)]
+#![feature(io, path, collections, unicode)]
+#![allow(dead_code)]
 
 use std::env;
 use std::io::{BufReader, Read};
@@ -33,7 +34,6 @@ fn main() {
     };
 
     let mut input_string = String::new();
-    
     if let Err(e) = BufReader::new(file).read_to_string(&mut input_string) {
         panic!("{}", e);
     }
