@@ -49,7 +49,7 @@ impl<'a> Tokenizer for Lexer<'a> {
                 Error("Found an out of place tab.".to_string())
             },
             
-            // Find single-char symbolss
+            // Find single-char symbols
             Some('(') | Some(')') |
             Some('[') | Some(']') |
             Some('{') | Some('}') |
@@ -220,7 +220,7 @@ impl<'a> Lexer<'a> {
         result
     }
 
-    // Single and multi char symbolss: *, -, +=, -=, ...
+    // Single and multi char symbols: *, -, +=, -=, ...
     fn symbols_token(&self, punc: &str) -> Token {
         Symbol(match punc.parse::<Symbols>() {
             Ok(p)  => p,

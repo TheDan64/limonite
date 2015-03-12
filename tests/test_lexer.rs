@@ -31,6 +31,7 @@ fn test_hello_world() {
 >> Hello World!
 
 print(\"Hello World!\")";
+
     let lexer = Lexer::new(&input_string);
     let desired_output = vec![Comment(" Hello World!".to_string()), Indent(0),
                               Indent(0),
@@ -51,6 +52,7 @@ if True,
 
 	if False,
 		func2()";
+
     let lexer = Lexer::new(&input_string);
     let desired_output = vec![Comment("\n    Test of indentation and a few keywords.\n".to_string()), Indent(0),
                               Indent(0),
@@ -64,53 +66,32 @@ if True,
 }
 
 #[test]
-fn test_numerics() {
-    let input_string = ">> Valid
-        0xF3a
-        0xfffi32
-        0xfffi64
-        0xfffu32
-        0xfffu64
-        0b111
-        0b101i32
-        0b101i64
-        0b101u32
-        0b101u64
-        42
-        42i32
-        42i64
-        42u32
-        42u64
-        42.0
-        42.0f32
-        42.0f64
-        0xFFFF_FFFF
-        0b0101_0101
-        400_000
-        400_000.000_000
+fn test_valid_numerics() {
+    let input_string = "0xF3a
+0xfffi32
+0xfffi64
+0xfffu32
+0xfffu64
+0b111
+0b101i32
+0b101i64
+0b101u32
+0b101u64
+42
+42i32
+42i64
+42u32
+42u64
+42.0
+42.0f32
+42.0f64
+0xFFFF_FFFF
+0b0101_0101
+400_000
+400_000.000_000";
 
-        >> Invalid
-        0x
-        0xz
-        0xfz
-        0xfi3
-        0xfi31
-        0xfi6
-        0xfi63
-        0xfu8
-        0b
-        0ba
-        0b1a
-        0b1f
-        42f32
-        42i3
-        42i31
-        42.0f
-        42.0f3
-        42.0f31";
     let lexer = Lexer::new(&input_string);
-    let desired_output = vec![Comment(" Valid".to_string()), Indent(0),
-                              Numeric("0xF3a".to_string(), None), Indent(0),
+    let desired_output = vec![Numeric("0xF3a".to_string(), None), Indent(0),
                               Numeric("0xfff".to_string(), Some(Int32Bit)), Indent(0),
                               Numeric("0xfff".to_string(), Some(Int64Bit)), Indent(0),
                               Numeric("0xfff".to_string(), Some(UInt32Bit)), Indent(0),
@@ -131,10 +112,34 @@ fn test_numerics() {
                               Numeric("0xFFFF_FFFF".to_string(), None), Indent(0),
                               Numeric("0b0101_0101".to_string(), None), Indent(0),
                               Numeric("400_000".to_string(), None), Indent(0),
-                              Numeric("400_000.000_000".to_string(), None), Indent(0),
-                              Indent(0),
-                              Comment(" Invalid".to_string()), Indent(0),
-                              Error("No hexadecimal value was found.".to_string()), Indent(0),
+                              Numeric("400_000.000_000".to_string(), None), EOF];
+
+    cmp_tokens(lexer, desired_output);
+}
+
+#[test]
+fn test_invalid_numerics() {
+    let input_string = "0x
+0xz
+0xfz
+0xfi3
+0xfi31
+0xfi6
+0xfi63
+0xfu8
+0b
+0ba
+0b1a
+0b1f
+42f32
+42i3
+42i31
+42.0f
+42.0f3
+42.0f31";
+
+    let lexer = Lexer::new(&input_string);
+    let desired_output = vec![Error("No hexadecimal value was found.".to_string()), Indent(0),
                               Error("No hexadecimal value was found.".to_string()), Identifier("z".to_string()), Indent(0),
                               Error("Invalid suffix z. Did you mean u32, u64, i32, or i64?".to_string()), Indent(0),
                               Error("Invalid suffix i3. Did you mean i32?".to_string()), Indent(0),
@@ -159,7 +164,7 @@ fn test_numerics() {
 #[test]
 fn test_functions() {
     let input_string = "\
-    fn basic_func() -> str
+fn basic_func() -> str
 	def ch = 'g'
 	var string = \"strin\"
 
@@ -167,6 +172,7 @@ fn test_functions() {
 		string += ch
 
 	return string";
+
     let lexer = Lexer::new(&input_string);
     let desired_output = vec![Keyword(Fn), Identifier("basic_func".to_string()), Symbol(ParenOpen), Symbol(ParenClose),
                               Symbol(RightThinArrow), Type(Str), Indent(1),
