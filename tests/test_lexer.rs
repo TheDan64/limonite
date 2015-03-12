@@ -1,11 +1,9 @@
 extern crate limonite;
 
-use std::old_io::File;
-use std::old_io::BufferedReader;
 use limonite::syntax::core::keywords::Keywords::{Def, Fn, If, Is, Print, Return, Var};
-use limonite::syntax::core::punctuation::Punctuations::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
+use limonite::syntax::core::symbols::Symbols::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
 use limonite::syntax::core::tokens::Token;
-use limonite::syntax::core::tokens::Token::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Punctuation, StrLiteral, Type};
+use limonite::syntax::core::tokens::Token::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Symbol, StrLiteral, Type};
 use limonite::syntax::core::types::Types::{Float32Bit, Float64Bit, Int32Bit, Int64Bit, Str, UInt32Bit, UInt64Bit};
 use limonite::syntax::lexer::{Lexer, Tokenizer};
 
@@ -29,36 +27,87 @@ fn cmp_tokens(mut lexer: Lexer, vec: Vec<Token>) {
 
 #[test]
 fn test_hello_world() {
-    let path = Path::new("tests/lang/test_hello_world.lim");
-    let input_string = BufferedReader::new(File::open(&path)).read_to_string().unwrap();
+    let input_string = "\
+>> Hello World!
+
+print(\"Hello World!\")";
     let lexer = Lexer::new(&input_string);
     let desired_output = vec![Comment(" Hello World!".to_string()), Indent(0),
                               Indent(0),
-                              Keyword(Print), Punctuation(ParenOpen), StrLiteral("Hello World!".to_string()), Punctuation(ParenClose), EOF];
+                              Keyword(Print), Symbol(ParenOpen), StrLiteral("Hello World!".to_string()), Symbol(ParenClose), EOF];
 
     cmp_tokens(lexer, desired_output);
 }
 
 #[test]
 fn test_indentation() {
-    let path = Path::new("tests/lang/test_indentation.lim");
-    let input_string = BufferedReader::new(File::open(&path)).read_to_string().unwrap();
+    let input_string = "\
+>>>
+    Test of indentation and a few keywords.
+<<<
+
+if True,
+	func()
+
+	if False,
+		func2()";
     let lexer = Lexer::new(&input_string);
     let desired_output = vec![Comment("\n    Test of indentation and a few keywords.\n".to_string()), Indent(0),
                               Indent(0),
-                              Keyword(If), BoolLiteral(true), Punctuation(Comma), Indent(1),
-                              Identifier("func".to_string()), Punctuation(ParenOpen), Punctuation(ParenClose), Indent(0),
+                              Keyword(If), BoolLiteral(true), Symbol(Comma), Indent(1),
+                              Identifier("func".to_string()), Symbol(ParenOpen), Symbol(ParenClose), Indent(0),
                               Indent(1),
-                              Keyword(If), BoolLiteral(false), Punctuation(Comma), Indent(2),
-                              Identifier("func2".to_string()), Punctuation(ParenOpen), Punctuation(ParenClose), EOF];
+                              Keyword(If), BoolLiteral(false), Symbol(Comma), Indent(2),
+                              Identifier("func2".to_string()), Symbol(ParenOpen), Symbol(ParenClose), EOF];
 
     cmp_tokens(lexer, desired_output);
 }
 
 #[test]
 fn test_numerics() {
-    let path = Path::new("tests/lang/test_numerics.lim");
-    let input_string = BufferedReader::new(File::open(&path)).read_to_string().unwrap();
+    let input_string = ">> Valid
+        0xF3a
+        0xfffi32
+        0xfffi64
+        0xfffu32
+        0xfffu64
+        0b111
+        0b101i32
+        0b101i64
+        0b101u32
+        0b101u64
+        42
+        42i32
+        42i64
+        42u32
+        42u64
+        42.0
+        42.0f32
+        42.0f64
+        0xFFFF_FFFF
+        0b0101_0101
+        400_000
+        400_000.000_000
+
+        >> Invalid
+        0x
+        0xz
+        0xfz
+        0xfi3
+        0xfi31
+        0xfi6
+        0xfi63
+        0xfu8
+        0b
+        0ba
+        0b1a
+        0b1f
+        42f32
+        42i3
+        42i31
+        42.0f
+        42.0f3
+        42.0f31";
     let lexer = Lexer::new(&input_string);
     let desired_output = vec![Comment(" Valid".to_string()), Indent(0),
                               Numeric("0xF3a".to_string(), None), Indent(0),
@@ -109,16 +158,23 @@ fn test_numerics() {
 
 #[test]
 fn test_functions() {
-    let path = Path::new("tests/lang/test_functions.lim");
-    let input_string = BufferedReader::new(File::open(&path)).read_to_string().unwrap();
+    let input_string = "\
+    fn basic_func() -> str
+	def ch = 'g'
+	var string = \"strin\"
+
+	if ch is 'g',
+		string += ch
+
+	return string";
     let lexer = Lexer::new(&input_string);
-    let desired_output = vec![Keyword(Fn), Identifier("basic_func".to_string()), Punctuation(ParenOpen), Punctuation(ParenClose),
-                              Punctuation(RightThinArrow), Type(Str), Indent(1),
-                              Keyword(Def), Identifier("ch".to_string()), Punctuation(Equals), CharLiteral('g'), Indent(1),
-                              Keyword(Var), Identifier("string".to_string()), Punctuation(Equals), StrLiteral("strin".to_string()), Indent(0),
+    let desired_output = vec![Keyword(Fn), Identifier("basic_func".to_string()), Symbol(ParenOpen), Symbol(ParenClose),
+                              Symbol(RightThinArrow), Type(Str), Indent(1),
+                              Keyword(Def), Identifier("ch".to_string()), Symbol(Equals), CharLiteral('g'), Indent(1),
+                              Keyword(Var), Identifier("string".to_string()), Symbol(Equals), StrLiteral("strin".to_string()), Indent(0),
                               Indent(1),
-                              Keyword(If), Identifier("ch".to_string()), Keyword(Is), CharLiteral('g'), Punctuation(Comma), Indent(2),
-                              Identifier("string".to_string()), Punctuation(PlusEquals), Identifier("ch".to_string()), Indent(0), 
+                              Keyword(If), Identifier("ch".to_string()), Keyword(Is), CharLiteral('g'), Symbol(Comma), Indent(2),
+                              Identifier("string".to_string()), Symbol(PlusEquals), Identifier("ch".to_string()), Indent(0), 
                               Indent(1),
                               Keyword(Return), Identifier("string".to_string()), EOF];
 

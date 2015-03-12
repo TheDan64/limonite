@@ -1,5 +1,5 @@
 use syntax::core::keywords::Keywords;
-use syntax::core::punctuation::Punctuations;
+use syntax::core::symbols::Symbols;
 use syntax::core::types::Types;
 
 #[derive(Debug, PartialEq)]
@@ -26,7 +26,7 @@ pub enum Token {
     Keyword(Keywords),
 
     // (,),[,],:,:,>,<, ...
-    Punctuation(Punctuations),
+    Symbol(Symbols),
 
     // >> Singleline and >>> \nMultiline comments\n <<<
     Comment(String),

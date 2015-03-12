@@ -5,9 +5,9 @@ use std::vec::IntoIter;
 use limonite::syntax::lexer::Tokenizer;
 use limonite::syntax::parser::Parser;
 use limonite::syntax::core::tokens::Token;
-use limonite::syntax::core::tokens::Token::{EOF, Identifier, Keyword, Numeric, Punctuation};
-use limonite::syntax::core::keywords::Keywords::{Var};
-use limonite::syntax::core::punctuation::Punctuations::{Equals};
+use limonite::syntax::core::tokens::Token::{EOF, Identifier, Keyword, Symbol};
+use limonite::syntax::core::keywords::Keywords;
+use limonite::syntax::core::symbols::Symbols;
 
 struct MockLexer {
     tokens: IntoIter<Token>
@@ -36,10 +36,27 @@ impl Tokenizer for MockLexer {
 }
 
 #[test]
+fn test_print() {
+    let lexer = MockLexer::new(vec![
+        Keyword(Keywords::Print),
+        Symbol(Symbols::ParenOpen),
+        Identifier("meow".to_string()),
+        Symbol(Symbols::Comma),
+        Identifier("meow".to_string()),
+        Symbol(Symbols::ParenClose),
+    ]);
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+}
+
+#[test]
 fn test_variable_int_declaration() {
-    let mLexer = MockLexer::new(vec![Keyword(Var), Identifier("meow".to_string()),
-                                     Punctuation(Equals), Numeric("3".to_string(), None)]);
-    let mut parser = Parser::new(mLexer);
+    // let mLexer = MockLexer::new(vec![
+        // Keyword(Keywords::Var),
+        // Identifier("meow".to_string()),
+        // Symbol(Symbols::Equals),
+    // ]);
+    // let mut parser = Parser::new(mLexer);
 
     // parser.parse();
 }

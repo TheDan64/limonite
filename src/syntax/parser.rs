@@ -2,7 +2,7 @@ use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::*;
 use syntax::core::keywords::Keywords;
-use syntax::core::punctuation::Punctuations;
+use syntax::core::symbols::Symbols;
 use syntax::ast::expr::*;
 
 pub struct Parser<TokType: Tokenizer> {
@@ -85,15 +85,15 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 let token1 = self.next_token();
 
                 match token1 {
-                    // Punctuation(punc) => {
+                    // Symbol(punc) => {
                     //     match punc {
-                    //         punctuation::Assign => {
+                    //         symbols::Assign => {
                     //             self.parse_expression()
                     //         }
-                    //         _ => Err(self.write_error("Invalid Punctuation here"))
+                    //         _ => Err(self.write_error("Invalid Symbol here"))
                     //     }
                     // }
-                    Punctuation(Punctuations::Equals) => {
+                    Symbol(Symbols::Equals) => {
                         return self.parse_expression();
                     },
                     _ => self.write_error("Invalid sequence")
@@ -106,30 +106,64 @@ impl<TokType: Tokenizer> Parser<TokType> {
         None
     }
 
-    fn expect_token(&mut self, token: Token) -> bool {
-        if self.next_token() != token {
-            self.expect_error("", "", "");
-
-            return false;
+    fn expect_token(&self, token: &Token, next_token: Token) -> bool {
+        if *token == next_token {
+            return true;
         }
+        return false;
+    }
 
-        true
+    fn collect_args(&mut self) -> Option<Vec<ExprWrapper>> {
+        let mut args = Vec::new();
+        let mut seen_one_arg = false;
+        println!("Before While");
+        loop {
+            let tok = self.next_token();
+            if self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
+                println!("hit the close paren {:?}, which is {:?}", tok, Symbol(Symbols::ParenClose));
+                return Some(args);
+            }
+            println!("passed the close paren");
+
+            let name = match tok {
+                Token::Identifier(ref name) => Some(name),
+                _ => {
+                    self.write_error(&format!("Unsupported keyword {:?}.", tok));
+                    None
+                }
+            };
+            if let Some(arg) = name {
+                println!("hit the ident: {}", arg);
+                args.push(ExprWrapper::new_default(
+                    Box::new(Expr::IdentExpr(String::from_str(arg)))));
+                let tok = self.next_token(); 
+                if self.expect_token(&tok, Symbol(Symbols::Comma)) {
+                    println!("hit the comma!");
+                    if !seen_one_arg {
+                        self.write_error(&format!("Invalid syntax."));
+                        return None;
+                    }
+                    seen_one_arg = true;
+                    continue;
+                }
+            } else {
+                return None;
+            }
+        }
     }
 
     // Parses a print function/statement
     fn parse_print_fn(&mut self) -> Option<ExprWrapper> {
-        if !self.expect_token(Punctuation(Punctuations::ParenOpen)) {
+        let tok = self.next_token();
+        if !self.expect_token(&tok, Symbol(Symbols::ParenOpen)) {
             return None;
         }
 
-        // Parse 1+ args here
-
-        if !self.expect_token(Punctuation(Punctuations::ParenClose)) {
-            return None;
-        }
-
+        println!("Before Collect");
+        // let args = self.collect_args();
+        self.collect_args();
+        return None;
         // Return the ast of the print function
-        None
     }
 
     // Handles top-level keywords to start parsing them
@@ -206,8 +240,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         }
                     }
                 },
-                Punctuation(punc) => {
-                    panic!("Unimplemented top level token 'Punctuation'");
+                Symbol(punc) => {
+                    panic!("Unimplemented top level token 'Symbol'");
                 },
                 Comment(text) => {
                     // ToDo: Docstring, else ignore
