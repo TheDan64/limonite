@@ -67,7 +67,8 @@ if True,
 
 #[test]
 fn test_valid_numerics() {
-    let input_string = "0xF3a
+    let input_string = "\
+0xF3a
 0xfffi32
 0xfffi64
 0xfffu32
@@ -119,7 +120,8 @@ fn test_valid_numerics() {
 
 #[test]
 fn test_invalid_numerics() {
-    let input_string = "0x
+    let input_string = "\
+0x
 0xz
 0xfz
 0xfi3
