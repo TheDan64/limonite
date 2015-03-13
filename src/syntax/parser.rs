@@ -166,12 +166,30 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // Return the ast of the print function
     }
 
+    // Parse function definitions: fn ident(args) -> type
+    fn parse_fn(&mut self) -> Option<ExprWrapper> {
+        let fn_name = match self.next_token() {
+            Identifier(string) => string,
+            _ => return None
+        };
+
+        let tok = self.next_token();
+        if !self.expect_token(&tok, Symbol(Symbols::ParenOpen)) {
+            self.expect_error("", "an opening paren '('", "something else");
+
+            return None;
+        }
+
+        return None;
+    }
+
     // Handles top-level keywords to start parsing them
     fn handle_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
         match keyword {
 //            Keywords::Def => {
 //                self.parse_declaration()
 //            },
+            Keywords::Fn => self.parse_fn(),
             Keywords::Print => {
                 self.parse_print_fn()
             },
