@@ -43,7 +43,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
         loop {
             // Note: This consumes the Indent token, which probably isnt ideal.
             match self.next_token() {
-                Indent(_) => break,
+                Indent(_) => {
+                    // Call Indent updating function
+                },
                 EOF => break,
                 _ => ()
             }
@@ -166,12 +168,79 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // Return the ast of the print function
     }
 
+    // Parse function definitions: fn ident(args) -> type
+    #[allow(unused_variables)]
+    fn parse_fn(&mut self) -> Option<ExprWrapper> {
+        let fn_name = match self.next_token() {
+            Identifier(string) => string,
+            _ => return None
+        };
+
+        let mut tok = self.next_token();
+
+        if !self.expect_token(&tok, Symbol(Symbols::ParenOpen)) {
+            self.expect_error("", "an opening paren '('", "something else");
+
+            return None;
+        }
+
+        // We havent't decided on args format, so parse args w/ type definitions here
+
+        tok = self.next_token();
+
+        if !self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
+            self.expect_error("", "a closing paren ')'", "something else");
+
+            return None;            
+        }
+
+        tok = self.next_token();
+
+        if !self.expect_token(&tok, Symbol(Symbols::RightThinArrow)) {
+            self.expect_error("", "a thin right arrow '->'", "something else");
+
+            return None;
+        }
+
+        tok = self.next_token();
+
+        match tok {
+            Type(_) | Identifier(_) => {
+                // Need to grab the return type
+            },
+            _ => {
+                self.expect_error("", "a return type", "something else");
+
+                return None;
+            }
+        }
+
+        tok = self.next_token();
+
+        match tok {
+            Indent(_) => {
+                // Call Indent updating function
+            },
+            _ => {
+                self.expect_error("", "a new line", "something else");
+
+                return None;
+            }
+        }
+
+        // Call the new parse fn which has been renamed in Cardin's branch and return
+        // a FnDecl Expression containing it
+
+        return None;
+    }
+
     // Handles top-level keywords to start parsing them
     fn handle_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
         match keyword {
 //            Keywords::Def => {
 //                self.parse_declaration()
 //            },
+            Keywords::Fn => self.parse_fn(),
             Keywords::Print => {
                 self.parse_print_fn()
             },
