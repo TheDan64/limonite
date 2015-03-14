@@ -33,7 +33,7 @@ impl ExprWrapper {
 		}
 	}
 
-	pub fn new_default(expr: Box<Expr>) -> ExprWrapper {
+	pub fn default(expr: Box<Expr>) -> ExprWrapper {
 		ExprWrapper {
 			expr: expr,
 			start_line: 0,
@@ -43,48 +43,49 @@ impl ExprWrapper {
         }
     }
 
-	pub fn get_expr(&mut self) -> &mut Expr {
-		&mut *self.expr
+	pub fn get_expr(&self) -> &Expr {
+		&self.expr
 	}
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {
 	// Operations between two expressions
-	InfixOpExpr(InfixOp, ExprWrapper, ExprWrapper),
+	NumOp(InfixOp, ExprWrapper, ExprWrapper),
 	// Operation on a single expression
-	UnaryOpExpr(UnaryOp, ExprWrapper),
+	UnaryOp(UnaryOp, ExprWrapper),
 	// Constants such as numbers and strings
-	ConstExpr(Const),
+	Const(Const),
 	// Run expression while conditional is true
-	WhileLoopExpr(ExprWrapper, ExprWrapper),
+	WhileLoop(ExprWrapper, ExprWrapper),
 	// Run expression if condition true, optional elif, else
-	IfExpr(ExprWrapper, ExprWrapper, Option<ExprWrapper>),
+	If(ExprWrapper, ExprWrapper, Option<ExprWrapper>),
 	// Assign a value to an expression
-	AssignExpr(ExprWrapper, ExprWrapper),
+	Assign(ExprWrapper, ExprWrapper),
 	// Fn call with args.
 	// ToDo: Vec<Option<ExprWrapper>> for optional args?
-	FnCallExpr(ExprWrapper, Vec<ExprWrapper>),
+	FnCall(ExprWrapper, Vec<ExprWrapper>),
 	// Declare a function with a name, args, and expr
 	// ToDo: Have a Vec of a struct for optional arg values?
 	// ToDo: Does return type go here?
-	FnDeclExpr(String, Vec<String>, ExprWrapper),
+	FnDecl(String, Vec<String>, ExprWrapper),
 	// Run consecutive expressions
-	BlockExpr(Vec<ExprWrapper>),
+	Block(Vec<ExprWrapper>),
 	// Variable name and expression.
 	// ToDo: Does this need a variable type here?
 	// ToDo: A bool for whether it is const(def) or not(var)?
-	VarDeclExpr(Vec<(String, ExprWrapper)>),
+	VarDecl(Vec<(String, ExprWrapper)>),
 	// Reference to a value in an identifier
-	IdentExpr(String)
+	Ident(String),
 
 	// A lot more to come
+    NoOp,
 }
 
 impl CodeGen for Expr {
 	fn gen_code(&self) {
 		match *self {
-			Expr::BlockExpr(ref vec) => {
+			Expr::Block(ref vec) => {
 				for expr in vec {
 					expr.gen_code();
 				}

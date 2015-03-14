@@ -1,27 +1,27 @@
+#![allow(dead_code)]
+
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::*;
 use syntax::core::keywords::Keywords;
 use syntax::core::symbols::Symbols;
 use syntax::ast::expr::*;
+use syntax::ast::consts::*;
 
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     indentation: usize,
     run_codegen: bool,
-    ast_root: ExprWrapper
+    ast_root: ExprWrapper,
 }
 
 impl<TokType: Tokenizer> Parser<TokType> {
     pub fn new(tokenizer: TokType) -> Parser<TokType> {
-        let expr = Box::new(Expr::BlockExpr(Vec::new()));
-        let wrapper = ExprWrapper::new(expr, 0, 0, 0, 0);
-
         Parser {
             lexer: tokenizer,
             indentation: 0,
             run_codegen: true,
-            ast_root: wrapper
+            ast_root: ExprWrapper::default(Box::new(Expr::NoOp)),
         }
     }
 
@@ -109,49 +109,51 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     fn expect_token(&self, token: &Token, next_token: Token) -> bool {
-        if *token == next_token {
-            return true;
-        }
-        return false;
+        println!("{:?}, {:?}, {:?}", token, *token, next_token);
+        *token == next_token
     }
 
     fn collect_args(&mut self) -> Option<Vec<ExprWrapper>> {
         let mut args = Vec::new();
-        let mut seen_one_arg = false;
-        println!("Before While");
+        let mut tok = self.next_token();
+        let mut first_arg = true;
+
         loop {
-            let tok = self.next_token();
+            println!("Start Loop - first_arg: {}", first_arg); 
+            if !first_arg {
+                println!("Got token");
+                tok = self.next_token();
+            }
+
+            if !first_arg && self.expect_token(&tok, Symbol(Symbols::Comma)) {
+                println!("hit the comma!");
+                tok = self.next_token(); 
+            }
+
             if self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
-                println!("hit the close paren {:?}, which is {:?}", tok, Symbol(Symbols::ParenClose));
+                println!("hit the close paren {:?}", tok);
                 return Some(args);
             }
-            println!("passed the close paren");
 
             let name = match tok {
                 Token::Identifier(ref name) => Some(name),
                 _ => {
-                    self.write_error(&format!("Unsupported keyword {:?}.", tok));
+                    self.write_error(&format!("Unsupported token {:?}.", tok));
                     None
                 }
             };
+
             if let Some(arg) = name {
                 println!("hit the ident: {}", arg);
-                args.push(ExprWrapper::new_default(
-                    Box::new(Expr::IdentExpr(String::from_str(arg)))));
-                let tok = self.next_token(); 
-                if self.expect_token(&tok, Symbol(Symbols::Comma)) {
-                    println!("hit the comma!");
-                    if !seen_one_arg {
-                        self.write_error(&format!("Invalid syntax."));
-                        return None;
-                    }
-                    seen_one_arg = true;
-                    continue;
-                }
-            } else {
-                return None;
+                args.push(ExprWrapper::default(
+                    Box::new(Expr::Const(Const::UTF8String(String::from_str(arg))))));
+                first_arg = false;
+                continue;
             }
+            break;
         }
+        self.write_error(&format!("Invalid syntax."));
+        return None;
     }
 
     // Parses a print function/statement
@@ -162,10 +164,19 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
 
         println!("Before Collect");
-        // let args = self.collect_args();
-        self.collect_args();
+        let name = ExprWrapper::default(
+            Box::new(
+                Expr::Const(
+                    Const::UTF8String(
+                        String::from_str("print")
+                    )
+                )
+            )
+        );
+        if let Some(args) = self.collect_args() {
+            return Some(ExprWrapper::default(Box::new(Expr::FnCall(name, args))));
+        }
         return None;
-        // Return the ast of the print function
     }
 
     // Parse function definitions: fn ident(args) -> type
@@ -269,15 +280,16 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Parse the file
     #[allow(unused_variables)]
-    pub fn parse(&mut self) {
+    fn parse_top_level_blocks(&mut self) -> ExprWrapper {
         self.start();
+
+        let mut expr = Vec::new();
 
         // Generate AST
         loop {
             // Parse the token into the next node of the AST
             let token = self.next_token();
 
-            // Debug:
             println!("{:?}", token);
 
             match token {
@@ -304,9 +316,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 },
                 Keyword(keyword) => {
                     if let Some(exprwrapper) = self.handle_keywords(keyword) {
-                        if let &mut Expr::BlockExpr(ref mut vec) = self.ast_root.get_expr() {
-                            vec.push(exprwrapper);
-                        }
+                        expr.push(exprwrapper);
                     }
                 },
                 Symbol(punc) => {
@@ -324,13 +334,18 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 EOF => break
             };
         }
+        ExprWrapper::new(Box::new(Expr::Block(expr)), 0, 0, 0, 0)
+    }
 
-        // Do semantic analysis on AST
+    pub fn parse(&mut self) {
+        self.ast_root = self.parse_top_level_blocks();
+    }
 
+    pub fn get_ast(&self) -> &ExprWrapper {
+        &self.ast_root
+    }
 
-        // Run codegen when no errors have been found
-        if self.run_codegen {
-            self.ast_root.gen_code();
-        }
+    fn run_codegen(&self) {
+        self.ast_root.gen_code();
     }
 }
