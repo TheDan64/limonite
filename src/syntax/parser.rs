@@ -182,11 +182,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
     // Parse function definitions: fn ident(args) -> type
     #[allow(unused_variables)]
     fn parse_fn(&mut self) -> Option<ExprWrapper> {
+        // Get the function name
         let fn_name = match self.next_token() {
             Identifier(string) => string,
             _ => return None
         };
 
+        // Get a left paren (
         let mut tok = self.next_token();
 
         if !self.expect_token(&tok, Symbol(Symbols::ParenOpen)) {
@@ -195,8 +197,11 @@ impl<TokType: Tokenizer> Parser<TokType> {
             return None;
         }
 
-        // We havent't decided on args format, so parse args w/ type definitions here
+        // Get all args (ie a: u64)
+        // Eventually optional args (ie a = "foo": str)
+        
 
+        // Get right paren )
         tok = self.next_token();
 
         if !self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
@@ -205,6 +210,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             return None;            
         }
 
+        // Get right arrow ->
         tok = self.next_token();
 
         if !self.expect_token(&tok, Symbol(Symbols::RightThinArrow)) {
@@ -213,6 +219,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             return None;
         }
 
+        // Get a return type or identifier
         tok = self.next_token();
 
         match tok {
@@ -226,6 +233,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             }
         }
 
+        // Update indentation level (+1)
         tok = self.next_token();
 
         match tok {
@@ -239,10 +247,14 @@ impl<TokType: Tokenizer> Parser<TokType> {
             }
         }
 
-        // Call the new parse fn which has been renamed in Cardin's branch and return
-        // a FnDecl Expression containing it
+        // Combine the rest of the function definiton with the fn info
+        let definition = self.parse_top_level_blocks();
 
-        return None;
+        // May have to increment indentation level here?
+
+        let expr = Box::new(Expr::FnDecl(fn_name, Vec::<String>::new(), definition));
+
+        return Some(ExprWrapper::default(expr));
     }
 
     // Handles top-level keywords to start parsing them
