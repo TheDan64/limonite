@@ -1,5 +1,6 @@
 use syntax::ast::consts::*;
 use syntax::ast::op::*;
+use syntax::core::tokens::Token;
 
 pub trait CodeGen {
 	// Not sure if this should return anything
@@ -65,10 +66,9 @@ pub enum Expr {
 	// Fn call with args.
 	// ToDo: Vec<Option<ExprWrapper>> for optional args?
 	FnCall(ExprWrapper, Vec<ExprWrapper>),
-	// Declare a function with a name, args, and expr
-	// ToDo: Have a Vec of a struct for optional arg values?
-	// ToDo: Does return type go here?
-	FnDecl(String, Vec<String>, ExprWrapper),
+	// Declare a function with a name, args(name, type | ident), return (type | ident), and expr
+	// ToDo: Optional args
+	FnDecl(String, Vec<(String, Token)>, Token, ExprWrapper),
 	// Run consecutive expressions
 	Block(Vec<ExprWrapper>),
 	// Variable name and expression.
@@ -77,7 +77,8 @@ pub enum Expr {
 	VarDecl(Vec<(String, ExprWrapper)>),
 	// Reference to a value in an identifier
 	Ident(String),
-
+	// Return an expression from a function
+	Return(Option<ExprWrapper>),
 	// A lot more to come
     NoOp,
 }
