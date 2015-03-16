@@ -251,6 +251,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         return None;
                     }
                 };
+
+                tok = self.next_token();
             }
         }
 

@@ -1,6 +1,6 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
-#![feature(io, path, collections, unicode)]
+#![feature(collections)]
 #![allow(dead_code)]
 
 use std::env;
