@@ -10,24 +10,34 @@ use syntax::ast::consts::*;
 
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
-    indentation: usize,
+    indent_level: usize,
     run_codegen: bool,
     ast_root: ExprWrapper,
+    preview_token: Option<Token>
 }
 
 impl<TokType: Tokenizer> Parser<TokType> {
     pub fn new(tokenizer: TokType) -> Parser<TokType> {
         Parser {
             lexer: tokenizer,
-            indentation: 0,
+            indent_level: 0,
             run_codegen: true,
             ast_root: ExprWrapper::default(Box::new(Expr::NoOp)),
+            preview_token: None
         }
     }
 
-    // Get the next token from the lexer
+    // Consume the next token from the lexer
     fn next_token(&mut self) -> Token {
-        self.lexer.get_tok()
+        match self.preview_token.take() {
+            Some(tok) => tok,
+            None => self.lexer.get_tok()
+        }
+    }
+
+    // Preview the next token without consuming it
+    fn update_preview_token(&mut self) {
+        self.preview_token = Some(self.next_token());
     }
 
     // Create an error from the current lexer's
@@ -41,10 +51,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         // Skip to the end of the line (at Indent token) and allow parsing to continue
         loop {
+            self.update_preview_token();
+
             // Note: This consumes the Indent token, which probably isnt ideal.
             match self.next_token() {
-                Indent(_) => {
-                    // Call Indent updating function
+                Indent(depth) => {
+                    self.check_indentation(depth);
+                    break;
                 },
                 EOF => break,
                 _ => ()
@@ -67,14 +80,16 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Ensures that the indentation matches the current level of indentation
     #[allow(dead_code)]
-    fn check_indentation(&mut self, depth: usize) -> Option<ExprWrapper> {
-        if self.indentation == depth {
-            return None;
+    fn check_indentation(&mut self, depth: usize) -> isize {
+        let difference = depth as isize - self.indent_level as isize;
+        println!("{:?}", difference);
+        if difference <= 0 {
+            self.indent_level = depth;
+        } else {
+            self.write_error("Increased indentation level in a non standard way.");
         }
-        
-        self.write_error("Incorrect indentation level");
 
-        None
+        return difference;
     }
 
     // Parses a variable or constant declaration
@@ -284,10 +299,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         tok = self.next_token();
 
+        self.indent_level += 1;
+
         match tok {
-            Indent(_) => {
-                // ToDo: Call Indent updating function
-            },
+            Indent(depth) => self.check_indentation(depth),
             _ => {
                 self.expect_error("", "a new line", "something else");
 
@@ -297,8 +312,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         // Combine the rest of the function definiton with the fn info
         let definition = self.parse_top_level_blocks();
-
-        // May have to increment indentation level here?
 
         let expr = Box::new(Expr::FnDecl(fn_name, args, return_type, definition));
 
@@ -364,6 +377,22 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     // ToDo: Keep track of indentation level when preceeding a statement
                     // Might need look ahead to see if next token is Comment or Indent
                     // which means you didn't actually dedent.
+
+                    self.update_preview_token();
+
+                    let difference = match self.preview_token {
+//                        Some(Comment(_)) => continue,
+//                        Some(Indent(_)) => continue,
+                        _ => self.check_indentation(depth)
+                    };
+
+                    if difference < 0 {
+                        break;
+                    } else {
+                        continue;
+                    }
+
+                    // If indentation decreases -=1 then should break out of this loop
                 },
                 BoolLiteral(lit) => {
                     panic!("Unimplemented top level token 'BoolLiteral'");
@@ -394,6 +423,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 EOF => break
             };
         }
+
         ExprWrapper::new(Box::new(Expr::Block(expr)), 0, 0, 0, 0)
     }
 
