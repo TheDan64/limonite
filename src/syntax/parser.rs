@@ -82,11 +82,16 @@ impl<TokType: Tokenizer> Parser<TokType> {
     #[allow(dead_code)]
     fn check_indentation(&mut self, depth: usize) -> isize {
         let difference = depth as isize - self.indent_level as isize;
-        println!("{:?}", difference);
+
         if difference <= 0 {
             self.indent_level = depth;
         } else {
-            self.write_error("Increased indentation level in a non standard way.");
+            self.update_preview_token();
+
+            match self.preview_token {
+                Some(Indent(_)) | Some(Comment(_)) => (),
+                _ => self.write_error("Increased indentation level in a non standard way.")
+            };
         }
 
         return difference;
@@ -374,25 +379,23 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     panic!("Unimplemented top level token 'Identifier'");
                 },
                 Indent(depth) => {
-                    // ToDo: Keep track of indentation level when preceeding a statement
-                    // Might need look ahead to see if next token is Comment or Indent
-                    // which means you didn't actually dedent.
-
+                    // Look ahead. If you find another Indent token it's a blank line
+                    // and didn't actually dedent. Same is true for single line comments
+                    // however this isn't guarenteed for multi line comments (because
+                    // you could have code after the end of the comment).
+                    // ToDo: Account to multiline comments
                     self.update_preview_token();
 
                     let difference = match self.preview_token {
-//                        Some(Comment(_)) => continue,
-//                        Some(Indent(_)) => continue,
+                        Some(Comment(_)) => continue,
+                        Some(Indent(_)) => continue,
                         _ => self.check_indentation(depth)
                     };
 
+                    // Break if you dedent (cannot happen at top level) else continue
                     if difference < 0 {
                         break;
-                    } else {
-                        continue;
                     }
-
-                    // If indentation decreases -=1 then should break out of this loop
                 },
                 BoolLiteral(lit) => {
                     panic!("Unimplemented top level token 'BoolLiteral'");
