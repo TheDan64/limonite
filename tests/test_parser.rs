@@ -73,13 +73,13 @@ fn test_variable_int_declaration() {
 fn test_valid_fn_declaration() {
     // No args: foo() -> u64
     let lexer = MockLexer::new(vec![Keyword(Keywords::Fn),
-                                        Identifier(String::from_str("foo")),
-                                        Symbol(Symbols::ParenOpen),
-                                        Symbol(Symbols::ParenClose),
-                                        Symbol(Symbols::RightThinArrow),
-                                        Type(Types::UInt64Bit),
-                                        Indent(1),
-                                        EOF]);
+                                    Identifier(String::from_str("foo")),
+                                    Symbol(Symbols::ParenOpen),
+                                    Symbol(Symbols::ParenClose),
+                                    Symbol(Symbols::RightThinArrow),
+                                    Type(Types::UInt64Bit),
+                                    Indent(1),
+                                    EOF]);
 
     let mut parser = Parser::new(lexer);
     parser.parse();
@@ -160,4 +160,21 @@ fn test_valid_fn_declaration() {
         panic!("Multiple argument test failed");
     }
 
+}
+
+#[test]
+fn test_indentation_levels() {
+    // Correct indentation level +1 after fn decl
+    let lexer = MockLexer::new(vec![Keyword(Keywords::Fn),
+                                    Identifier(String::from_str("foo")),
+                                    Symbol(Symbols::ParenOpen),
+                                    Symbol(Symbols::ParenClose),
+                                    Symbol(Symbols::RightThinArrow),
+                                    Type(Types::UInt64Bit),
+                                    Indent(1)]);
+
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+
+    panic!("Asd");
 }
