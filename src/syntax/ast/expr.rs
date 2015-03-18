@@ -59,7 +59,7 @@ pub enum Expr {
     Const(Const),
     // Run expression while conditional is true
     WhileLoop(ExprWrapper, ExprWrapper),
-    // Run expression if condition true, optional elif, else
+    // If condition true, run expression, optional elif, else
     If(ExprWrapper, ExprWrapper, Option<ExprWrapper>),
     // Assign a value to an expression
     Assign(ExprWrapper, ExprWrapper),

@@ -308,13 +308,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
     // Handles top-level keywords to start parsing them
     fn handle_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
         match keyword {
-//            Keywords::Def => {
-//                self.parse_declaration()
-//            },
             Keywords::Fn => self.parse_fn(),
-            Keywords::Print => {
-                self.parse_print_fn()
-            },
+            Keywords::If => self.parse_if(),
+            Keywords::Print => self.parse_print_fn(),
             _ => {
                 self.write_error(&format!("Unsupported keyword {:?}.", keyword));
                 None
@@ -322,8 +318,42 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    #[allow(dead_code)]
+    fn parse_if(&mut self) -> Option<ExprWrapper> {
+        let condition = match self.parse_expression() {
+            Some(exprwrapper) => exprwrapper,
+            None => return None
+        };
+
+        let tok = self.next_token();
+
+        if !self.expect_token(&tok, Symbol(Symbols::Comma)) {
+            self.expect_error("", "a comma ','", "something else");
+
+            return None;
+        }
+
+        // Implemented in other branch:
+        // self.indent_level += 1
+
+        match self.next_token() {
+            Indent(depth) => self.check_indentation(depth),
+            _ => {
+                self.expect_error("", "a new line", "something else");
+
+                return None;
+            }
+        };
+
+        let block = self.parse_top_level_blocks();
+
+        let expr = Box::new(Expr::If(condition, block, None));
+
+        Some(ExprWrapper::default(expr))
+    }
+
     fn parse_expression(&self) -> Option<ExprWrapper> {
+
+
         None
     }
 
@@ -357,7 +387,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     panic!("Unimplemented top level token 'Numeric'");
                 },
                 Identifier(repr) => {
-//                    self.parse_expression()
                     panic!("Unimplemented top level token 'Identifier'");
                 },
                 Indent(depth) => {
@@ -394,6 +423,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 EOF => break
             };
         }
+
         ExprWrapper::new(Box::new(Expr::Block(expr)), 0, 0, 0, 0)
     }
 
