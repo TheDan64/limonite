@@ -350,8 +350,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             return None;
         }
 
-        // Implemented in other branch:
-        // self.indent_level += 1
+        self.indent_level += 1;
 
         match self.next_token() {
             Indent(depth) => self.check_indentation(depth),
@@ -369,8 +368,53 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Some(ExprWrapper::default(expr))
     }
 
-    fn parse_expression(&self) -> Option<ExprWrapper> {
+    fn parse_expression(&mut self) -> Option<ExprWrapper> {
+        // E -> (E) | [E] | E * E | E + E | E - E | E / E | E % E | E ^ E |
+        // not E | -E | Terminal
+        // Terminal -> identifier | const
+        // Precedence(High -> Low): 
+        // 1. () | []
+        // 2. not | negate
+        // 3. > * / %
+        // 4. + - >
+        // 5. < | <= | > | >=
+        // 6. == != 
+        // 7. bitwise and | bitwise or | bitwise xor
+        // 8. logical and | logical or
+        // 9. ,
+        let tok = self.next_token();
 
+        match tok {
+            Symbol(Symbols::ParenOpen) => {
+                let expression = self.parse_expression();
+
+                let tok2 = self.next_token();
+
+                if !self.expect_token(&tok2, Symbol(Symbols::ParenClose)) {
+                    self.expect_error("", "a closing paren ')'", "something else");
+
+                    return None;
+                }
+
+                return expression;
+            },
+            Symbol(Symbols::SBracketOpen) => {
+                let expression = self.parse_expression();
+
+                let tok2 = self.next_token();
+
+                if !self.expect_token(&tok2, Symbol(Symbols::SBracketClose)) {
+                    self.expect_error("", "a closing paren ')'", "something else");
+
+                    return None;
+                }
+
+                return expression;
+
+            },
+            // Much more to come
+            _ => ()
+        }
 
         None
     }
