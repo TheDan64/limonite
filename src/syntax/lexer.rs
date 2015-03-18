@@ -351,7 +351,7 @@ impl<'a> Lexer<'a> {
                     let ch = self.consume_char().unwrap();
                     let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
 
-                    return Error(err.to_string());
+                    return Error(err);
                 },
                 
                 // If eof or other just return the numeric token without a suffix
@@ -393,7 +393,7 @@ impl<'a> Lexer<'a> {
                     let ch = self.consume_char().unwrap();
                     let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
 
-                    return Error(err.to_string());
+                    return Error(err);
                 },
                 
                 // If eof or other just return the numeric token without a suffix
@@ -442,7 +442,7 @@ impl<'a> Lexer<'a> {
                             let ch = self.consume_char().unwrap();
                             let err = format!("Invalid suffix {}. Did you mean f32, f64?", ch);
 
-                            return Error(err.to_string());
+                            return Error(err);
                         },
                         
                         // No suffix found, can hit symbols or other
@@ -466,7 +466,7 @@ impl<'a> Lexer<'a> {
                     let ch = self.consume_char().unwrap();
                     let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
 
-                    return Error(err.to_string());
+                    return Error(err);
                 },
 
                 // Presumably any other remaining char is valid, ie symbols {,[ etc
