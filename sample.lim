@@ -22,7 +22,7 @@ else,
     print("Hurrah!")
 
 class DescendantObject from Object
-    fn name(int a, str b = "", bool c: False, ...) -> int
+    fn name(a: i64, b: str, c = False: bool, ...) -> i64
         >>>
             docstring becasue its on the line directly
             after the function delcaration.
@@ -30,7 +30,7 @@ class DescendantObject from Object
         
         var a = 34
         var a = 3 >> This is an error because it redeclares `a`
-        var b = 34u
+        var b = 34u32
         var c >> This is an error because uninitialised variables are dumb
         def d = "This is a constant value and cannot change"
         
