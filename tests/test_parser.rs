@@ -237,7 +237,8 @@ fn test_expression_precedence_add_mult() {
     let left_add = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add,
                    ExprWrapper::default(Box::new(Expr::Ident("a".to_string()))), mult)));
 
-    let condition = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add, left_add, ExprWrapper::default(Box::new(Expr::Ident("d".to_string()))))));
+    let condition = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add, left_add,
+                    ExprWrapper::default(Box::new(Expr::Ident("d".to_string()))))));
 
     let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
                       Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),

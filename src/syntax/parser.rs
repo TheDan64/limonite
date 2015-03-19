@@ -117,7 +117,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     //     }
                     // }
                     Symbol(Symbols::Equals) => {
-                        return self.parse_expression();
+                        return self.parse_expression(0);
                     },
                     _ => self.write_error("Invalid sequence")
                 }
@@ -338,7 +338,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     fn parse_if(&mut self) -> Option<ExprWrapper> {
-        let condition = match self.parse_expression() {
+        let condition = match self.parse_expression(0) {
             Some(exprwrapper) => exprwrapper,
             None => return None
         };
@@ -382,7 +382,20 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    fn parse_expression(&mut self) -> Option<ExprWrapper> {
+    fn get_preview_precedence(&self) -> u8 {
+        match self.preview_token {
+            Some(Symbol(Symbols::Plus)) => InfixOp::Add.get_precedence(),
+            Some(Symbol(Symbols::Minus)) => InfixOp::Sub.get_precedence(),
+            Some(Symbol(Symbols::Asterisk)) => InfixOp::Mul.get_precedence(),
+            Some(Symbol(Symbols::Slash)) => InfixOp::Div.get_precedence(),
+            Some(Symbol(Symbols::Percent)) => InfixOp::Mod.get_precedence(),
+            Some(Symbol(Symbols::Caret)) => InfixOp::Pow.get_precedence(),
+            Some(Keyword(Keywords::Equals)) => InfixOp::Equ.get_precedence(),
+            _ => 0
+        }
+    }
+
+    fn parse_expression(&mut self, precedence: u8) -> Option<ExprWrapper> {
         // E -> (E) | [E] | E * E | E + E | E - E | E / E | E % E | E ^ E |
         // E equals E | E and E | E or E | not E | -E | Terminal
         // Terminal -> identifier | const
@@ -396,9 +409,16 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         self.update_preview_token();
 
-        while self.preview_is_infix_op() {
+        while self.preview_is_infix_op() && self.get_preview_precedence() >= precedence {
+            let mut new_precedence = self.get_preview_precedence() + 1;
             let op = self.next_token();
-            let exprwrapper2 = self.parse_expression_subroutine();
+
+            // Right associative ops don't get the +1
+            if let Symbol(Symbols::Caret) = op {
+                new_precedence -= 1;
+            }
+
+            let exprwrapper2 = self.parse_expression(new_precedence);
 
             if exprwrapper2 == None {
                 return None;
@@ -466,7 +486,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
             // Parens
             Symbol(Symbols::ParenOpen) => {
-                let exprwrapper = self.parse_expression();
+                let exprwrapper = self.parse_expression(0);
 
                 let tok = self.next_token();
 
@@ -479,15 +499,15 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 exprwrapper
             },
 
-            // Unary ops
+            // Unary ops, precedence hard coded to a (high) 8
             Symbol(Symbols::Minus) => {
-                return match self.parse_expression_subroutine() {
+                return match self.parse_expression(8) {
                     Some(exprwrapper) => Some(ExprWrapper::default(Box::new(Expr::UnaryOp(UnaryOp::Negate, exprwrapper)))),
                     None => None
                 }
             },
             Keyword(Keywords::Not) => {
-                return match self.parse_expression_subroutine() {
+                return match self.parse_expression(8) {
                     Some(exprwrapper) => Some(ExprWrapper::default(Box::new(Expr::UnaryOp(UnaryOp::Not, exprwrapper)))),
                     None => None
                 }
