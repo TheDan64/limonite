@@ -52,14 +52,14 @@ impl ExprWrapper {
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     // Operations between two expressions
-    NumOp(InfixOp, ExprWrapper, ExprWrapper),
+    InfixOp(InfixOp, ExprWrapper, ExprWrapper),
     // Operation on a single expression
     UnaryOp(UnaryOp, ExprWrapper),
     // Constants such as numbers and strings
     Const(Const),
     // Run expression while conditional is true
     WhileLoop(ExprWrapper, ExprWrapper),
-    // Run expression if condition true, optional elif, else
+    // If condition true, run expression, optional elif, else
     If(ExprWrapper, ExprWrapper, Option<ExprWrapper>),
     // Assign a value to an expression
     Assign(ExprWrapper, ExprWrapper),

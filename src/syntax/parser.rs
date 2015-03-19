@@ -7,6 +7,7 @@ use syntax::core::keywords::Keywords;
 use syntax::core::symbols::Symbols;
 use syntax::ast::expr::*;
 use syntax::ast::consts::*;
+use syntax::ast::op::*;
 
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
@@ -116,7 +117,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     //     }
                     // }
                     Symbol(Symbols::Equals) => {
-                        return self.parse_expression();
+                        return self.parse_expression(0);
                     },
                     _ => self.write_error("Invalid sequence")
                 }
@@ -326,13 +327,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
     // Handles top-level keywords to start parsing them
     fn handle_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
         match keyword {
-//            Keywords::Def => {
-//                self.parse_declaration()
-//            },
             Keywords::Fn => self.parse_fn(),
-            Keywords::Print => {
-                self.parse_print_fn()
-            },
+            Keywords::If => self.parse_if(),
+            Keywords::Print => self.parse_print_fn(),
             _ => {
                 self.write_error(&format!("Unsupported keyword {:?}.", keyword));
                 None
@@ -340,9 +337,189 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    #[allow(dead_code)]
-    fn parse_expression(&self) -> Option<ExprWrapper> {
-        None
+    fn parse_if(&mut self) -> Option<ExprWrapper> {
+        let condition = match self.parse_expression(0) {
+            Some(exprwrapper) => exprwrapper,
+            None => return None
+        };
+
+        let tok = self.next_token();
+
+        if !self.expect_token(&tok, Symbol(Symbols::Comma)) {
+            self.expect_error("", "a comma ','", "something else");
+
+            return None;
+        }
+
+        self.indent_level += 1;
+
+        match self.next_token() {
+            Indent(depth) => self.check_indentation(depth),
+            _ => {
+                self.expect_error("", "a new line", "something else");
+
+                return None;
+            }
+        };
+
+        let block = self.parse_top_level_blocks();
+
+        let expr = Box::new(Expr::If(condition, block, None));
+
+        Some(ExprWrapper::default(expr))
+    }
+
+    fn preview_is_infix_op(&self) -> bool {
+        match self.preview_token {
+            Some(Symbol(Symbols::Plus)) => true,
+            Some(Symbol(Symbols::Minus)) => true,
+            Some(Symbol(Symbols::Asterisk)) => true,
+            Some(Symbol(Symbols::Slash)) => true,
+            Some(Symbol(Symbols::Percent)) => true,
+            Some(Symbol(Symbols::Caret)) => true,
+            Some(Keyword(Keywords::Equals)) => true,
+            _ => false
+        }
+    }
+
+    fn get_preview_precedence(&self) -> u8 {
+        match self.preview_token {
+            Some(Symbol(Symbols::Plus)) => InfixOp::Add.get_precedence(),
+            Some(Symbol(Symbols::Minus)) => InfixOp::Sub.get_precedence(),
+            Some(Symbol(Symbols::Asterisk)) => InfixOp::Mul.get_precedence(),
+            Some(Symbol(Symbols::Slash)) => InfixOp::Div.get_precedence(),
+            Some(Symbol(Symbols::Percent)) => InfixOp::Mod.get_precedence(),
+            Some(Symbol(Symbols::Caret)) => InfixOp::Pow.get_precedence(),
+            Some(Keyword(Keywords::Equals)) => InfixOp::Equ.get_precedence(),
+            _ => 0
+        }
+    }
+
+    fn parse_expression(&mut self, precedence: u8) -> Option<ExprWrapper> {
+        // E -> (E) | [E] | E * E | E + E | E - E | E / E | E % E | E ^ E |
+        // E equals E | E and E | E or E | not E | -E | Terminal
+        // Terminal -> identifier | const
+
+        // Doesn't account for all precedences yet
+        let mut exprwrapper = self.parse_expression_subroutine();
+
+        if exprwrapper == None {
+            return None;
+        }
+
+        self.update_preview_token();
+
+        while self.preview_is_infix_op() && self.get_preview_precedence() >= precedence {
+            let mut new_precedence = self.get_preview_precedence() + 1;
+            let op = self.next_token();
+
+            // Right associative ops don't get the +1
+            if let Symbol(Symbols::Caret) = op {
+                new_precedence -= 1;
+            }
+
+            let exprwrapper2 = self.parse_expression(new_precedence);
+
+            if exprwrapper2 == None {
+                return None;
+            }
+
+            exprwrapper = match op {
+                Symbol(Symbols::Plus) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Minus) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Sub, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Asterisk) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Mul, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Slash) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Div, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Percent) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Mod, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Caret) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Pow, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Keyword(Keywords::Equals) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Equ, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                _ => panic!("This shouldn't happen!")
+            };
+
+            self.update_preview_token();
+        }
+
+        exprwrapper
+    }
+
+    fn parse_expression_subroutine(&mut self) -> Option<ExprWrapper> {
+        match self.next_token() {
+            // Terminals
+            StrLiteral(string) => {
+                Some(ExprWrapper::default(Box::new(Expr::Const(Const::UTF8String(string)))))
+            },
+            CharLiteral(chr) => {
+                Some(ExprWrapper::default(Box::new(Expr::Const(Const::UTF8Char(chr)))))
+            },
+            Identifier(string) => {
+                Some(ExprWrapper::default(Box::new(Expr::Ident(string))))
+            },
+            Numeric(_, _) => {
+            // Numeric(string, type_) => {
+            //     let number = self.parse_number(type_);
+            //     match type_ {
+            //         Int32Bit => I32Num(number),
+            //         Int64Bit => I64Num(number),
+            //         UInt32Bit => U32Num(number),
+            //         UInt64Bit => U64Num(number),
+            //         Float32Bit => F32Num(number),
+            //         Float64Bit => F64Num(number),
+            //         Bool => Bool(number),
+            //         _ => () // Determine type now or leave it for semantic analysis?
+            //     }
+
+                panic!("Numeric constants are unimplemented");
+            },
+
+            // Parens
+            Symbol(Symbols::ParenOpen) => {
+                let exprwrapper = self.parse_expression(0);
+
+                let tok = self.next_token();
+
+                if !self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
+                    self.expect_error("", "a closing paren ')'", "something else");
+
+                    return None;
+                }
+
+                exprwrapper
+            },
+
+            // Unary ops, precedence hard coded to a (high) 8
+            Symbol(Symbols::Minus) => {
+                return match self.parse_expression(8) {
+                    Some(exprwrapper) => Some(ExprWrapper::default(Box::new(Expr::UnaryOp(UnaryOp::Negate, exprwrapper)))),
+                    None => None
+                }
+            },
+            Keyword(Keywords::Not) => {
+                return match self.parse_expression(8) {
+                    Some(exprwrapper) => Some(ExprWrapper::default(Box::new(Expr::UnaryOp(UnaryOp::Not, exprwrapper)))),
+                    None => None
+                }
+            },
+
+            // Else error
+            _ => {
+                self.write_error("Not sure how you got here.");
+
+                None
+            }
+        }
     }
 
     // Parse numbers into their correct representation
@@ -375,7 +552,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     panic!("Unimplemented top level token 'Numeric'");
                 },
                 Identifier(repr) => {
-//                    self.parse_expression()
                     panic!("Unimplemented top level token 'Identifier'");
                 },
                 Indent(depth) => {

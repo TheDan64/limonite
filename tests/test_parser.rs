@@ -10,6 +10,8 @@ use limonite::syntax::core::types::Types;
 use limonite::syntax::core::keywords::Keywords;
 use limonite::syntax::core::symbols::Symbols;
 use limonite::syntax::ast::expr::{Expr, ExprWrapper};
+use limonite::syntax::ast::consts::*;
+use limonite::syntax::ast::op::*;
 
 struct MockLexer {
     tokens: IntoIter<Token>
@@ -177,4 +179,110 @@ fn test_indentation_levels() {
     parser.parse();
 
     panic!("Asd");
+}
+
+#[test]
+fn test_expression() {
+    // if foo + bar equals "foobar",
+    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
+                                    Identifier("foo".to_string()),
+                                    Symbol(Symbols::Plus),
+                                    Identifier("bar".to_string()),
+                                    Keyword(Keywords::Equals),
+                                    StrLiteral("foobar".to_string()),
+                                    Symbol(Symbols::Comma),
+                                    Indent(1)]);
+
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+
+    let ast = parser.get_ast();
+
+    let condition = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Equ,
+                    ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add,
+                    ExprWrapper::default(Box::new(Expr::Ident("foo".to_string()))),
+                    ExprWrapper::default(Box::new(Expr::Ident("bar".to_string())))))),
+                    ExprWrapper::default(Box::new(Expr::Const(Const::UTF8String("foobar".to_string())))))));
+
+    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
+                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
+                      None)))])));
+
+    assert!(*ast == desired_ast);
+}
+
+#[test]
+fn test_expression_precedence_add_mult() {
+    // Make sure a + b * c + d generates a + (b * c) + d
+    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
+                                    Identifier("a".to_string()),
+                                    Symbol(Symbols::Plus),
+                                    Identifier("b".to_string()),
+                                    Symbol(Symbols::Asterisk),
+                                    Identifier("c".to_string()),
+                                    Symbol(Symbols::Plus),
+                                    Identifier("d".to_string()),
+                                    Symbol(Symbols::Comma),
+                                    Indent(1)]);
+
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+
+    let ast = parser.get_ast();
+
+    let mult = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Mul,
+               ExprWrapper::default(Box::new(Expr::Ident("b".to_string()))),
+               ExprWrapper::default(Box::new(Expr::Ident("c".to_string()))))));
+
+    let left_add = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add,
+                   ExprWrapper::default(Box::new(Expr::Ident("a".to_string()))), mult)));
+
+    let condition = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add, left_add,
+                    ExprWrapper::default(Box::new(Expr::Ident("d".to_string()))))));
+
+    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
+                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
+                      None)))])));
+
+
+    if *ast != desired_ast {
+        println!("Desired ast: {:?}", desired_ast);
+        println!("Actual ast: {:?}", ast);
+        panic!("Addition and multiplication precedence check failed");
+    }
+}
+
+#[test]
+fn test_expression_precedence_pow() {
+    // Make sure a ^ b ^ c generates a ^ (b ^ c) which is right associative
+    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
+                                    Identifier("a".to_string()),
+                                    Symbol(Symbols::Caret),
+                                    Identifier("b".to_string()),
+                                    Symbol(Symbols::Caret),
+                                    Identifier("c".to_string()),
+                                    Symbol(Symbols::Comma),
+                                    Indent(1)]);
+
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+
+    let ast = parser.get_ast();
+
+    let right_pow = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Pow,
+                    ExprWrapper::default(Box::new(Expr::Ident("b".to_string()))),
+                    ExprWrapper::default(Box::new(Expr::Ident("c".to_string()))))));
+
+    let condition = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Pow,
+                    ExprWrapper::default(Box::new(Expr::Ident("a".to_string()))), right_pow)));
+
+    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
+                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
+                      None)))])));
+
+    if *ast != desired_ast {
+        println!("Desired ast: {:?}", desired_ast);
+        println!("Actual ast: {:?}", ast);
+        panic!("Power precedence check failed");
+    }
 }
