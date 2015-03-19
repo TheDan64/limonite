@@ -52,7 +52,7 @@ impl ExprWrapper {
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     // Operations between two expressions
-    NumOp(InfixOp, ExprWrapper, ExprWrapper),
+    InfixOp(InfixOp, ExprWrapper, ExprWrapper),
     // Operation on a single expression
     UnaryOp(UnaryOp, ExprWrapper),
     // Constants such as numbers and strings

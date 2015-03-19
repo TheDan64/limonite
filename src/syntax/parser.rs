@@ -369,7 +369,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Some(ExprWrapper::default(expr))
     }
 
-    fn is_binary_op(&self) -> bool {
+    fn preview_is_binary_op(&self) -> bool {
         match self.preview_token {
             Some(Symbol(Symbols::Plus)) => true,
             Some(Symbol(Symbols::Minus)) => true,
@@ -397,32 +397,50 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // 9. ,
 
         // Don't think this accounts for all precedences
-        let exprwrapper = self.parse_expression_subroutine();
+        let mut exprwrapper = self.parse_expression_subroutine();
+
+        if exprwrapper == None {
+            return None;
+        }
 
         self.update_preview_token();
 
-        while self.is_binary_op() {
+        while self.preview_is_binary_op() {
             let op = self.next_token();
-            let exprwrapper = self.parse_expression_subroutine();
+            let exprwrapper2 = self.parse_expression_subroutine();
 
-            match op {
-                Symbol(Symbols::Plus) => (),
-                Symbol(Symbols::Minus) => (),
-                Symbol(Symbols::Asterisk) => (),
-                Symbol(Symbols::Slash) => (),
-                Symbol(Symbols::Percent) => (),
-                Symbol(Symbols::Caret) => (),
-                _ => ()
+            if exprwrapper2 == None {
+                return None;
             }
+
+            exprwrapper = match op {
+                Symbol(Symbols::Plus) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Minus) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Sub, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Asterisk) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Mul, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Slash) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Div, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Percent) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Mod, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Symbol(Symbols::Caret) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Pow, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                _ => panic!("This shouldn't happen!")
+            };
 
             self.update_preview_token();
         }
 
-        // return something valid?
-        None
+        exprwrapper
     }
 
-    // P
     fn parse_expression_subroutine(&mut self) -> Option<ExprWrapper> {
         match self.next_token() {
             // Terminals
@@ -456,9 +474,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
             Symbol(Symbols::ParenOpen) => {
                 let exprwrapper = self.parse_expression();
 
-                let tok2 = self.next_token();
+                let tok = self.next_token();
 
-                if !self.expect_token(&tok2, Symbol(Symbols::ParenClose)) {
+                if !self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
                     self.expect_error("", "a closing paren ')'", "something else");
 
                     return None;
