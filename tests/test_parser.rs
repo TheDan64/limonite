@@ -10,6 +10,8 @@ use limonite::syntax::core::types::Types;
 use limonite::syntax::core::keywords::Keywords;
 use limonite::syntax::core::symbols::Symbols;
 use limonite::syntax::ast::expr::{Expr, ExprWrapper};
+use limonite::syntax::ast::consts::*;
+use limonite::syntax::ast::op::*;
 
 struct MockLexer {
     tokens: IntoIter<Token>
@@ -177,4 +179,41 @@ fn test_indentation_levels() {
     parser.parse();
 
     panic!("Asd");
+}
+
+#[test]
+fn test_expression() {
+    // if foo + bar equals "foobar",
+    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
+                                    Identifier("foo".to_string()),
+                                    Symbol(Symbols::Plus),
+                                    Identifier("bar".to_string()),
+                                    Keyword(Keywords::Equals),
+                                    StrLiteral("foobar".to_string()),
+                                    Symbol(Symbols::Comma),
+                                    Indent(1)]);
+
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+
+    let ast = parser.get_ast();
+
+    println!("{:?}", ast);
+
+    let condition = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Equ,
+                    ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add,
+                    ExprWrapper::default(Box::new(Expr::Ident("foo".to_string()))),
+                    ExprWrapper::default(Box::new(Expr::Ident("bar".to_string())))))),
+                    ExprWrapper::default(Box::new(Expr::Const(Const::UTF8String("foobar".to_string())))))));
+
+    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
+                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
+                      None)))])));
+
+    assert!(*ast == desired_ast);
+}
+
+#[test]
+fn test_expression_precedence() {
+    // ToDo: Make sure 3 + 5 * 4 + 2 generates 3 + (5 * 4) + 2
 }

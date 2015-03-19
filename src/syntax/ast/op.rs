@@ -11,7 +11,9 @@ pub enum InfixOp {
 	// A % B
 	Mod,
 	// A ^ B
-	Pow
+	Pow,
+	// A equals B (traditionally A == B)
+	Equ
 }
 
 #[derive(Debug, PartialEq)]

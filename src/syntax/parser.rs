@@ -369,7 +369,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Some(ExprWrapper::default(expr))
     }
 
-    fn preview_is_binary_op(&self) -> bool {
+    fn preview_is_infix_op(&self) -> bool {
         match self.preview_token {
             Some(Symbol(Symbols::Plus)) => true,
             Some(Symbol(Symbols::Minus)) => true,
@@ -377,6 +377,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             Some(Symbol(Symbols::Slash)) => true,
             Some(Symbol(Symbols::Percent)) => true,
             Some(Symbol(Symbols::Caret)) => true,
+            Some(Keyword(Keywords::Equals)) => true,
             _ => false
         }
     }
@@ -405,7 +406,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         self.update_preview_token();
 
-        while self.preview_is_binary_op() {
+        while self.preview_is_infix_op() {
             let op = self.next_token();
             let exprwrapper2 = self.parse_expression_subroutine();
 
@@ -431,6 +432,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 },
                 Symbol(Symbols::Caret) => {
                     Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Pow, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                },
+                Keyword(Keywords::Equals) => {
+                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Equ, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
                 },
                 _ => panic!("This shouldn't happen!")
             };
