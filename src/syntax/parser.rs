@@ -386,18 +386,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // E -> (E) | [E] | E * E | E + E | E - E | E / E | E % E | E ^ E |
         // E equals E | E and E | E or E | not E | -E | Terminal
         // Terminal -> identifier | const
-        // Precedence(High -> Low): 
-        // 1. () | []
-        // 2. not | negate
-        // 3. > * / %
-        // 4. + - >
-        // 5. < | <= | > | >=
-        // 6. == != 
-        // 7. bitwise and | bitwise or | bitwise xor
-        // 8. logical and | logical or
-        // 9. ,
 
-        // Don't think this accounts for all precedences
+        // Doesn't account for all precedences yet
         let mut exprwrapper = self.parse_expression_subroutine();
 
         if exprwrapper == None {
