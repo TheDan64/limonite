@@ -1,23 +1,23 @@
 #[derive(Debug, PartialEq)]
 pub enum InfixOp {
 	// A + B
-	InfixAdd,
+	Add,
 	// A - B
-	InfixSub,
+	Sub,
 	// A / B
-	InfixDiv,
+	Div,
 	// A * B
-	InfixMul,
+	Mul,
 	// A % B
-	InfixMod,
+	Mod,
 	// A ^ B
-	InfixPow
+	Pow
 }
 
 #[derive(Debug, PartialEq)]
 pub enum UnaryOp {
 	// -A
-	UnaryNegate,
+	Negate,
 	// not A (traditionally !A)
-	UnaryNot
+	Not
 }

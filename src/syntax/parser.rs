@@ -7,6 +7,7 @@ use syntax::core::keywords::Keywords;
 use syntax::core::symbols::Symbols;
 use syntax::ast::expr::*;
 use syntax::ast::consts::*;
+use syntax::ast::op::*;
 
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
@@ -368,9 +369,21 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Some(ExprWrapper::default(expr))
     }
 
+    fn is_binary_op(&self) -> bool {
+        match self.preview_token {
+            Some(Symbol(Symbols::Plus)) => true,
+            Some(Symbol(Symbols::Minus)) => true,
+            Some(Symbol(Symbols::Asterisk)) => true,
+            Some(Symbol(Symbols::Slash)) => true,
+            Some(Symbol(Symbols::Percent)) => true,
+            Some(Symbol(Symbols::Caret)) => true,
+            _ => false
+        }
+    }
+
     fn parse_expression(&mut self) -> Option<ExprWrapper> {
         // E -> (E) | [E] | E * E | E + E | E - E | E / E | E % E | E ^ E |
-        // not E | -E | Terminal
+        // E equals E | E and E | E or E | not E | -E | Terminal
         // Terminal -> identifier | const
         // Precedence(High -> Low): 
         // 1. () | []
@@ -382,11 +395,66 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // 7. bitwise and | bitwise or | bitwise xor
         // 8. logical and | logical or
         // 9. ,
-        let tok = self.next_token();
 
-        match tok {
+        // Don't think this accounts for all precedences
+        let exprwrapper = self.parse_expression_subroutine();
+
+        self.update_preview_token();
+
+        while self.is_binary_op() {
+            let op = self.next_token();
+            let exprwrapper = self.parse_expression_subroutine();
+
+            match op {
+                Symbol(Symbols::Plus) => (),
+                Symbol(Symbols::Minus) => (),
+                Symbol(Symbols::Asterisk) => (),
+                Symbol(Symbols::Slash) => (),
+                Symbol(Symbols::Percent) => (),
+                Symbol(Symbols::Caret) => (),
+                _ => ()
+            }
+
+            self.update_preview_token();
+        }
+
+        // return something valid?
+        None
+    }
+
+    // P
+    fn parse_expression_subroutine(&mut self) -> Option<ExprWrapper> {
+        match self.next_token() {
+            // Terminals
+            StrLiteral(string) => {
+                Some(ExprWrapper::default(Box::new(Expr::Const(Const::UTF8String(string)))))
+            },
+            CharLiteral(chr) => {
+                Some(ExprWrapper::default(Box::new(Expr::Const(Const::UTF8Char(chr)))))
+            },
+            Identifier(string) => {
+                Some(ExprWrapper::default(Box::new(Expr::Ident(string))))
+            },
+            Numeric(_, _) => {
+            // Numeric(string, type_) => {
+            //     let number = self.parse_number(type_);
+            //     match type_ {
+            //         Int32Bit => I32Num(number),
+            //         Int64Bit => I64Num(number),
+            //         UInt32Bit => U32Num(number),
+            //         UInt64Bit => U64Num(number),
+            //         Float32Bit => F32Num(number),
+            //         Float64Bit => F64Num(number),
+            //         Bool => Bool(number),
+            //         _ => () // Determine type now or leave it for semantic analysis?
+            //     }
+
+                panic!("Numeric constants are unimplemented");
+            },
+
+            // Parens
             Symbol(Symbols::ParenOpen) => {
-                let expression = self.parse_expression();
+                let exprwrapper = self.parse_expression();
 
                 let tok2 = self.next_token();
 
@@ -396,27 +464,30 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     return None;
                 }
 
-                return expression;
+                exprwrapper
             },
-            Symbol(Symbols::SBracketOpen) => {
-                let expression = self.parse_expression();
 
-                let tok2 = self.next_token();
-
-                if !self.expect_token(&tok2, Symbol(Symbols::SBracketClose)) {
-                    self.expect_error("", "a closing paren ')'", "something else");
-
-                    return None;
+            // Unary ops
+            Symbol(Symbols::Minus) => {
+                return match self.parse_expression_subroutine() {
+                    Some(exprwrapper) => Some(ExprWrapper::default(Box::new(Expr::UnaryOp(UnaryOp::Negate, exprwrapper)))),
+                    None => None
                 }
-
-                return expression;
-
             },
-            // Much more to come
-            _ => ()
-        }
+            Keyword(Keywords::Not) => {
+                return match self.parse_expression_subroutine() {
+                    Some(exprwrapper) => Some(ExprWrapper::default(Box::new(Expr::UnaryOp(UnaryOp::Not, exprwrapper)))),
+                    None => None
+                }
+            },
 
-        None
+            // Else error
+            _ => {
+                self.write_error("Not sure how you got here.");
+
+                None
+            }
+        }
     }
 
     // Parse numbers into their correct representation
