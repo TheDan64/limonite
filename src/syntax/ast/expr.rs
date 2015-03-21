@@ -24,9 +24,9 @@ impl CodeGen for ExprWrapper {
 
 impl ExprWrapper {
     // Create an associated expression with start and end positions
-    pub fn new(expr: Box<Expr>, startl: usize, startc: usize, endl: usize, endc: usize) -> ExprWrapper {
+    pub fn new(expr: Expr, startl: usize, startc: usize, endl: usize, endc: usize) -> ExprWrapper {
         ExprWrapper {
-            expr: expr,
+            expr: Box::new(expr),
             start_line: startl,
             start_column: startc,
             end_line: endl,
@@ -34,9 +34,9 @@ impl ExprWrapper {
         }
     }
 
-    pub fn default(expr: Box<Expr>) -> ExprWrapper {
+    pub fn default(expr: Expr) -> ExprWrapper {
         ExprWrapper {
-            expr: expr,
+            expr: Box::new(expr),
             start_line: 0,
             start_column: 0,
             end_line: 0,

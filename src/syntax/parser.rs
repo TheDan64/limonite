@@ -24,7 +24,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             lexer: tokenizer,
             indent_level: 0,
             run_codegen: true,
-            ast_root: ExprWrapper::default(Box::new(Expr::NoOp)),
+            ast_root: ExprWrapper::default(Expr::NoOp),
             preview_token: None
         }
     }
@@ -167,8 +167,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
             if let Some(arg) = name {
                 println!("hit the ident: {}", arg);
-                args.push(ExprWrapper::default(
-                    Box::new(Expr::Const(Const::UTF8String(String::from_str(arg))))));
+                args.push(ExprWrapper::default(Expr::Const(Const::UTF8String(String::from_str(arg)))));
                 first_arg = false;
                 continue;
             }
@@ -187,16 +186,14 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         println!("Before Collect");
         let name = ExprWrapper::default(
-            Box::new(
-                Expr::Const(
-                    Const::UTF8String(
-                        String::from_str("print")
-                    )
+            Expr::Const(
+                Const::UTF8String(
+                    String::from_str("print")
                 )
             )
         );
         if let Some(args) = self.collect_args() {
-            return Some(ExprWrapper::default(Box::new(Expr::FnCall(name, args))));
+            return Some(ExprWrapper::default(Expr::FnCall(name, args)));
         }
         return None;
     }
@@ -320,7 +317,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // Combine the rest of the function definiton with the fn info
         let definition = self.parse_top_level_blocks();
 
-        let expr = Box::new(Expr::FnDecl(fn_name, args, return_type, definition));
+        let expr = Expr::FnDecl(fn_name, args, return_type, definition);
 
         return Some(ExprWrapper::default(expr));
     }
@@ -365,7 +362,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         let block = self.parse_top_level_blocks();
 
-        let expr = Box::new(Expr::If(condition, block, None));
+        let expr = Expr::If(condition, block, None);
 
         Some(ExprWrapper::default(expr))
     }
@@ -427,25 +424,25 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
             exprwrapper = match op {
                 Symbol(Symbols::Plus) => {
-                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Add, exprwrapper.unwrap(), exprwrapper2.unwrap())))
                 },
                 Symbol(Symbols::Minus) => {
-                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Sub, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Sub, exprwrapper.unwrap(), exprwrapper2.unwrap())))
                 },
                 Symbol(Symbols::Asterisk) => {
-                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Mul, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Mul, exprwrapper.unwrap(), exprwrapper2.unwrap())))
                 },
                 Symbol(Symbols::Slash) => {
-                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Div, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Div, exprwrapper.unwrap(), exprwrapper2.unwrap())))
                 },
                 Symbol(Symbols::Percent) => {
-                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Mod, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Mod, exprwrapper.unwrap(), exprwrapper2.unwrap())))
                 },
                 Symbol(Symbols::Caret) => {
-                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Pow, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Pow, exprwrapper.unwrap(), exprwrapper2.unwrap())))
                 },
                 Keyword(Keywords::Equals) => {
-                    Some(ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Equ, exprwrapper.unwrap(), exprwrapper2.unwrap()))))
+                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Equ, exprwrapper.unwrap(), exprwrapper2.unwrap())))
                 },
                 _ => panic!("This shouldn't happen!")
             };
@@ -460,13 +457,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
         match self.next_token() {
             // Terminals
             StrLiteral(string) => {
-                Some(ExprWrapper::default(Box::new(Expr::Const(Const::UTF8String(string)))))
+                Some(ExprWrapper::default(Expr::Const(Const::UTF8String(string))))
             },
             CharLiteral(chr) => {
-                Some(ExprWrapper::default(Box::new(Expr::Const(Const::UTF8Char(chr)))))
+                Some(ExprWrapper::default(Expr::Const(Const::UTF8Char(chr))))
             },
             Identifier(string) => {
-                Some(ExprWrapper::default(Box::new(Expr::Ident(string))))
+                Some(ExprWrapper::default(Expr::Ident(string)))
             },
             Numeric(string, type_) => Some(self.parse_number(string, type_)),
 
@@ -488,13 +485,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
             // Unary ops, precedence hard coded to a (high) 8
             Symbol(Symbols::Minus) => {
                 return match self.parse_expression(8) {
-                    Some(exprwrapper) => Some(ExprWrapper::default(Box::new(Expr::UnaryOp(UnaryOp::Negate, exprwrapper)))),
+                    Some(exprwrapper) => Some(ExprWrapper::default(Expr::UnaryOp(UnaryOp::Negate, exprwrapper))),
                     None => None
                 }
             },
             Keyword(Keywords::Not) => {
                 return match self.parse_expression(8) {
-                    Some(exprwrapper) => Some(ExprWrapper::default(Box::new(Expr::UnaryOp(UnaryOp::Not, exprwrapper)))),
+                    Some(exprwrapper) => Some(ExprWrapper::default(Expr::UnaryOp(UnaryOp::Not, exprwrapper))),
                     None => None
                 }
             },
@@ -597,7 +594,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             }
         }
 
-        ExprWrapper::default(Box::new(Expr::Const(match type_ {
+        ExprWrapper::default(Expr::Const(match type_ {
             Some(Types::Int32Bit)   => Const::I32Num(int32),
             Some(Types::Int64Bit)   => Const::I64Num(int64),
             Some(Types::UInt32Bit)  => Const::U32Num(uint32),
@@ -612,7 +609,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     Const::I32Num(int32)
                 }
             }
-        })))
+        }))
     }
 
     // Parse the file
@@ -685,7 +682,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             };
         }
 
-        ExprWrapper::new(Box::new(Expr::Block(expr)), 0, 0, 0, 0)
+        ExprWrapper::new(Expr::Block(expr), 0, 0, 0, 0)
     }
 
     pub fn parse(&mut self) {
