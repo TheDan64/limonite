@@ -88,9 +88,9 @@ fn test_valid_fn_declaration() {
 
     let ast = parser.get_ast();
 
-    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
-                      Box::new(Expr::FnDecl(String::from_str("foo"), Vec::new(), Type(Types::UInt64Bit),
-                      ExprWrapper::default(Box::new(Expr::Block(Vec::new()))))))])));
+    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
+                      Expr::FnDecl(String::from_str("foo"), Vec::new(), Type(Types::UInt64Bit),
+                      ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
     if *ast != desired_ast {
         panic!("No argument test failed");
@@ -116,9 +116,9 @@ fn test_valid_fn_declaration() {
 
     let ast = parser.get_ast();
 
-    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
-                      Box::new(Expr::FnDecl(String::from_str("foo"), args, Type(Types::Str),
-                      ExprWrapper::default(Box::new(Expr::Block(Vec::new()))))))])));
+    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
+                      Expr::FnDecl(String::from_str("foo"), args, Type(Types::Str),
+                      ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
     if *ast != desired_ast {
         panic!("One argument test failed");
@@ -154,9 +154,9 @@ fn test_valid_fn_declaration() {
 
     let ast = parser.get_ast();
 
-    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
-                      Box::new(Expr::FnDecl(String::from_str("foo"), args, Type(Types::NoneType),
-                      ExprWrapper::default(Box::new(Expr::Block(Vec::new()))))))])));
+    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
+                      Expr::FnDecl(String::from_str("foo"), args, Type(Types::NoneType),
+                      ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
     if *ast != desired_ast {
         panic!("Multiple argument test failed");
@@ -198,15 +198,15 @@ fn test_expression() {
 
     let ast = parser.get_ast();
 
-    let condition = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Equ,
-                    ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add,
-                    ExprWrapper::default(Box::new(Expr::Ident("foo".to_string()))),
-                    ExprWrapper::default(Box::new(Expr::Ident("bar".to_string())))))),
-                    ExprWrapper::default(Box::new(Expr::Const(Const::UTF8String("foobar".to_string())))))));
+    let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Equ,
+                    ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
+                    ExprWrapper::default(Expr::Ident("foo".to_string())),
+                    ExprWrapper::default(Expr::Ident("bar".to_string())))),
+                    ExprWrapper::default(Expr::Const(Const::UTF8String("foobar".to_string())))));
 
-    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
-                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
-                      None)))])));
+    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
+                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
+                      None))]));
 
     assert!(*ast == desired_ast);
 }
@@ -230,19 +230,19 @@ fn test_expression_precedence_add_mult() {
 
     let ast = parser.get_ast();
 
-    let mult = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Mul,
-               ExprWrapper::default(Box::new(Expr::Ident("b".to_string()))),
-               ExprWrapper::default(Box::new(Expr::Ident("c".to_string()))))));
+    let mult = ExprWrapper::default(Expr::InfixOp(InfixOp::Mul,
+               ExprWrapper::default(Expr::Ident("b".to_string())),
+               ExprWrapper::default(Expr::Ident("c".to_string()))));
 
-    let left_add = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add,
-                   ExprWrapper::default(Box::new(Expr::Ident("a".to_string()))), mult)));
+    let left_add = ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
+                   ExprWrapper::default(Expr::Ident("a".to_string())), mult));
 
-    let condition = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Add, left_add,
-                    ExprWrapper::default(Box::new(Expr::Ident("d".to_string()))))));
+    let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Add, left_add,
+                    ExprWrapper::default(Expr::Ident("d".to_string()))));
 
-    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
-                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
-                      None)))])));
+    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
+                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
+                      None))]));
 
 
     if *ast != desired_ast {
@@ -269,16 +269,16 @@ fn test_expression_precedence_pow() {
 
     let ast = parser.get_ast();
 
-    let right_pow = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Pow,
-                    ExprWrapper::default(Box::new(Expr::Ident("b".to_string()))),
-                    ExprWrapper::default(Box::new(Expr::Ident("c".to_string()))))));
+    let right_pow = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
+                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(Expr::Ident("c".to_string()))));
 
-    let condition = ExprWrapper::default(Box::new(Expr::InfixOp(InfixOp::Pow,
-                    ExprWrapper::default(Box::new(Expr::Ident("a".to_string()))), right_pow)));
+    let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
+                    ExprWrapper::default(Expr::Ident("a".to_string())), right_pow));
 
-    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
-                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
-                      None)))])));
+    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
+                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
+                      None))]));
 
     if *ast != desired_ast {
         println!("Desired ast: {:?}", desired_ast);
@@ -300,11 +300,11 @@ fn test_numerics() {
 
     let ast = parser.get_ast();
 
-    let condition = ExprWrapper::default(Box::new(Expr::Const(Const::F32Num(42f32))));
+    let condition = ExprWrapper::default(Expr::Const(Const::F32Num(42f32)));
 
-    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
-                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
-                      None)))])));
+    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
+                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
+                      None))]));
 
     if *ast != desired_ast {
         println!("Desired ast: {:?}", desired_ast);
@@ -312,7 +312,7 @@ fn test_numerics() {
         panic!("Numeric default type test failed");
     }
 
-    // Test explicit type assignment via suffix (42 should be u32 as designated)
+    // Test explicit type assignment via suffix (42u32 should be u32 as designated)
     let lexer = MockLexer::new(vec![Keyword(Keywords::If),
                                     Numeric("42".to_string(), Some(Types::UInt32Bit)),
                                     Symbol(Symbols::Comma),
@@ -323,11 +323,11 @@ fn test_numerics() {
 
     let ast = parser.get_ast();
 
-    let condition = ExprWrapper::default(Box::new(Expr::Const(Const::U32Num(42u32))));
+    let condition = ExprWrapper::default(Expr::Const(Const::U32Num(42u32)));
 
-    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
-                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
-                      None)))])));
+    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
+                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
+                      None))]));
 
     if *ast != desired_ast {
         println!("Desired ast: {:?}", desired_ast);
