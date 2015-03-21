@@ -512,6 +512,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
     #[allow(unused_variables)]
     #[allow(dead_code)]
     fn parse_number(&mut self, num: String, type_: Option<Types>) -> ExprWrapper {
+        let has_decimal_point = num.contains('.');
+
         let base:u32 = match &num[..2] {
             "0x" => 16,
             "0b" => 2,
@@ -572,7 +574,22 @@ impl<TokType: Tokenizer> Parser<TokType> {
                                 decimal_iteration += 1f32;
                             }
                         },
-                        _ => panic!("handle non predetermined types here")
+                        _ => {
+                            // No given type suffix. Default to i32 or f32 when a decimal point present
+                            if has_decimal_point {
+                                if before_decimal_point {
+                                    float32 *= base as f32;
+                                    float32 += b.to_digit(base).unwrap() as f32;
+                                } else {
+                                    float32 += b.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
+                                    decimal_iteration += 1f32;
+                                }
+                            } else {
+                                int32 *= base as i32;
+                                int32 += b.to_digit(base).unwrap() as i32;
+                            }
+
+                        }
                     }
                 },
                 '.' => before_decimal_point = false,
@@ -587,7 +604,14 @@ impl<TokType: Tokenizer> Parser<TokType> {
             Some(Types::UInt64Bit)  => Const::U64Num(uint64),
             Some(Types::Float32Bit) => Const::F32Num(float32),
             Some(Types::Float64Bit) => Const::F64Num(float64),
-            _ => panic!("handle non predetermined types here too")
+            _ => {
+                // No given type suffix. Default to i32 or f32 when a decimal point present
+                if has_decimal_point {
+                    Const::F32Num(float32)
+                } else {
+                    Const::I32Num(int32)
+                }
+            }
         })))
     }
 
