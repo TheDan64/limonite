@@ -286,3 +286,53 @@ fn test_expression_precedence_pow() {
         panic!("Power precedence check failed");
     }
 }
+
+#[test]
+fn test_numerics() {
+    // Test default type assignment (42.0 should default to f32)
+    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
+                                    Numeric("42.0".to_string(), None),
+                                    Symbol(Symbols::Comma),
+                                    Indent(1)]);
+
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+
+    let ast = parser.get_ast();
+
+    let condition = ExprWrapper::default(Box::new(Expr::Const(Const::F32Num(42f32))));
+
+    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
+                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
+                      None)))])));
+
+    if *ast != desired_ast {
+        println!("Desired ast: {:?}", desired_ast);
+        println!("Actual ast: {:?}", ast);
+        panic!("Numeric default type test failed");
+    }
+
+    // Test explicit type assignment via suffix (42 should be u32 as designated)
+    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
+                                    Numeric("42".to_string(), Some(Types::UInt32Bit)),
+                                    Symbol(Symbols::Comma),
+                                    Indent(1)]);
+
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+
+    let ast = parser.get_ast();
+
+    let condition = ExprWrapper::default(Box::new(Expr::Const(Const::U32Num(42u32))));
+
+    let desired_ast = ExprWrapper::default(Box::new(Expr::Block(vec![ExprWrapper::default(
+                      Box::new(Expr::If(condition, ExprWrapper::default(Box::new(Expr::Block(vec![]))),
+                      None)))])));
+
+    if *ast != desired_ast {
+        println!("Desired ast: {:?}", desired_ast);
+        println!("Actual ast: {:?}", ast);
+        panic!("Numeric explicit type test failed");
+    }
+
+}

@@ -422,7 +422,7 @@ impl<'a> Lexer<'a> {
 
                     // Check if no decimal values were found
                     match &fractional[..] {
-                        "" => return Error("Invalid floating point number.".to_string()),
+                        "" => return Error("No numbers found after the decimal point.".to_string()),
                         _  => number.push_str(&fractional)
                     }
 

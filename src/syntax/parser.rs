@@ -8,6 +8,7 @@ use syntax::core::symbols::Symbols;
 use syntax::ast::expr::*;
 use syntax::ast::consts::*;
 use syntax::ast::op::*;
+use syntax::core::types::*;
 
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
@@ -467,22 +468,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             Identifier(string) => {
                 Some(ExprWrapper::default(Box::new(Expr::Ident(string))))
             },
-            Numeric(_, _) => {
-            // Numeric(string, type_) => {
-            //     let number = self.parse_number(type_);
-            //     match type_ {
-            //         Int32Bit => I32Num(number),
-            //         Int64Bit => I64Num(number),
-            //         UInt32Bit => U32Num(number),
-            //         UInt64Bit => U64Num(number),
-            //         Float32Bit => F32Num(number),
-            //         Float64Bit => F64Num(number),
-            //         Bool => Bool(number),
-            //         _ => () // Determine type now or leave it for semantic analysis?
-            //     }
-
-                panic!("Numeric constants are unimplemented");
-            },
+            Numeric(string, type_) => Some(self.parse_number(string, type_)),
 
             // Parens
             Symbol(Symbols::ParenOpen) => {
@@ -525,12 +511,108 @@ impl<TokType: Tokenizer> Parser<TokType> {
     // Parse numbers into their correct representation
     #[allow(unused_variables)]
     #[allow(dead_code)]
-    fn parse_number(&mut self, num: &str) -> Option<ExprWrapper> {
-        println!("{}", num);
-        let value = 0;
-        // This would normally check the ending on the thing slash information
-        // about the number to pick int, uint, or float
-        None
+    fn parse_number(&mut self, num: String, type_: Option<Types>) -> ExprWrapper {
+        let has_decimal_point = num.contains('.');
+
+        let base:u32 = match &num[..2] {
+            "0x" => 16,
+            "0b" => 2,
+            _    => 10
+        };
+
+        let bytes = num.into_bytes().into_iter().filter(|byte| match *byte as char {
+            '_' | 'x' | 'b' => false,
+            _ => true
+        });
+
+        let mut int32 = 0i32;
+        let mut int64 = 0i64;
+        let mut uint32 = 0u32;
+        let mut uint64 = 0u64;
+        let mut float32 = 0f32;
+        let mut float64 = 0f64;
+
+        let mut before_decimal_point = true;
+        let mut decimal_iteration = 1f32;
+
+        // Does not account for overflow
+        for byte in bytes {
+            match byte as char {
+                b if b.is_digit(base) => {
+                    match type_ {
+                        Some(Types::Int32Bit) => {
+                            int32 *= base as i32;
+                            int32 += b.to_digit(base).unwrap() as i32;
+                        },
+                        Some(Types::Int64Bit) => {
+                            int64 *= base as i64;
+                            int64 += b.to_digit(base).unwrap() as i64;
+                        },
+                        Some(Types::UInt32Bit) => {
+                            uint32 *= base;
+                            uint32 += b.to_digit(base).unwrap();
+                        },
+                        Some(Types::UInt64Bit) => {
+                            uint64 *= base as u64;
+                            uint64 += b.to_digit(base).unwrap() as u64;
+                        },
+                        Some(Types::Float32Bit) => {
+                            if before_decimal_point {
+                                float32 *= base as f32;
+                                float32 += b.to_digit(base).unwrap() as f32;
+                            } else {
+                                float32 += b.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
+                                decimal_iteration += 1f32;
+                            }
+                        },
+                        Some(Types::Float64Bit) => {
+                            if before_decimal_point {
+                                float64 *= base as f64;
+                                float64 += b.to_digit(base).unwrap() as f64;
+                            } else {
+                                float64 += b.to_digit(base).unwrap() as f64 / (base as f64 * decimal_iteration as f64);
+                                decimal_iteration += 1f32;
+                            }
+                        },
+                        _ => {
+                            // No given type suffix. Default to i32 or f32 when a decimal point present
+                            if has_decimal_point {
+                                if before_decimal_point {
+                                    float32 *= base as f32;
+                                    float32 += b.to_digit(base).unwrap() as f32;
+                                } else {
+                                    float32 += b.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
+                                    decimal_iteration += 1f32;
+                                }
+                            } else {
+                                int32 *= base as i32;
+                                int32 += b.to_digit(base).unwrap() as i32;
+                            }
+
+                        }
+                    }
+                },
+                '.' => before_decimal_point = false,
+                _ => panic!("Numeric parse failure: This shouldn't happen!")
+            }
+        }
+
+        ExprWrapper::default(Box::new(Expr::Const(match type_ {
+            Some(Types::Int32Bit)   => Const::I32Num(int32),
+            Some(Types::Int64Bit)   => Const::I64Num(int64),
+            Some(Types::UInt32Bit)  => Const::U32Num(uint32),
+            Some(Types::UInt64Bit)  => Const::U64Num(uint64),
+            Some(Types::Float32Bit) => Const::F32Num(float32),
+            Some(Types::Float64Bit) => Const::F64Num(float64),
+            _ => {
+                // No given type suffix. Default to i32 or f32 when a decimal point present
+                if has_decimal_point {
+                    Const::F32Num(float32)
+                } else {
+                    Const::I32Num(int32)
+                }
+            }
+        })))
     }
 
     // Parse the file
