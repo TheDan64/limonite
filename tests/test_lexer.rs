@@ -136,6 +136,7 @@ fn test_invalid_numerics() {
 42f32
 42i3
 42i31
+42.
 42.0f
 42.0f3
 42.0f31";
@@ -156,6 +157,7 @@ fn test_invalid_numerics() {
                               Error("Invalid suffix f. Did you mean u32, u64, i32, or i64?".to_string()), Numeric("32".to_string(), None), Indent(0),
                               Error("Invalid suffix i3. Did you mean i32?".to_string()), Indent(0),
                               Error("Invalid suffix i31. Did you mean i32?".to_string()), Indent(0),
+                              Error("No numbers found after the decimal point.".to_string()), Indent(0),
                               Error("Invalid suffix f. Did you mean f32 or f64?".to_string()), Indent(0),
                               Error("Invalid suffix f3. Did you mean f32?".to_string()), Indent(0),
                               Error("Invalid suffix f31. Did you mean f32?".to_string()), EOF];
