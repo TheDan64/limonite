@@ -1,13 +1,13 @@
 use std::str::FromStr;
 
-#[derive(Copy, Debug, PartialEq)]
+#[derive(Copy, Debug, PartialEq, Clone)]
 pub enum Keywords {
     And,
     Or,
     Not,
     Is,
     Class,
-    Fn,
+    Function,
     Var,
     Def,
     Assert,
@@ -40,7 +40,7 @@ impl FromStr for Keywords {
             "not"      => Ok(Keywords::Not),
             "is"       => Ok(Keywords::Is),
             "class"    => Ok(Keywords::Class),
-            "fn"       => Ok(Keywords::Fn),
+            "fn"       => Ok(Keywords::Function),
             "var"      => Ok(Keywords::Var),
             "def"      => Ok(Keywords::Def),
             "assert"   => Ok(Keywords::Assert),
