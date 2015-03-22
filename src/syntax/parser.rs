@@ -50,8 +50,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
         
         self.run_codegen = false;
 
-        println!("Error on line: {} col: {}, {}", start_line, start_column, msg);
-
         // Skip to the end of the line (at Indent token) and allow parsing to continue
         loop {
             // Note: This consumes the Indent token, which probably isnt ideal.
@@ -128,7 +126,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     fn expect_token(&self, token: &Token, next_token: Token) -> bool {
-        println!("{:?}, {:?}, {:?}", token, *token, next_token);
         *token == next_token
     }
 
@@ -138,19 +135,15 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let mut first_arg = true;
 
         loop {
-            println!("Start Loop - first_arg: {}", first_arg); 
             if !first_arg {
-                println!("Got token");
                 tok = self.next_token();
             }
 
             if !first_arg && self.expect_token(&tok, Symbol(Symbols::Comma)) {
-                println!("hit the comma!");
                 tok = self.next_token(); 
             }
 
             if self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
-                println!("hit the close paren {:?}", tok);
                 return Some(args);
             }
 
@@ -163,8 +156,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             };
 
             if let Some(arg) = name {
-                println!("hit the ident: {}", arg);
-                args.push(ExprWrapper::default(Expr::Const(Const::UTF8String(String::from_str(arg)))));
+                args.push(ExprWrapper::default(Expr::Const(Const::UTF8String(arg.to_string()))));
                 first_arg = false;
                 continue;
             }
@@ -195,7 +187,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let parse_args = |seperator: Token| -> Option<ExprWrapper> {
             println!("Looking for an arg");
             // args.push(ExprWrapper::default(
-                // Expr::Const(Const::UTF8String(String::from_str(new_arg)))));
+                // Expr::Const(Const::UTF8String(new_arg.to_string()))));
             let arg = self.next_token();
             println!("Found arg: {:?}", arg);
             None
@@ -209,7 +201,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             *current_token == Symbol(Symbols::ParenClose)
         };
 
-        // let ident = ExprWrapper::default(Expr::Ident(String::from_str(&ident)));
+        // let ident = ExprWrapper::default(Expr::Ident(ident.to_string()));
         // let args = self.collect_sequence(parse_args, sequence_end);
 
         // Some(ExprWrapper::default(Expr::FnCall(ident, args)))
@@ -240,7 +232,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let name = ExprWrapper::default(
             Expr::Const(
                 Const::UTF8String(
-                    String::from_str("print")
+                    "print".to_string()
                 )
             )
         );
@@ -450,57 +442,40 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // E equals E | E and E | E or E | not E | -E | Terminal
         // Terminal -> identifier | const
 
-        // Doesn't account for all precedences yet
-        let mut exprwrapper = self.parse_expression_subroutine();
-
-        if exprwrapper == None {
-            return None;
+        let subroutine = self.parse_expression_subroutine();
+        if subroutine == None {
+            return None
         }
+        let mut lhs = subroutine.unwrap();
 
-        let token = self.peek();
+        let mut token = self.peek();
         while self.is_infix_op(&token) && self.get_precedence(&token) >= precedence {
-            let token = self.peek();
-            let mut new_precedence = self.get_precedence(&token) + 1;
-            let op = self.next_token();
+            token = self.next_token();
+            let new_precedence = self.get_precedence(&token) + match token {
+                // Right associative ops don't get the +1
+                Symbol(Symbols::Caret) => 0,
+                _ => 1,
+            };
 
-            // Right associative ops don't get the +1
-            if let Symbol(Symbols::Caret) = op {
-                new_precedence -= 1;
-            }
+            if let Some(rhs) = self.parse_expression(new_precedence) {
+                let infix = match token {
+                    Symbol(Symbols::Plus) => InfixOp::Add,
+                    Symbol(Symbols::Minus) => InfixOp::Sub,
+                    Symbol(Symbols::Asterisk) => InfixOp::Mul,
+                    Symbol(Symbols::Slash) => InfixOp::Div,
+                    Symbol(Symbols::Percent) => InfixOp::Mod,
+                    Symbol(Symbols::Caret) => InfixOp::Pow,
+                    Keyword(Keywords::Equals) => InfixOp::Equ,
+                    _ => panic!("This shouldn't happen!")
+                };
 
-            let exprwrapper2 = self.parse_expression(new_precedence);
-
-            if exprwrapper2 == None {
+                lhs = ExprWrapper::default(Expr::InfixOp(infix, lhs, rhs));
+            } else {
                 return None;
             }
-
-            exprwrapper = match op {
-                Symbol(Symbols::Plus) => {
-                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Add, exprwrapper.unwrap(), exprwrapper2.unwrap())))
-                },
-                Symbol(Symbols::Minus) => {
-                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Sub, exprwrapper.unwrap(), exprwrapper2.unwrap())))
-                },
-                Symbol(Symbols::Asterisk) => {
-                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Mul, exprwrapper.unwrap(), exprwrapper2.unwrap())))
-                },
-                Symbol(Symbols::Slash) => {
-                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Div, exprwrapper.unwrap(), exprwrapper2.unwrap())))
-                },
-                Symbol(Symbols::Percent) => {
-                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Mod, exprwrapper.unwrap(), exprwrapper2.unwrap())))
-                },
-                Symbol(Symbols::Caret) => {
-                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Pow, exprwrapper.unwrap(), exprwrapper2.unwrap())))
-                },
-                Keyword(Keywords::Equals) => {
-                    Some(ExprWrapper::default(Expr::InfixOp(InfixOp::Equ, exprwrapper.unwrap(), exprwrapper2.unwrap())))
-                },
-                _ => panic!("This shouldn't happen!")
-            };
+            token = self.peek();
         }
-
-        exprwrapper
+        return Some(lhs);
     }
 
     fn parse_expression_subroutine(&mut self) -> Option<ExprWrapper> {
@@ -519,7 +494,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
                 Some(ExprWrapper::default(Expr::Ident(ident)))
             },
-            Numeric(string, type_) => Some(self.parse_number(string, type_)),
+            Numeric(string, _type) => Some(self.parse_number(string, _type)),
 
             // Parens
             Symbol(Symbols::ParenOpen) => {
@@ -677,8 +652,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
         loop {
             // Parse the token into the next node of the AST
             let token = self.next_token();
-
-            println!("{:?}", token);
 
             match token {
                 Numeric(string, type_) => {

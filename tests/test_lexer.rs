@@ -1,6 +1,6 @@
 extern crate limonite;
 
-use limonite::syntax::core::keywords::Keywords::{Def, Fn, If, Is, Print, Return, Var};
+use limonite::syntax::core::keywords::Keywords::{Def, Function, If, Is, Print, Return, Var};
 use limonite::syntax::core::symbols::Symbols::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
 use limonite::syntax::core::tokens::Token;
 use limonite::syntax::core::tokens::Token::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Symbol, StrLiteral, Type};
@@ -178,7 +178,7 @@ fn basic_func() -> str
 	return string";
 
     let lexer = Lexer::new(&input_string);
-    let desired_output = vec![Keyword(Fn), Identifier("basic_func".to_string()), Symbol(ParenOpen), Symbol(ParenClose),
+    let desired_output = vec![Keyword(Function), Identifier("basic_func".to_string()), Symbol(ParenOpen), Symbol(ParenClose),
                               Symbol(RightThinArrow), Type(Str), Indent(1),
                               Keyword(Def), Identifier("ch".to_string()), Symbol(Equals), CharLiteral('g'), Indent(1),
                               Keyword(Var), Identifier("string".to_string()), Symbol(Equals), StrLiteral("strin".to_string()), Indent(0),
