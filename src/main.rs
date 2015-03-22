@@ -39,7 +39,7 @@ fn main() {
     }
 
     let lexer = Lexer::new(&input_string);
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, true);
 
     parser.parse();
 }

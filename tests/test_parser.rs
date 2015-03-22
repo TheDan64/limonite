@@ -51,7 +51,7 @@ fn test_print() {
         Identifier("meow".to_string()),
         Symbol(Symbols::ParenClose),
     ]);
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
     let ast = parser.get_ast().get_expr();
     println!("{:?}", ast);
@@ -83,7 +83,7 @@ fn test_valid_fn_declaration() {
                                     Indent(1),
                                     EOF]);
 
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
 
     let ast = parser.get_ast();
@@ -111,7 +111,7 @@ fn test_valid_fn_declaration() {
                                     Indent(1),
                                     EOF]);
 
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
 
     let ast = parser.get_ast();
@@ -149,7 +149,7 @@ fn test_valid_fn_declaration() {
                                     Indent(1),
                                     EOF]);
 
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
 
     let ast = parser.get_ast();
@@ -175,7 +175,7 @@ fn test_indentation_levels() {
                                     Type(Types::UInt64Bit),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
 
     panic!("Asd");
@@ -193,7 +193,7 @@ fn test_expression() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
 
     let ast = parser.get_ast();
@@ -225,7 +225,7 @@ fn test_expression_precedence_add_mult() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
 
     let ast = parser.get_ast();
@@ -264,7 +264,7 @@ fn test_expression_precedence_pow() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
 
     let ast = parser.get_ast();
@@ -295,7 +295,7 @@ fn test_numerics() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
 
     let ast = parser.get_ast();
@@ -318,7 +318,7 @@ fn test_numerics() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, false);
     parser.parse();
 
     let ast = parser.get_ast();

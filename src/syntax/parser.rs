@@ -19,11 +19,11 @@ pub struct Parser<TokType: Tokenizer> {
 }
 
 impl<TokType: Tokenizer> Parser<TokType> {
-    pub fn new(tokenizer: TokType) -> Parser<TokType> {
+    pub fn new(tokenizer: TokType, run_codegen: bool) -> Parser<TokType> {
         Parser {
             lexer: tokenizer,
             indent_level: 0,
-            run_codegen: true,
+            run_codegen: run_codegen,
             ast_root: ExprWrapper::default(Expr::NoOp),
             preview_token: None
         }
@@ -687,6 +687,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     pub fn parse(&mut self) {
         self.ast_root = self.parse_top_level_blocks();
+
+        if self.run_codegen {
+            self.run_codegen();
+        }
     }
 
     pub fn get_ast(&self) -> &ExprWrapper {

@@ -91,7 +91,7 @@ impl CodeGen for Expr {
                     expr.gen_code();
                 }
             },
-            // Codegen for others:
+            Expr::NoOp => (),
             _ => ()
         }
     }
