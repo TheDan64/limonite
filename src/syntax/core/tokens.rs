@@ -2,7 +2,7 @@ use syntax::core::keywords::Keywords;
 use syntax::core::symbols::Symbols;
 use syntax::core::types::Types;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     // 42, 42, 0x2A, 0b101010, -42.0, 42 ... and a suffix
     Numeric(String, Option<Types>),
