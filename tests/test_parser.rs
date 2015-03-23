@@ -53,10 +53,22 @@ fn test_print() {
     ]);
     let mut parser = Parser::new(lexer, false);
     parser.parse();
-    let ast = parser.get_ast().get_expr();
+    let ast = parser.get_ast();
     println!("{:?}", ast);
 
-    assert!(ast != ast);
+    let desired_ast = ExprWrapper::default(Expr::Block(
+        vec![ExprWrapper::default(
+            Expr::FnCall(
+                ExprWrapper::default(Expr::Const(Const::UTF8String("print".to_string()))),
+                vec![
+                    ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
+                    ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
+                    ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
+                ],
+            ))
+        ]));
+
+    assert!(*ast == desired_ast, "{:?}, {:?}", *ast, desired_ast);
 }
 
 #[test]
@@ -74,8 +86,8 @@ fn test_variable_int_declaration() {
 #[test]
 fn test_valid_fn_declaration() {
     // No args: foo() -> u64
-    let lexer = MockLexer::new(vec![Keyword(Keywords::Fn),
-                                    Identifier(String::from_str("foo")),
+    let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
+                                    Identifier("foo".to_string()),
                                     Symbol(Symbols::ParenOpen),
                                     Symbol(Symbols::ParenClose),
                                     Symbol(Symbols::RightThinArrow),
@@ -89,7 +101,7 @@ fn test_valid_fn_declaration() {
     let ast = parser.get_ast();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::FnDecl(String::from_str("foo"), Vec::new(), Type(Types::UInt64Bit),
+                      Expr::FnDecl("foo".to_string(), Vec::new(), Type(Types::UInt64Bit),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
     if *ast != desired_ast {
@@ -97,12 +109,12 @@ fn test_valid_fn_declaration() {
     }
 
     // One arg: foo(bar: i32) -> str
-    let args = vec![(String::from_str("bar"), Type(Types::Int32Bit))];
+    let args = vec![("bar".to_string(), Type(Types::Int32Bit))];
 
-    let lexer = MockLexer::new(vec![Keyword(Keywords::Fn),
-                                    Identifier(String::from_str("foo")),
+    let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
+                                    Identifier("foo".to_string()),
                                     Symbol(Symbols::ParenOpen),
-                                    Identifier(String::from_str("bar")),
+                                    Identifier("bar".to_string()),
                                     Symbol(Symbols::Colon),
                                     Type(Types::Int32Bit),
                                     Symbol(Symbols::ParenClose),
@@ -117,7 +129,7 @@ fn test_valid_fn_declaration() {
     let ast = parser.get_ast();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::FnDecl(String::from_str("foo"), args, Type(Types::Str),
+                      Expr::FnDecl("foo".to_string(), args, Type(Types::Str),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
     if *ast != desired_ast {
@@ -125,24 +137,24 @@ fn test_valid_fn_declaration() {
     }
 
     // Multiple args: foo(bar: i32, left: Obj, right: Obj) -> None
-    let args = vec![(String::from_str("bar"), Type(Types::Int32Bit)),
-                    (String::from_str("left"), Identifier(String::from_str("Obj"))),
-                    (String::from_str("right"), Identifier(String::from_str("Obj")))];
+    let args = vec![("bar".to_string(), Type(Types::Int32Bit)),
+                    ("left".to_string(), Identifier("Obj".to_string())),
+                    ("right".to_string(), Identifier("Obj".to_string()))];
 
-    let lexer = MockLexer::new(vec![Keyword(Keywords::Fn),
-                                    Identifier(String::from_str("foo")),
+    let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
+                                    Identifier("foo".to_string()),
                                     Symbol(Symbols::ParenOpen),
-                                    Identifier(String::from_str("bar")),
+                                    Identifier("bar".to_string()),
                                     Symbol(Symbols::Colon),
                                     Type(Types::Int32Bit),
                                     Symbol(Symbols::Comma),
-                                    Identifier(String::from_str("left")),
+                                    Identifier("left".to_string()),
                                     Symbol(Symbols::Colon),
-                                    Identifier(String::from_str("Obj")),
+                                    Identifier("Obj".to_string()),
                                     Symbol(Symbols::Comma),
-                                    Identifier(String::from_str("right")),
+                                    Identifier("right".to_string()),
                                     Symbol(Symbols::Colon),
-                                    Identifier(String::from_str("Obj")),
+                                    Identifier("Obj".to_string()),
                                     Symbol(Symbols::ParenClose),
                                     Symbol(Symbols::RightThinArrow),
                                     Type(Types::NoneType),
@@ -155,7 +167,7 @@ fn test_valid_fn_declaration() {
     let ast = parser.get_ast();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::FnDecl(String::from_str("foo"), args, Type(Types::NoneType),
+                      Expr::FnDecl("foo".to_string(), args, Type(Types::NoneType),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
     if *ast != desired_ast {
@@ -167,8 +179,8 @@ fn test_valid_fn_declaration() {
 #[test]
 fn test_indentation_levels() {
     // Correct indentation level +1 after fn decl
-    let lexer = MockLexer::new(vec![Keyword(Keywords::Fn),
-                                    Identifier(String::from_str("foo")),
+    let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
+                                    Identifier("foo".to_string()),
                                     Symbol(Symbols::ParenOpen),
                                     Symbol(Symbols::ParenClose),
                                     Symbol(Symbols::RightThinArrow),
@@ -208,7 +220,7 @@ fn test_expression() {
                       Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
                       None))]));
 
-    assert!(*ast == desired_ast);
+    assert!(*ast == desired_ast, "{:?}, {:?}", *ast, desired_ast);
 }
 
 #[test]
