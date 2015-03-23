@@ -51,7 +51,7 @@ fn test_print() {
         Identifier("meow".to_string()),
         Symbol(Symbols::ParenClose),
     ]);
-    let mut parser = Parser::new(lexer, false);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
     println!("{:?}", ast);
@@ -95,7 +95,7 @@ fn test_valid_fn_declaration() {
                                     Indent(1),
                                     EOF]);
 
-    let mut parser = Parser::new(lexer, false);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
@@ -121,7 +121,7 @@ fn test_valid_fn_declaration() {
                                     Indent(1),
                                     EOF]);
 
-    let mut parser = Parser::new(lexer, false);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
@@ -157,7 +157,7 @@ fn test_valid_fn_declaration() {
                                     Indent(1),
                                     EOF]);
 
-    let mut parser = Parser::new(lexer, false);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
@@ -181,7 +181,7 @@ fn test_indentation_levels() {
     //                                 Type(Types::UInt64Bit),
     //                                 Indent(1)]);
 
-    // let mut parser = Parser::new(lexer, false);
+    // let mut parser = Parser::new(lexer);
     // let ast = parser.parse();
 
     // ToDo: this test
@@ -199,7 +199,7 @@ fn test_expression() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer, false);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
     let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Equ,
@@ -229,7 +229,7 @@ fn test_expression_precedence_add_mult() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer, false);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
     let mult = ExprWrapper::default(Expr::InfixOp(InfixOp::Mul,
@@ -266,7 +266,7 @@ fn test_expression_precedence_pow() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer, false);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
     let right_pow = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
@@ -295,7 +295,7 @@ fn test_numerics() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer, false);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
     let condition = ExprWrapper::default(Expr::Const(Const::F32Num(42f32)));
@@ -316,7 +316,7 @@ fn test_numerics() {
                                     Symbol(Symbols::Comma),
                                     Indent(1)]);
 
-    let mut parser = Parser::new(lexer, false);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
     let condition = ExprWrapper::default(Expr::Const(Const::U32Num(42u32)));
@@ -345,9 +345,8 @@ fn test_function_call() {
     ]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast().get_expr();
+    let parse = parser.parse();
+    let ast = parse.get_expr();
 
     let desired_ast = Expr::Block(
         vec![ExprWrapper::default(Expr::FnCall(
@@ -359,7 +358,5 @@ fn test_function_call() {
             ])
         )]);
 
-    assert!(*ast == desired_ast, "Expected: {:?}, but found: {:?}", *ast, desired_ast);
+    assert!(*ast == desired_ast, "Expected: {:?}, but found: {:?}", ast, desired_ast);
 }
-
-

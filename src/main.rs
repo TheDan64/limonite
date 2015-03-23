@@ -46,12 +46,18 @@ fn main() {
     let lexer = Lexer::new(&input_string);
 
     // Parse & Build an AST
-    let mut parser = Parser::new(lexer, true);
+    let mut parser = Parser::new(lexer);
     let ast_root = parser.parse();
 
     // ToDo: Semantic Analysis
 
+    // Avoid going to code gen when generating invalid syntax
+    if !parser.generated_valid_syntax() {
+        return;
+    }
+
     // Run Code Gen
+    // ToDo: Add a flag for disabling code gen?
     unsafe {
         let module_name = concat!("module1", "\0").as_ptr() as *const i8;
         let llvm_context = LLVMContextCreate();
@@ -60,7 +66,7 @@ fn main() {
 
         ast_root.gen_code(builder);
 
-        // Add a flag for dumping ir to stdout?
+        // ToDo: Add a flag for dumping ir to stdout?
         LLVMDumpModule(llvm_module);
         LLVMDisposeBuilder(builder);
     }

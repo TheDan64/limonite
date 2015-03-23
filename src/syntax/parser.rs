@@ -12,17 +12,17 @@ use syntax::core::types::*;
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     indent_level: usize,
-    run_codegen: bool,
+    valid_syntax: bool,
     ast_root: ExprWrapper,
     preview_token: Option<Token>
 }
 
 impl<TokType: Tokenizer> Parser<TokType> {
-    pub fn new(tokenizer: TokType, run_codegen: bool) -> Parser<TokType> {
+    pub fn new(tokenizer: TokType) -> Parser<TokType> {
         Parser {
             lexer: tokenizer,
             indent_level: 0,
-            run_codegen: run_codegen,
+            valid_syntax: true,
             ast_root: ExprWrapper::default(Expr::NoOp),
             preview_token: None
         }
@@ -51,7 +51,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     fn write_error(&mut self, msg: &str) {
         let (start_line, start_column, _, _) = self.lexer.get_error_pos();
         
-        self.run_codegen = false;
+        self.valid_syntax = false;
 
         // Skip to the end of the line (at Indent token) and allow parsing to continue
         loop {
@@ -675,5 +675,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
 
         ExprWrapper::new(Expr::Block(expr), 0, 0, 0, 0)
+    }
+
+    pub fn generated_valid_syntax(&self) -> bool {
+        self.valid_syntax
     }
 }
