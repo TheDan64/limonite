@@ -1,9 +1,4 @@
 #![allow(dead_code)]
-extern crate rustc;
-
-use self::rustc::llvm::{LLVMContextCreate, LLVMModuleCreateWithNameInContext,
-                        LLVMCreateBuilderInContext, LLVMDumpModule, LLVMDisposeBuilder};
-use llvm::codegen::CodeGen;
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::*;
@@ -363,7 +358,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         };
 
         // Combine the rest of the function definiton with the fn info
-        let definition = self.parse_top_level_blocks();
+        let definition = self.parse();
 
         let expr = Expr::FnDecl(fn_name, args, return_type, definition);
 
@@ -408,7 +403,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             }
         };
 
-        let block = self.parse_top_level_blocks();
+        let block = self.parse();
 
         let expr = Expr::If(condition, block, None);
 
@@ -647,7 +642,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Parse the file
     #[allow(unused_variables)]
-    fn parse_top_level_blocks(&mut self) -> ExprWrapper {
+    pub fn parse(&mut self) -> ExprWrapper {
         self.start();
 
         let mut expr = Vec::new();
@@ -714,31 +709,5 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
 
         ExprWrapper::new(Expr::Block(expr), 0, 0, 0, 0)
-    }
-
-    pub fn parse(&mut self) {
-        self.ast_root = self.parse_top_level_blocks();
-
-        if self.run_codegen {
-            self.run_codegen();
-        }
-    }
-
-    pub fn get_ast(&self) -> &ExprWrapper {
-        &self.ast_root
-    }
-
-    fn run_codegen(&self) {
-        unsafe {
-            let module_name = concat!("module1", "\0").as_ptr() as *const i8;
-            let llvm_context = LLVMContextCreate();
-            let llvm_module = LLVMModuleCreateWithNameInContext(module_name, llvm_context);
-            let builder = LLVMCreateBuilderInContext(llvm_context);
-
-            self.ast_root.gen_code(builder);
-
-            LLVMDumpModule(llvm_module);
-            LLVMDisposeBuilder(builder);
-        }
     }
 }

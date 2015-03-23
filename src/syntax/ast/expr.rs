@@ -4,7 +4,7 @@ use syntax::core::tokens::Token;
 
 #[derive(Debug, PartialEq)]
 pub struct ExprWrapper {
-    expr: Box<Expr>,
+    pub expr: Box<Expr>,
     start_line: usize,
     start_column: usize,
     end_line: usize,

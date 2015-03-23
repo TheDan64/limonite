@@ -2,7 +2,7 @@ extern crate rustc;
 
 use self::rustc::llvm::*;
 use syntax::ast::expr::*;
-use syntax::ast::consts::*;
+//use syntax::ast::consts::*;
 
 pub trait CodeGen {
     fn gen_code(&self, llvm_builder: *mut Builder_opaque);
