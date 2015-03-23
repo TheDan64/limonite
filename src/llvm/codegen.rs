@@ -10,7 +10,7 @@ pub trait CodeGen {
 
 impl CodeGen for ExprWrapper {
     fn gen_code(&self, llvm_builder: *mut Builder_opaque) {
-        self.expr.gen_code(llvm_builder);
+        self.get_expr().gen_code(llvm_builder);
     }
 }
 
