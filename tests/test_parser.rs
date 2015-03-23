@@ -52,8 +52,8 @@ fn test_print() {
         Symbol(Symbols::ParenClose),
     ]);
     let mut parser = Parser::new(lexer);
-    parser.parse();
-    let ast = parser.get_ast();
+    let ast = parser.parse();
+
     println!("{:?}", ast);
 
     let desired_ast = ExprWrapper::default(Expr::Block(
@@ -68,7 +68,7 @@ fn test_print() {
             ))
         ]));
 
-    assert!(*ast == desired_ast, "{:?}, {:?}", *ast, desired_ast);
+    assert!(ast == desired_ast, "{:?}, {:?}", ast, desired_ast);
 }
 
 #[test]
@@ -96,15 +96,13 @@ fn test_valid_fn_declaration() {
                                     EOF]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast();
+    let ast = parser.parse();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
                       Expr::FnDecl("foo".to_string(), Vec::new(), Type(Types::UInt64Bit),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
-    if *ast != desired_ast {
+    if ast != desired_ast {
         panic!("No argument test failed");
     }
 
@@ -124,15 +122,13 @@ fn test_valid_fn_declaration() {
                                     EOF]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast();
+    let ast = parser.parse();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
                       Expr::FnDecl("foo".to_string(), args, Type(Types::Str),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
-    if *ast != desired_ast {
+    if ast != desired_ast {
         panic!("One argument test failed");
     }
 
@@ -162,15 +158,13 @@ fn test_valid_fn_declaration() {
                                     EOF]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast();
+    let ast = parser.parse();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
                       Expr::FnDecl("foo".to_string(), args, Type(Types::NoneType),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
-    if *ast != desired_ast {
+    if ast != desired_ast {
         panic!("Multiple argument test failed");
     }
 
@@ -179,18 +173,18 @@ fn test_valid_fn_declaration() {
 #[test]
 fn test_indentation_levels() {
     // Correct indentation level +1 after fn decl
-    let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
-                                    Identifier("foo".to_string()),
-                                    Symbol(Symbols::ParenOpen),
-                                    Symbol(Symbols::ParenClose),
-                                    Symbol(Symbols::RightThinArrow),
-                                    Type(Types::UInt64Bit),
-                                    Indent(1)]);
+    // let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
+    //                                 Identifier("foo".to_string()),
+    //                                 Symbol(Symbols::ParenOpen),
+    //                                 Symbol(Symbols::ParenClose),
+    //                                 Symbol(Symbols::RightThinArrow),
+    //                                 Type(Types::UInt64Bit),
+    //                                 Indent(1)]);
 
-    let mut parser = Parser::new(lexer);
-    parser.parse();
+    // let mut parser = Parser::new(lexer);
+    // let ast = parser.parse();
 
-    panic!("Asd");
+    // ToDo: this test
 }
 
 #[test]
@@ -206,9 +200,7 @@ fn test_expression() {
                                     Indent(1)]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast();
+    let ast = parser.parse();
 
     let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Equ,
                     ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
@@ -220,7 +212,7 @@ fn test_expression() {
                       Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
                       None))]));
 
-    assert!(*ast == desired_ast, "{:?}, {:?}", *ast, desired_ast);
+    assert!(ast == desired_ast, "{:?}, {:?}", ast, desired_ast);
 }
 
 #[test]
@@ -238,9 +230,7 @@ fn test_expression_precedence_add_mult() {
                                     Indent(1)]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast();
+    let ast = parser.parse();
 
     let mult = ExprWrapper::default(Expr::InfixOp(InfixOp::Mul,
                ExprWrapper::default(Expr::Ident("b".to_string())),
@@ -257,7 +247,7 @@ fn test_expression_precedence_add_mult() {
                       None))]));
 
 
-    if *ast != desired_ast {
+    if ast != desired_ast {
         println!("Desired ast: {:?}", desired_ast);
         println!("Actual ast: {:?}", ast);
         panic!("Addition and multiplication precedence check failed");
@@ -277,9 +267,7 @@ fn test_expression_precedence_pow() {
                                     Indent(1)]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast();
+    let ast = parser.parse();
 
     let right_pow = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
                     ExprWrapper::default(Expr::Ident("b".to_string())),
@@ -292,7 +280,7 @@ fn test_expression_precedence_pow() {
                       Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
                       None))]));
 
-    if *ast != desired_ast {
+    if ast != desired_ast {
         println!("Desired ast: {:?}", desired_ast);
         println!("Actual ast: {:?}", ast);
         panic!("Power precedence check failed");
@@ -308,9 +296,7 @@ fn test_numerics() {
                                     Indent(1)]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast();
+    let ast = parser.parse();
 
     let condition = ExprWrapper::default(Expr::Const(Const::F32Num(42f32)));
 
@@ -318,7 +304,7 @@ fn test_numerics() {
                       Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
                       None))]));
 
-    if *ast != desired_ast {
+    if ast != desired_ast {
         println!("Desired ast: {:?}", desired_ast);
         println!("Actual ast: {:?}", ast);
         panic!("Numeric default type test failed");
@@ -331,9 +317,7 @@ fn test_numerics() {
                                     Indent(1)]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast();
+    let ast = parser.parse();
 
     let condition = ExprWrapper::default(Expr::Const(Const::U32Num(42u32)));
 
@@ -341,12 +325,11 @@ fn test_numerics() {
                       Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
                       None))]));
 
-    if *ast != desired_ast {
+    if ast != desired_ast {
         println!("Desired ast: {:?}", desired_ast);
         println!("Actual ast: {:?}", ast);
         panic!("Numeric explicit type test failed");
     }
-
 }
 
 #[test]
@@ -362,9 +345,8 @@ fn test_function_call() {
     ]);
 
     let mut parser = Parser::new(lexer);
-    parser.parse();
-
-    let ast = parser.get_ast().get_expr();
+    let parse = parser.parse();
+    let ast = parse.get_expr();
 
     let desired_ast = Expr::Block(
         vec![ExprWrapper::default(Expr::FnCall(
@@ -376,7 +358,5 @@ fn test_function_call() {
             ])
         )]);
 
-    assert!(*ast == desired_ast, "Expected: {:?}, but found: {:?}", *ast, desired_ast);
+    assert!(*ast == desired_ast, "Expected: {:?}, but found: {:?}", ast, desired_ast);
 }
-
-

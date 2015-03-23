@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::*;
@@ -13,7 +12,7 @@ use syntax::core::types::*;
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     indent_level: usize,
-    run_codegen: bool,
+    valid_syntax: bool,
     ast_root: ExprWrapper,
     preview_token: Option<Token>
 }
@@ -23,7 +22,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Parser {
             lexer: tokenizer,
             indent_level: 0,
-            run_codegen: true,
+            valid_syntax: true,
             ast_root: ExprWrapper::default(Expr::NoOp),
             preview_token: None
         }
@@ -52,7 +51,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     fn write_error(&mut self, msg: &str) {
         let (start_line, start_column, _, _) = self.lexer.get_error_pos();
         
-        self.run_codegen = false;
+        self.valid_syntax = false;
 
         // Skip to the end of the line (at Indent token) and allow parsing to continue
         loop {
@@ -325,7 +324,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         };
 
         // Combine the rest of the function definiton with the fn info
-        let definition = self.parse_top_level_blocks();
+        let definition = self.parse();
 
         let expr = Expr::FnDecl(fn_name, args, return_type, definition);
 
@@ -370,7 +369,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             }
         };
 
-        let block = self.parse_top_level_blocks();
+        let block = self.parse();
 
         let expr = Expr::If(condition, block, None);
 
@@ -609,7 +608,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     // Parse the file
     #[allow(unused_variables)]
-    fn parse_top_level_blocks(&mut self) -> ExprWrapper {
+    pub fn parse(&mut self) -> ExprWrapper {
         self.start();
 
         let mut expr = Vec::new();
@@ -678,15 +677,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         ExprWrapper::new(Expr::Block(expr), 0, 0, 0, 0)
     }
 
-    pub fn parse(&mut self) {
-        self.ast_root = self.parse_top_level_blocks();
-    }
-
-    pub fn get_ast(&self) -> &ExprWrapper {
-        &self.ast_root
-    }
-
-    fn run_codegen(&self) {
-        self.ast_root.gen_code();
+    pub fn generated_valid_syntax(&self) -> bool {
+        self.valid_syntax
     }
 }

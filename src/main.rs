@@ -2,16 +2,20 @@
 #![crate_type = "bin"]
 #![feature(collections)]
 #![allow(dead_code)]
+extern crate rustc;
 
+use self::rustc::llvm::{LLVMContextCreate, LLVMModuleCreateWithNameInContext,
+                        LLVMCreateBuilderInContext, LLVMDumpModule, LLVMDisposeBuilder};
+use llvm::codegen::CodeGen;
 use std::env;
 use std::io::{BufReader, Read};
 use std::fs::File;
 use std::path::Path;
-
 use syntax::lexer::Lexer;
 use syntax::parser::Parser;
 
 pub mod syntax;
+pub mod llvm;
 
 // ToDo: Fill this out with usage and version info?
 fn display_info() {
@@ -38,8 +42,32 @@ fn main() {
         panic!("{}", e);
     }
 
+    // Tokanize the input
     let lexer = Lexer::new(&input_string);
-    let mut parser = Parser::new(lexer);
 
-    parser.parse();
+    // Parse & Build an AST
+    let mut parser = Parser::new(lexer);
+    let ast_root = parser.parse();
+
+    // ToDo: Semantic Analysis
+
+    // Avoid going to code gen when generating invalid syntax
+    if !parser.generated_valid_syntax() {
+        return;
+    }
+
+    // Run Code Gen
+    // ToDo: Add a flag for disabling code gen?
+    unsafe {
+        let module_name = concat!("module1", "\0").as_ptr() as *const i8;
+        let llvm_context = LLVMContextCreate();
+        let llvm_module = LLVMModuleCreateWithNameInContext(module_name, llvm_context);
+        let builder = LLVMCreateBuilderInContext(llvm_context);
+
+        ast_root.gen_code(builder);
+
+        // ToDo: Add a flag for dumping ir to stdout?
+        LLVMDumpModule(llvm_module);
+        LLVMDisposeBuilder(builder);
+    }
 }
