@@ -2,11 +2,6 @@ use syntax::ast::consts::*;
 use syntax::ast::op::*;
 use syntax::core::tokens::Token;
 
-pub trait CodeGen {
-    // Not sure if this should return anything
-    fn gen_code(&self);
-}
-
 #[derive(Debug, PartialEq)]
 pub struct ExprWrapper {
     expr: Box<Expr>,
@@ -14,12 +9,6 @@ pub struct ExprWrapper {
     start_column: usize,
     end_line: usize,
     end_column: usize
-}
-
-impl CodeGen for ExprWrapper {
-    fn gen_code(&self) {
-        self.expr.gen_code();
-    }
 }
 
 impl ExprWrapper {
@@ -81,18 +70,4 @@ pub enum Expr {
     Return(Option<ExprWrapper>),
     // A lot more to come
     NoOp,
-}
-
-impl CodeGen for Expr {
-    fn gen_code(&self) {
-        match *self {
-            Expr::Block(ref vec) => {
-                for expr in vec {
-                    expr.gen_code();
-                }
-            },
-            Expr::NoOp => (),
-            _ => ()
-        }
-    }
 }

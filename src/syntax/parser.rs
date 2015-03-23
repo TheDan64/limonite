@@ -1,5 +1,9 @@
 #![allow(dead_code)]
+extern crate rustc;
 
+use self::rustc::llvm::{LLVMContextCreate, LLVMModuleCreateWithNameInContext,
+                        LLVMCreateBuilderInContext, LLVMDumpModule, LLVMDisposeBuilder};
+use llvm::codegen::CodeGen;
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Token;
 use syntax::core::tokens::Token::*;
@@ -725,6 +729,16 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     fn run_codegen(&self) {
-        self.ast_root.gen_code();
+        unsafe {
+            let module_name = concat!("module1", "\0").as_ptr() as *const i8;
+            let llvm_context = LLVMContextCreate();
+            let llvm_module = LLVMModuleCreateWithNameInContext(module_name, llvm_context);
+            let builder = LLVMCreateBuilderInContext(llvm_context);
+
+            self.ast_root.gen_code(builder);
+
+            LLVMDumpModule(llvm_module);
+            LLVMDisposeBuilder(builder);
+        }
     }
 }
