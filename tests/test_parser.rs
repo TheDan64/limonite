@@ -331,3 +331,35 @@ fn test_numerics() {
         panic!("Numeric explicit type test failed");
     }
 }
+
+#[test]
+fn test_function_call() {
+    let lexer = MockLexer::new(vec![Identifier("fn_name".to_string()),
+                                    Symbol(Symbols::ParenOpen),
+                                    Numeric("42".to_string(), Some(Types::UInt32Bit)),
+                                    Symbol(Symbols::Comma),
+                                    StrLiteral("b".to_string()),
+                                    Symbol(Symbols::Comma),
+                                    Numeric("123".to_string(), Some(Types::UInt32Bit)),
+                                    Symbol(Symbols::ParenClose),
+    ]);
+
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+
+    let ast = parser.get_ast().get_expr();
+
+    let desired_ast = Expr::Block(
+        vec![ExprWrapper::default(Expr::FnCall(
+            ExprWrapper::default(Expr::Ident("fn_name".to_string())),
+            vec![
+                ExprWrapper::default(Expr::Const(Const::U32Num(42))),
+                ExprWrapper::default(Expr::Const(Const::UTF8String("b".to_string()))),
+                ExprWrapper::default(Expr::Const(Const::U32Num(123))),
+            ])
+        )]);
+
+    assert!(*ast == desired_ast, "Expected: {:?}, but found: {:?}", *ast, desired_ast);
+}
+
+

@@ -28,6 +28,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
+    fn expect_token(&self, token: &Token, next_token: Token) -> bool {
+        *token == next_token
+    }
+
     // Consume the next token from the lexer
     fn next_token(&mut self) -> Token {
         match self.preview_token.take() {
@@ -93,41 +97,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
         return difference;
     }
 
-    // Parses a variable or constant declaration
-    #[allow(unused_variables)]
-    #[allow(dead_code)]
-    fn parse_declaration(&mut self) -> Option<ExprWrapper> {
-        let token = self.next_token();
-        match token {
-            Identifier(name) => {
-                let token1 = self.next_token();
-
-                match token1 {
-                    // Symbol(punc) => {
-                    //     match punc {
-                    //         symbols::Assign => {
-                    //             self.parse_expression()
-                    //         }
-                    //         _ => Err(self.write_error("Invalid Symbol here"))
-                    //     }
-                    // }
-                    Symbol(Symbols::Equals) => {
-                        return self.parse_expression(0);
-                    },
-                    _ => self.write_error("Invalid sequence")
-                }
-            },
-            Error(msg) => self.write_error(&msg),
-            _ => self.expect_error("", "a variable name", "something else")
-        }
-
-        None
-    }
-
-    fn expect_token(&self, token: &Token, next_token: Token) -> bool {
-        *token == next_token
-    }
-
     fn collect_args(&mut self) -> Option<Vec<ExprWrapper>> {
         let mut args = Vec::new();
         let mut tok = self.next_token();
@@ -166,50 +135,48 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     fn collect_sequence<F, G>
-        (&mut self, mut collect_arg: F, mut sequence_end: G) -> Vec<ExprWrapper>
-        where F: FnMut(Token) -> Option<ExprWrapper>,
-              G: Fn(&Token) -> bool {
-        println!("Starting to collect arguments!");
+        (&mut self, mut collect_arg: F, sequence_end: G) -> Vec<ExprWrapper>
+        where F: FnMut(&mut Parser<TokType>, Token) -> Option<ExprWrapper>,
+              G: Fn(&Parser<TokType>, &Token) -> bool {
         let mut args = Vec::new();
-        let tok = self.next_token();
-        while !sequence_end(&tok) {
-            if let Some(new_arg) = collect_arg(Symbol(Symbols::Comma)) {
+        loop {
+            if let Some(new_arg) = collect_arg(self, Symbol(Symbols::Comma)) {
                 args.push(new_arg);
             }
+            let tok = self.peek();
+            if sequence_end(self, &tok) {
+                break;
+            }
+
+            // Skips the comma
+            self.next_token();
         }
-        println!("The sequence is: {:?}", args);
         args
     }
 
     fn parse_fn_call(&mut self, ident: String) -> Option<ExprWrapper> {
-        println!("Calling a function, ident = {}", ident);
-        let parse_args = |seperator: Token| -> Option<ExprWrapper> {
-            println!("Looking for an arg");
-            // args.push(ExprWrapper::default(
-                // Expr::Const(Const::UTF8String(new_arg.to_string()))));
-            let arg = self.next_token();
-            println!("Found arg: {:?}", arg);
-            None
+        let token = self.next_token();
+        if !self.expect_token(&token, Symbol(Symbols::ParenOpen)) {
+            self.write_error("Expected an open parenthesis here.");
+        }
+
+        let parse_args = |this: &mut Parser<TokType>, seperator: Token| {
+            this.parse_expression(0)
         };
 
-        let sequence_end = |current_token: &Token| -> bool {
-            // self.expect_token(current_jtoken, Symbol(Symbols::ParenClose))
-            if *current_token == Symbol(Symbols::ParenClose) {
-                println!("Found the end of the sequence");
-            }
-            *current_token == Symbol(Symbols::ParenClose)
+        let sequence_end = |this: &Parser<TokType>, current_token: &Token| {
+            this.expect_token(current_token, Symbol(Symbols::ParenClose))
         };
 
-        // let ident = ExprWrapper::default(Expr::Ident(ident.to_string()));
-        // let args = self.collect_sequence(parse_args, sequence_end);
+        let ident = ExprWrapper::default(Expr::Ident(ident.to_string()));
+        let args = self.collect_sequence(parse_args, sequence_end);
+        self.next_token();
 
-        // Some(ExprWrapper::default(Expr::FnCall(ident, args)))
-        None
+        Some(ExprWrapper::default(Expr::FnCall(ident, args)))
     }
 
     fn parse_idents(&mut self, ident: String) -> Option<ExprWrapper> {
-        println!("Found an identifier");
-        let tok = self.next_token();
+        let tok = self.peek();
         match tok {
             Symbol(Symbols::ParenOpen) => {
                 self.parse_fn_call(ident)
@@ -227,7 +194,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
             return None;
         }
 
-        println!("Before Collect");
         let name = ExprWrapper::default(
             Expr::Const(
                 Const::UTF8String(
