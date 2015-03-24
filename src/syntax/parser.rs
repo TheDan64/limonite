@@ -53,9 +53,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
         
         self.valid_syntax = false;
 
+        println!("filename:{}:{} {}", start_line, start_column, msg);
+
         // Skip to the end of the line (at Indent token) and allow parsing to continue
         loop {
-            // Note: This consumes the Indent token, which probably isnt ideal.
             match self.next_token() {
                 Indent(depth) => {
                     self.check_indentation(depth);
@@ -187,26 +188,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    // Parses a print function/statement
-    fn parse_print_fn(&mut self) -> Option<ExprWrapper> {
-        let tok = self.next_token();
-        if !self.expect_token(&tok, Symbol(Symbols::ParenOpen)) {
-            return None;
-        }
-
-        let name = ExprWrapper::default(
-            Expr::Const(
-                Const::UTF8String(
-                    "print".to_string()
-                )
-            )
-        );
-        if let Some(args) = self.collect_args() {
-            return Some(ExprWrapper::default(Expr::FnCall(name, args)));
-        }
-        return None;
-    }
-
     // Parse function definitions: fn ident(args) -> type
     #[allow(unused_variables)]
     fn parse_fn(&mut self) -> Option<ExprWrapper> {
@@ -336,7 +317,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
         match keyword {
             Keywords::Function => self.parse_fn(),
             Keywords::If => self.parse_if(),
-            Keywords::Print => self.parse_print_fn(),
             _ => {
                 self.write_error(&format!("Unsupported keyword {:?}.", keyword));
                 None

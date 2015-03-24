@@ -42,11 +42,11 @@ impl Tokenizer for MockLexer {
 #[test]
 fn test_print() {
     let lexer = MockLexer::new(vec![
-        Keyword(Keywords::Print),
+        Identifier("print".to_string()),
         Symbol(Symbols::ParenOpen),
         Identifier("meow".to_string()),
         Symbol(Symbols::Comma),
-        Identifier("meow".to_string()),
+        StrLiteral("meow".to_string()),
         Symbol(Symbols::Comma),
         Identifier("meow".to_string()),
         Symbol(Symbols::ParenClose),
@@ -54,21 +54,19 @@ fn test_print() {
     let mut parser = Parser::new(lexer);
     let ast = parser.parse();
 
-    println!("{:?}", ast);
-
     let desired_ast = ExprWrapper::default(Expr::Block(
         vec![ExprWrapper::default(
             Expr::FnCall(
-                ExprWrapper::default(Expr::Const(Const::UTF8String("print".to_string()))),
+                ExprWrapper::default(Expr::Ident("print".to_string())),
                 vec![
+                    ExprWrapper::default(Expr::Ident("meow".to_string())),
                     ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
-                    ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
-                    ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
+                    ExprWrapper::default(Expr::Ident("meow".to_string())),
                 ],
             ))
         ]));
 
-    assert!(ast == desired_ast, "{:?}, {:?}", ast, desired_ast);
+    assert!(ast == desired_ast, "\nActual AST: {:?}\nDesired AST: {:?}", ast, desired_ast);
 }
 
 #[test]

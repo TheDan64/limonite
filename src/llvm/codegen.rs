@@ -2,7 +2,6 @@ extern crate rustc;
 
 use self::rustc::llvm::*;
 use syntax::ast::expr::*;
-//use syntax::ast::consts::*;
 
 pub trait CodeGen {
     fn gen_code(&self, llvm_builder: *mut Builder_opaque);
@@ -22,6 +21,13 @@ impl CodeGen for Expr {
             Expr::Block(ref vec) => {
                 for expr in vec {
                     expr.gen_code(llvm_builder);
+                }
+            },
+            Expr::FnCall(ref name, ref args) => {
+                if let &Expr::Ident(ref string) = name.get_expr() {
+                    if &string[..] == "print" {
+                        println!("Codegenning print!");
+                    }
                 }
             },
             // Expr::InfixOp(ref op, ref expr1, ref expr2) => {

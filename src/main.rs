@@ -57,6 +57,7 @@ fn main() {
     }
 
     // Run Code Gen
+    println!("Running code gen!");
     // ToDo: Add a flag for disabling code gen?
     unsafe {
         let module_name = concat!("module1", "\0").as_ptr() as *const i8;

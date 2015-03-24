@@ -24,10 +24,7 @@ pub enum Keywords {
     Throws,
     Break,
     Continue,
-    Pass,
-
-    // Print is temporaily a statement until we have functions
-    Print
+    Pass
 }
 
 impl FromStr for Keywords {
@@ -58,7 +55,6 @@ impl FromStr for Keywords {
             "break"    => Ok(Keywords::Break),
             "continue" => Ok(Keywords::Continue),
             "pass"     => Ok(Keywords::Pass),
-            "print"    => Ok(Keywords::Print),
             _          => Err(())
         }
     }

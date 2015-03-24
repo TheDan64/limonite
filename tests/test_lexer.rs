@@ -1,6 +1,6 @@
 extern crate limonite;
 
-use limonite::syntax::core::keywords::Keywords::{Def, Function, If, Is, Print, Return, Var};
+use limonite::syntax::core::keywords::Keywords::{Def, Function, If, Is, Return, Var};
 use limonite::syntax::core::symbols::Symbols::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
 use limonite::syntax::core::tokens::Token;
 use limonite::syntax::core::tokens::Token::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Symbol, StrLiteral, Type};
@@ -35,7 +35,7 @@ print(\"Hello World!\")";
     let lexer = Lexer::new(&input_string);
     let desired_output = vec![Comment(" Hello World!".to_string()), Indent(0),
                               Indent(0),
-                              Keyword(Print), Symbol(ParenOpen), StrLiteral("Hello World!".to_string()), Symbol(ParenClose), EOF];
+                              Identifier("print".to_string()), Symbol(ParenOpen), StrLiteral("Hello World!".to_string()), Symbol(ParenClose), EOF];
 
     cmp_tokens(lexer, desired_output);
 }
