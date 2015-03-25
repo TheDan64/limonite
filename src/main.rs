@@ -4,9 +4,7 @@
 #![allow(dead_code)]
 extern crate rustc;
 
-use self::rustc::llvm::{LLVMContextCreate, LLVMModuleCreateWithNameInContext,
-                        LLVMCreateBuilderInContext, LLVMDumpModule, LLVMDisposeBuilder};
-use llvm::codegen::CodeGen;
+use llvm::codegen::{CodeGen, Context};
 use std::env;
 use std::io::{BufReader, Read};
 use std::fs::File;
@@ -57,18 +55,11 @@ fn main() {
     }
 
     // Run Code Gen
-    println!("Running code gen!");
-    // ToDo: Add a flag for disabling code gen?
-    unsafe {
-        let module_name = concat!("module1", "\0").as_ptr() as *const i8;
-        let llvm_context = LLVMContextCreate();
-        let llvm_module = LLVMModuleCreateWithNameInContext(module_name, llvm_context);
-        let builder = LLVMCreateBuilderInContext(llvm_context);
+    // ToDo: Add a flag for disabling code gen
+    let mut context = Context::new("module1");
 
-        ast_root.gen_code(builder);
+    ast_root.gen_code(&mut context);
 
-        // ToDo: Add a flag for dumping ir to stdout?
-        LLVMDumpModule(llvm_module);
-        LLVMDisposeBuilder(builder);
-    }
+    // ToDo: Add a flag for dumping ir to stdout
+    context.dump();
 }

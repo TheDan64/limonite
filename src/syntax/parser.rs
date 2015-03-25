@@ -169,11 +169,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
             this.expect_token(current_token, Symbol(Symbols::ParenClose))
         };
 
-        let ident = ExprWrapper::default(Expr::Ident(ident.to_string()));
         let args = self.collect_sequence(parse_args, sequence_end);
         self.next_token();
 
-        Some(ExprWrapper::default(Expr::FnCall(ident, args)))
+        Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), args)))
     }
 
     fn parse_idents(&mut self, ident: String) -> Option<ExprWrapper> {
