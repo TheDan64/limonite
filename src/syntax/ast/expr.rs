@@ -4,7 +4,7 @@ use syntax::core::tokens::Token;
 
 #[derive(Debug, PartialEq)]
 pub struct ExprWrapper {
-    pub expr: Box<Expr>,
+    expr: Box<Expr>,
     start_line: usize,
     start_column: usize,
     end_line: usize,
@@ -52,9 +52,9 @@ pub enum Expr {
     If(ExprWrapper, ExprWrapper, Option<ExprWrapper>),
     // Assign a value to an expression
     Assign(ExprWrapper, ExprWrapper),
-    // Fn call with args.
+    // Fn call with name and args.
     // ToDo: Vec<Option<ExprWrapper>> for optional args?
-    FnCall(ExprWrapper, Vec<ExprWrapper>),
+    FnCall(String, Vec<ExprWrapper>),
     // Declare a function with a name, args(name, type | ident), return (type | ident), and expr
     // ToDo: Optional args
     FnDecl(String, Vec<(String, Token)>, Token, ExprWrapper),

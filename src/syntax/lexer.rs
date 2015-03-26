@@ -194,10 +194,7 @@ impl<'a> Lexer<'a> {
 
     // Gets the next char
     fn next_char(&self) -> Option<char> {
-        match self.eof() {
-            false => Some(self.input.char_at(self.buffer_pos)),
-            true  => None
-        }
+        self.input.chars().nth(self.buffer_pos)
     }
 
     // Determine if we hit the inevitable End of File

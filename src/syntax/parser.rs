@@ -53,9 +53,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
         
         self.valid_syntax = false;
 
+        println!("filename:{}:{} {}", start_line, start_column, msg);
+
         // Skip to the end of the line (at Indent token) and allow parsing to continue
         loop {
-            // Note: This consumes the Indent token, which probably isnt ideal.
             match self.next_token() {
                 Indent(depth) => {
                     self.check_indentation(depth);
@@ -168,11 +169,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
             this.expect_token(current_token, Symbol(Symbols::ParenClose))
         };
 
-        let ident = ExprWrapper::default(Expr::Ident(ident.to_string()));
         let args = self.collect_sequence(parse_args, sequence_end);
         self.next_token();
 
-        Some(ExprWrapper::default(Expr::FnCall(ident, args)))
+        Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), args)))
     }
 
     fn parse_idents(&mut self, ident: String) -> Option<ExprWrapper> {
@@ -185,26 +185,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 None
             }
         }
-    }
-
-    // Parses a print function/statement
-    fn parse_print_fn(&mut self) -> Option<ExprWrapper> {
-        let tok = self.next_token();
-        if !self.expect_token(&tok, Symbol(Symbols::ParenOpen)) {
-            return None;
-        }
-
-        let name = ExprWrapper::default(
-            Expr::Const(
-                Const::UTF8String(
-                    "print".to_string()
-                )
-            )
-        );
-        if let Some(args) = self.collect_args() {
-            return Some(ExprWrapper::default(Expr::FnCall(name, args)));
-        }
-        return None;
     }
 
     // Parse function definitions: fn ident(args) -> type
@@ -336,7 +316,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
         match keyword {
             Keywords::Function => self.parse_fn(),
             Keywords::If => self.parse_if(),
-            Keywords::Print => self.parse_print_fn(),
             _ => {
                 self.write_error(&format!("Unsupported keyword {:?}.", keyword));
                 None
@@ -584,7 +563,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     }
                 },
                 '.' => before_decimal_point = false,
-                _ => panic!("Numeric parse failure: This shouldn't happen!")
+                _ => panic!("Numeric parse failure: Invalid characters found!")
             }
         }
 
