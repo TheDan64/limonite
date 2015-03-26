@@ -1,6 +1,6 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
-#![feature(collections)]
+#![feature(rustc_private)]
 #![allow(dead_code)]
 extern crate rustc;
 

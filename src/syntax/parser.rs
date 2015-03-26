@@ -563,7 +563,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     }
                 },
                 '.' => before_decimal_point = false,
-                _ => panic!("Numeric parse failure: This shouldn't happen!")
+                _ => panic!("Numeric parse failure: Invalid characters found!")
             }
         }
 

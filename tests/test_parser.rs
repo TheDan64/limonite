@@ -57,7 +57,7 @@ fn test_print() {
     let desired_ast = ExprWrapper::default(Expr::Block(
         vec![ExprWrapper::default(
             Expr::FnCall(
-                ExprWrapper::default(Expr::Ident("print".to_string())),
+                "print".to_string(),
                 vec![
                     ExprWrapper::default(Expr::Ident("meow".to_string())),
                     ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
@@ -100,9 +100,10 @@ fn test_valid_fn_declaration() {
                       Expr::FnDecl("foo".to_string(), Vec::new(), Type(Types::UInt64Bit),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
-    if ast != desired_ast {
-        panic!("No argument test failed");
-    }
+    println!("Desired ast: {:?}", desired_ast);
+    println!("Actual ast: {:?}", ast);
+
+    assert!(ast == desired_ast, "No argument test failed");
 
     // One arg: foo(bar: i32) -> str
     let args = vec![("bar".to_string(), Type(Types::Int32Bit))];
@@ -126,9 +127,10 @@ fn test_valid_fn_declaration() {
                       Expr::FnDecl("foo".to_string(), args, Type(Types::Str),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
-    if ast != desired_ast {
-        panic!("One argument test failed");
-    }
+    println!("Desired ast: {:?}", desired_ast);
+    println!("Actual ast: {:?}", ast);
+
+    assert!(ast == desired_ast, "One argument test failed");
 
     // Multiple args: foo(bar: i32, left: Obj, right: Obj) -> None
     let args = vec![("bar".to_string(), Type(Types::Int32Bit)),
@@ -162,10 +164,10 @@ fn test_valid_fn_declaration() {
                       Expr::FnDecl("foo".to_string(), args, Type(Types::NoneType),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
-    if ast != desired_ast {
-        panic!("Multiple argument test failed");
-    }
+    println!("Desired ast: {:?}", desired_ast);
+    println!("Actual ast: {:?}", ast);
 
+    assert!(ast == desired_ast, "Multiple argument test failed");
 }
 
 #[test]
@@ -245,11 +247,10 @@ fn test_expression_precedence_add_mult() {
                       None))]));
 
 
-    if ast != desired_ast {
-        println!("Desired ast: {:?}", desired_ast);
-        println!("Actual ast: {:?}", ast);
-        panic!("Addition and multiplication precedence check failed");
-    }
+    println!("Desired ast: {:?}", desired_ast);
+    println!("Actual ast: {:?}", ast);
+
+    assert!(ast == desired_ast, "Addition and multiplication precedence check failed");
 }
 
 #[test]
@@ -278,11 +279,10 @@ fn test_expression_precedence_pow() {
                       Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
                       None))]));
 
-    if ast != desired_ast {
-        println!("Desired ast: {:?}", desired_ast);
-        println!("Actual ast: {:?}", ast);
-        panic!("Power precedence check failed");
-    }
+    println!("Desired ast: {:?}", desired_ast);
+    println!("Actual ast: {:?}", ast);
+
+    assert!(ast == desired_ast, "Power precedence check failed");
 }
 
 #[test]
@@ -302,11 +302,10 @@ fn test_numerics() {
                       Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
                       None))]));
 
-    if ast != desired_ast {
-        println!("Desired ast: {:?}", desired_ast);
-        println!("Actual ast: {:?}", ast);
-        panic!("Numeric default type test failed");
-    }
+    println!("Desired ast: {:?}", desired_ast);
+    println!("Actual ast: {:?}", ast);
+
+    assert!(ast == desired_ast, "Numeric default type test failed");
 
     // Test explicit type assignment via suffix (42u32 should be u32 as designated)
     let lexer = MockLexer::new(vec![Keyword(Keywords::If),
@@ -323,11 +322,30 @@ fn test_numerics() {
                       Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
                       None))]));
 
-    if ast != desired_ast {
-        println!("Desired ast: {:?}", desired_ast);
-        println!("Actual ast: {:?}", ast);
-        panic!("Numeric explicit type test failed");
-    }
+    println!("Desired ast: {:?}", desired_ast);
+    println!("Actual ast: {:?}", ast);
+
+    assert!(ast == desired_ast, "Numeric explicit type test failed");
+
+    // Test underscores are removed (3_200 = 3200)
+    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
+                                    Numeric("0xAF_F3".to_string(), Some(Types::UInt32Bit)),
+                                    Symbol(Symbols::Comma),
+                                    Indent(1)]);
+
+    let mut parser = Parser::new(lexer);
+    let ast = parser.parse();
+
+    let condition = ExprWrapper::default(Expr::Const(Const::U32Num(45043u32)));
+
+    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
+                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
+                      None))]));
+
+    println!("Desired ast: {:?}", desired_ast);
+    println!("Actual ast: {:?}", ast);
+
+    assert!(ast == desired_ast, "Numeric underscore removal test failed");
 }
 
 #[test]
@@ -348,7 +366,7 @@ fn test_function_call() {
 
     let desired_ast = Expr::Block(
         vec![ExprWrapper::default(Expr::FnCall(
-            ExprWrapper::default(Expr::Ident("fn_name".to_string())),
+            "fn_name".to_string(),
             vec![
                 ExprWrapper::default(Expr::Const(Const::U32Num(42))),
                 ExprWrapper::default(Expr::Const(Const::UTF8String("b".to_string()))),
