@@ -34,9 +34,6 @@ pub enum Token {
     // Error message
     Error(String),
 
-    // Types: i64, f32, None, ..
-    Type(Types),
-
     // End of File
     EOF
 }
