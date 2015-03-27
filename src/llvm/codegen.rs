@@ -3,7 +3,9 @@ extern crate rustc;
 use self::rustc::lib::llvm::*;
 use syntax::ast::expr::*;
 use std::collections::HashMap;
+use std::ffi::CString;
 
+// Struct to keep track of data needed to build IR
 pub struct Context {
     context: ContextRef,
     module: ModuleRef,
@@ -15,8 +17,7 @@ impl Context {
     pub fn new(module_name: &str) -> Context {
         unsafe {
             let context = LLVMContextCreate();
-            let module_name_c_str = c_str_ptr(module_name);
-            let module = LLVMModuleCreateWithNameInContext(module_name_c_str, context);
+            let module = LLVMModuleCreateWithNameInContext(c_str_ptr(module_name), context);
             let builder = LLVMCreateBuilderInContext(context);
             let named_values = HashMap::new();
 
@@ -29,6 +30,7 @@ impl Context {
         }
     }
 
+    // Dump the IR to stdout
     pub fn dump(&self) {
         unsafe {
             LLVMDumpModule(self.module);
@@ -106,24 +108,6 @@ impl CodeGen for Expr {
                     Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr(), arg_values.len() as u32, c_str_ptr("calltmp")))
                 }
             },
-            // Expr::InfixOp(ref op, ref expr1, ref expr2) => {
-            //     let lhs = expr1.get_expr();
-            //     let rhs = expr2.get_expr();
-
-            //     if let (&Expr::Const(ref lhs_const), &Expr::Const(ref rhs_const)) = (lhs, rhs) {
-            //         match (lhs_const, rhs_const) {
-            //             (&Const::I32Num(lhs_num), &Const::I32Num(rhs_num)) => {
-            //                 // No idea if this works
-
-            //                 let name = concat!("idk", "\0").as_ptr() as *const i8;
-            //                 // Returns *mut Value_opaque
-            //                 LLVMBuildAdd(llvm_builder, lhs_num, rhs_num, name);
-            //             },
-            //             _ => ()
-            //         }
-
-            //     }
-            // },
             Expr::NoOp => None,
             _ => None
         }
@@ -132,5 +116,8 @@ impl CodeGen for Expr {
 
 // Helper functions
 fn c_str_ptr(rust_str: &str) -> *const i8 {
-    format!("{}\0", rust_str).as_ptr() as *const i8
+    match CString::new(rust_str.as_bytes()) {
+        Ok(string) => string,
+        Err(err) => panic!(err)
+    }.as_ptr()
 }
