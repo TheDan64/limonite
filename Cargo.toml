@@ -13,3 +13,6 @@ repository = "https://github.com/TheDan64/limonite.git"
 
 name = "limonite"
 path = "src/main.rs"
+
+[dependencies]
+llvm_sys = "*"

@@ -1,3 +1,3 @@
-#![feature(rustc_private)]
+#![feature(alloc)]
 pub mod syntax;
 pub mod llvm;

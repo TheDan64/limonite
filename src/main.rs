@@ -1,9 +1,7 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
-#![feature(rustc_private)]
+#![feature(alloc)]
 #![allow(dead_code)]
-extern crate rustc;
-
 use llvm::codegen::{CodeGen, Context};
 use std::env;
 use std::io::{BufReader, Read};
