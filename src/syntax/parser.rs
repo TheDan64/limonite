@@ -217,7 +217,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         if tok != Symbol(Symbols::ParenClose) {
             loop {
-                // Find sequence: ((Identifier : (Type | Identifier))(, (Identifier : (Type | Identifier)))*)?
+                // Find sequence: ((Identifier : Identifier)(, (Identifier : Identifier))*)?
                 let arg_name = match tok {
                     Identifier(ident) => ident,
                     _ => {
@@ -236,7 +236,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 }
 
                 match self.next_token() {
-                    Type(t) => args.push((arg_name, Type(t))),
                     Identifier(ident) => args.push((arg_name, Identifier(ident))),
                     _ => {
                         self.expect_error("", "a return type", "something else");
@@ -277,9 +276,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
         tok = self.next_token();
 
         let return_type = match tok {
-            Type(t) => {
-                Type(t)
-            },
             Identifier(ident) => {
                 Identifier(ident)
             },
@@ -598,9 +594,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
             let token = self.next_token();
 
             match token {
-                Numeric(string, type_) => {
-                    panic!("Unimplemented top level token 'Numeric'");
-                },
                 Identifier(ident) => {
                     if let Some(exprwrapper) = self.parse_idents(ident) {
                         expr.push(exprwrapper);
@@ -623,28 +616,28 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         break;
                     }
                 },
-                BoolLiteral(lit) => {
-                    panic!("Unimplemented top level token 'BoolLiteral'");
-                },
-                CharLiteral(lit) => {
-                    panic!("Unimplemented top level token 'CharLiteral'");
-                },
-                StrLiteral(lit) => {
-                    panic!("Unimplemented top level token 'StrLiteral'");
-                },
                 Keyword(keyword) => {
                     if let Some(exprwrapper) = self.handle_keywords(keyword) {
                         expr.push(exprwrapper);
                     }
                 },
-                Symbol(punc) => {
-                    panic!("Unimplemented top level token 'Symbol'");
-                },
                 Comment(text) => {
                     // ToDo: Docstring, else ignore
                 },
-                Type(type_) => {
-                    panic!("Unimplemented top level token 'Type'");
+                Symbol(punc) => {
+                    panic!("Unimplemented top level token 'Symbol'");
+                },
+                StrLiteral(lit) => {
+                    panic!("Unimplemented top level token 'StrLiteral'");
+                },
+                CharLiteral(lit) => {
+                    panic!("Unimplemented top level token 'CharLiteral'");
+                },
+                BoolLiteral(lit) => {
+                    panic!("Unimplemented top level token 'BoolLiteral'");
+                },
+                Numeric(string, type_) => {
+                    panic!("Unimplemented top level token 'Numeric'");
                 },
                 Error(err) => {
                     self.write_error(&err);

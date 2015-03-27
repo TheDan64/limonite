@@ -235,7 +235,7 @@ impl<'a> Lexer<'a> {
     }
 
     // Identifiers: [a-zA-Z_][a-zA-z0-9_]*
-    // Keywords and Types are subsets of identifiers.
+    // Keywords are subsets of identifiers.
     fn consume_identifier(&mut self) -> Token {
         // Lexer will only let you start with alpha or undescore,
         // so there is no need to check for numeric start
@@ -253,10 +253,6 @@ impl<'a> Lexer<'a> {
 
         if let Ok(key) = ident.parse::<Keywords>() {
             return Keyword(key);
-        }
-
-        if let Ok(t) = ident.parse::<Types>() {
-            return Type(t);
         }
 
         Identifier(ident)

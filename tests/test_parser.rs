@@ -89,7 +89,7 @@ fn test_valid_fn_declaration() {
                                     Symbol(Symbols::ParenOpen),
                                     Symbol(Symbols::ParenClose),
                                     Symbol(Symbols::RightThinArrow),
-                                    Type(Types::UInt64Bit),
+                                    Identifier("int".to_string()),
                                     Indent(1),
                                     EOF]);
 
@@ -97,7 +97,7 @@ fn test_valid_fn_declaration() {
     let ast = parser.parse();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::FnDecl("foo".to_string(), Vec::new(), Type(Types::UInt64Bit),
+                      Expr::FnDecl("foo".to_string(), Vec::new(), Identifier("int".to_string()),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
     println!("Desired ast: {:?}", desired_ast);
@@ -106,17 +106,17 @@ fn test_valid_fn_declaration() {
     assert!(ast == desired_ast, "No argument test failed");
 
     // One arg: foo(bar: i32) -> str
-    let args = vec![("bar".to_string(), Type(Types::Int32Bit))];
+    let args = vec![("bar".to_string(), Identifier("int".to_string()))];
 
     let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
                                     Identifier("foo".to_string()),
                                     Symbol(Symbols::ParenOpen),
                                     Identifier("bar".to_string()),
                                     Symbol(Symbols::Colon),
-                                    Type(Types::Int32Bit),
+                                    Identifier("int".to_string()),
                                     Symbol(Symbols::ParenClose),
                                     Symbol(Symbols::RightThinArrow),
-                                    Type(Types::Str),
+                                    Identifier("str".to_string()),
                                     Indent(1),
                                     EOF]);
 
@@ -124,7 +124,7 @@ fn test_valid_fn_declaration() {
     let ast = parser.parse();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::FnDecl("foo".to_string(), args, Type(Types::Str),
+                      Expr::FnDecl("foo".to_string(), args, Identifier("str".to_string()),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
     println!("Desired ast: {:?}", desired_ast);
@@ -133,7 +133,7 @@ fn test_valid_fn_declaration() {
     assert!(ast == desired_ast, "One argument test failed");
 
     // Multiple args: foo(bar: i32, left: Obj, right: Obj) -> None
-    let args = vec![("bar".to_string(), Type(Types::Int32Bit)),
+    let args = vec![("bar".to_string(), Identifier("int".to_string())),
                     ("left".to_string(), Identifier("Obj".to_string())),
                     ("right".to_string(), Identifier("Obj".to_string()))];
 
@@ -142,7 +142,7 @@ fn test_valid_fn_declaration() {
                                     Symbol(Symbols::ParenOpen),
                                     Identifier("bar".to_string()),
                                     Symbol(Symbols::Colon),
-                                    Type(Types::Int32Bit),
+                                    Identifier("int".to_string()),
                                     Symbol(Symbols::Comma),
                                     Identifier("left".to_string()),
                                     Symbol(Symbols::Colon),
@@ -153,7 +153,7 @@ fn test_valid_fn_declaration() {
                                     Identifier("Obj".to_string()),
                                     Symbol(Symbols::ParenClose),
                                     Symbol(Symbols::RightThinArrow),
-                                    Type(Types::NoneType),
+                                    Identifier("None".to_string()),
                                     Indent(1),
                                     EOF]);
 
@@ -161,7 +161,7 @@ fn test_valid_fn_declaration() {
     let ast = parser.parse();
 
     let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::FnDecl("foo".to_string(), args, Type(Types::NoneType),
+                      Expr::FnDecl("foo".to_string(), args, Identifier("None".to_string()),
                       ExprWrapper::default(Expr::Block(Vec::new()))))]));
 
     println!("Desired ast: {:?}", desired_ast);
