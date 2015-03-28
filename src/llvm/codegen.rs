@@ -3,7 +3,6 @@ extern crate llvm_sys;
 use syntax::ast::expr::*;
 use std::collections::HashMap;
 use std::ffi::CString;
-use std::boxed;
 use self::llvm_sys::core::*;
 use self::llvm_sys::*;
 
@@ -37,6 +36,18 @@ impl Context {
         unsafe {
             LLVMDumpModule(self.module);
         }
+    }
+
+    pub fn get_context(&self) -> *mut LLVMContext {
+        self.context
+    }
+
+    pub fn get_module(&self) -> *mut LLVMModule {
+        self.module
+    }
+
+    pub fn get_builder(&self) -> *mut LLVMBuilder {
+        self.builder
     }
 }
 
@@ -74,7 +85,6 @@ impl CodeGen for Expr {
                 match context.named_values.get(name) {
                     Some(val) => Some(*val),
                     None => {
-                        // Add a standard error writing system?
                         println!("Could not find func {}", name);
 
                         None
@@ -87,13 +97,15 @@ impl CodeGen for Expr {
                     let function = LLVMGetNamedFunction(context.module, c_str_ptr(name));
 
                     if function.is_null() {
-                        // ToDo: Add standardized error message writing?
+                        // TODO: Add standardized error message writing?
                         println!("Error: Function {} not found.", name);
                         return None;
                     }
 
-                    if LLVMCountParams(function) as usize != args.len() {
-                        println!("Incorrect number of arguments");
+                    let arg_count = LLVMCountParams(function) as usize;
+
+                    if arg_count != args.len() {
+                        println!("Error: Function {} requires {} argument(s), {} given.", name, args.len(), arg_count);
                         return None;
                     }
 
@@ -107,10 +119,7 @@ impl CodeGen for Expr {
                         return None;
                     }
 
-                    // as_ptr gets *const not *mut so boxing -> raw gets *mut ptr
-                    let args_ptr = boxed::into_raw(Box::new(*arg_values.as_ptr()));
-
-                    Some(LLVMBuildCall(context.builder, function, args_ptr, arg_values.len() as u32, c_str_ptr("calltmp")))
+                    Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, c_str_ptr("calltmp")))
                 }
             },
             Expr::NoOp => None,
@@ -119,8 +128,8 @@ impl CodeGen for Expr {
     }
 }
 
-// Helper functions
-fn c_str_ptr(rust_str: &str) -> *const i8 {
+// Helper function
+pub fn c_str_ptr(rust_str: &str) -> *const i8 {
     match CString::new(rust_str.as_bytes()) {
         Ok(string) => string,
         Err(err) => panic!(err)
