@@ -4,8 +4,8 @@ use std::vec::IntoIter;
 
 use limonite::syntax::lexer::Tokenizer;
 use limonite::syntax::parser::Parser;
-use limonite::syntax::core::tokens::Token;
-use limonite::syntax::core::tokens::Token::*;
+use limonite::syntax::core::tokens::Tokens;
+use limonite::syntax::core::tokens::Tokens::*;
 use limonite::syntax::core::types::Types;
 use limonite::syntax::core::keywords::Keywords;
 use limonite::syntax::core::symbols::Symbols;
@@ -14,11 +14,11 @@ use limonite::syntax::ast::consts::*;
 use limonite::syntax::ast::op::*;
 
 struct MockLexer {
-    tokens: IntoIter<Token>
+    tokens: IntoIter<Tokens>
 }
 
 impl MockLexer {
-    fn new(v: Vec<Token>) -> MockLexer {
+    fn new(v: Vec<Tokens>) -> MockLexer {
         MockLexer {
             tokens: v.into_iter()
         }
@@ -26,7 +26,7 @@ impl MockLexer {
 }
 
 impl Tokenizer for MockLexer {
-    fn get_tok(&mut self) -> Token {
+    fn get_tok(&mut self) -> Tokens {
         let next = self.tokens.next();
         match next {
             Some(tok) => tok,
