@@ -159,6 +159,15 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let token = self.next_token();
         if !self.expect_token(&token, Symbol(Symbols::ParenOpen)) {
             self.write_error("Expected an open parenthesis here.");
+            return None;
+        }
+
+        let tok = self.peek();
+
+        // Check to see if there are no args
+        if self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
+            self.next_token();
+            return Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), Vec::new())));
         }
 
         let parse_args = |this: &mut Parser<TokType>, seperator: Token| {
@@ -180,7 +189,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         match tok {
             Symbol(Symbols::ParenOpen) => {
                 self.parse_fn_call(ident)
-            }
+            },
             _ => {
                 None
             }
@@ -419,6 +428,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     fn parse_expression_subroutine(&mut self) -> Option<ExprWrapper> {
+        // TODO: Add support for Bools
+
         match self.next_token() {
             // Terminals
             StrLiteral(string) => {
@@ -604,7 +615,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     // and didn't actually dedent. Same is true for single line comments
                     // however this isn't guarenteed for multi line comments (because
                     // you could have code after the end of the comment).
-                    // ToDo: Account to multiline comments
+                    // TODO: Account to multiline comments
                     let difference = match self.peek() {
                         Comment(_) => continue,
                         Indent(_) => continue,

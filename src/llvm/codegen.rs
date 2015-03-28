@@ -105,7 +105,7 @@ impl CodeGen for Expr {
                     let arg_count = LLVMCountParams(function) as usize;
 
                     if arg_count != args.len() {
-                        println!("Error: Function {} requires {} argument(s), {} given.", name, args.len(), arg_count);
+                        println!("Error: Function {} requires {} argument(s), {} given.", name, arg_count, args.len());
                         return None;
                     }
 
