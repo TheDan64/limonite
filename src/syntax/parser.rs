@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use syntax::lexer::Tokenizer;
-use syntax::core::tokens::Token;
-use syntax::core::tokens::Token::*;
+use syntax::core::tokens::Tokens;
+use syntax::core::tokens::Tokens::*;
 use syntax::core::keywords::Keywords;
 use syntax::core::symbols::Symbols;
 use syntax::ast::expr::*;
@@ -11,47 +11,61 @@ use syntax::core::types::*;
 
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
-    indent_level: usize,
-    valid_syntax: bool,
     ast_root: ExprWrapper,
-    preview_token: Option<Token>
+    indent_level: usize,
+    preview_token: Option<Tokens>,
+    valid_ast: bool,
+    in_block: bool,
 }
 
 impl<TokType: Tokenizer> Parser<TokType> {
     pub fn new(tokenizer: TokType) -> Parser<TokType> {
         Parser {
             lexer: tokenizer,
-            indent_level: 0,
-            valid_syntax: true,
             ast_root: ExprWrapper::default(Expr::NoOp),
-            preview_token: None
+            indent_level: 0,
+            valid_ast: true,
+            preview_token: None,
+            in_block: false,
         }
     }
 
-    fn expect_token(&self, token: &Token, next_token: Token) -> bool {
-        *token == next_token
-    }
-
-    // Consume the next token from the lexer
-    fn next_token(&mut self) -> Token {
-        match self.preview_token.take() {
-            Some(tok) => tok,
-            None => self.lexer.get_tok()
+    /// Consume the next `Token` from the lexer
+    /// Ignores `Comment`s entirely, and ignores `Indent`s when in blocks
+    fn next_token(&mut self) -> Tokens {
+        loop {
+            let result = match self.preview_token.take() {
+                Some(tok) => tok,
+                None => self.lexer.get_tok()
+            };
+            match result {
+                Comment(_) => {},
+                Indent(_) => {
+                    if !self.in_block {
+                        return result;
+                    }
+                },
+                _ => {
+                    return result;
+                },
+            }
         }
     }
 
-    fn peek(&mut self) -> Token {
+    /// Returns a peek at the next `Token` without consuming it
+    /// The next call to `next_token` will return the same `Token` returned
+    /// by the last call to `peek`
+    fn peek(&mut self) -> Tokens {
         let tok = self.next_token();
         self.preview_token = Some(tok.clone());
         tok
     }
 
-    // Create an error from the current lexer's
-    // state, and a message
+    /// Create an error from the current `Lexer`s state, with a message
     fn write_error(&mut self, msg: &str) {
         let (start_line, start_column, _, _) = self.lexer.get_error_pos();
         
-        self.valid_syntax = false;
+        self.valid_ast = false;
 
         println!("filename:{}:{} {}", start_line, start_column, msg);
 
@@ -68,20 +82,15 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    fn expect_error(&mut self, reason: &str, expect: &str, got: &str) {
+    fn write_expect_error(&mut self, reason: &str, expect: &str, got: &str) {
         self.write_error(&format!("{}. Expected {}, but got {}", reason, expect, got));
     }
 
-    // Perform any necessary on-start actions
+    /// Perform any necessary on-start actions
     fn start(&self) {
-        // Start code gen startup
-
-        // Implicit imports
-
-        // Generate code for implicit top level function definition
     }
 
-    // Ensures that the indentation matches the current level of indentation
+    /// Ensures that the indentation matches the current level of indentation
     #[allow(dead_code)]
     fn check_indentation(&mut self, depth: usize) -> isize {
         let difference = depth as isize - self.indent_level as isize;
@@ -108,16 +117,16 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 tok = self.next_token();
             }
 
-            if !first_arg && self.expect_token(&tok, Symbol(Symbols::Comma)) {
+            if !first_arg && Tokens::expect(&tok, Symbol(Symbols::Comma)) {
                 tok = self.next_token(); 
             }
 
-            if self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
+            if Tokens::expect(&tok, Symbol(Symbols::ParenClose)) {
                 return Some(args);
             }
 
             let name = match tok {
-                Token::Identifier(ref name) => Some(name),
+                Tokens::Identifier(ref name) => Some(name),
                 _ => {
                     self.write_error(&format!("Unsupported token {:?}.", tok));
                     None
@@ -137,8 +146,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     fn collect_sequence<F, G>
         (&mut self, mut collect_arg: F, sequence_end: G) -> Vec<ExprWrapper>
-        where F: FnMut(&mut Parser<TokType>, Token) -> Option<ExprWrapper>,
-              G: Fn(&Parser<TokType>, &Token) -> bool {
+        where F: FnMut(&mut Parser<TokType>, Tokens) -> Option<ExprWrapper>,
+              G: Fn(&Parser<TokType>, &Tokens) -> bool {
         let mut args = Vec::new();
         loop {
             if let Some(new_arg) = collect_arg(self, Symbol(Symbols::Comma)) {
@@ -157,7 +166,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     fn parse_fn_call(&mut self, ident: String) -> Option<ExprWrapper> {
         let token = self.next_token();
-        if !self.expect_token(&token, Symbol(Symbols::ParenOpen)) {
+        if !Tokens::expect(&token, Symbol(Symbols::ParenOpen)) {
             self.write_error("Expected an open parenthesis here.");
             return None;
         }
@@ -170,12 +179,15 @@ impl<TokType: Tokenizer> Parser<TokType> {
             return Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), Vec::new())));
         }
 
-        let parse_args = |this: &mut Parser<TokType>, seperator: Token| {
+        let parse_args = |this: &mut Parser<TokType>, seperator: Tokens| {
+            if !Tokens::expect(&seperator, Symbol(Symbols::Comma)) {
+                this.write_error("Missing a comma between arguments.");
+            }
             this.parse_expression(0)
         };
 
-        let sequence_end = |this: &Parser<TokType>, current_token: &Token| {
-            this.expect_token(current_token, Symbol(Symbols::ParenClose))
+        let sequence_end = |this: &Parser<TokType>, current_token: &Tokens| {
+            Tokens::expect(current_token, Symbol(Symbols::ParenClose))
         };
 
         let args = self.collect_sequence(parse_args, sequence_end);
@@ -203,7 +215,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let fn_name = match self.next_token() {
             Identifier(string) => string,
             _ => {
-                self.expect_error("", "an identifier", "something else");
+                self.write_expect_error("", "an identifier", "something else");
 
                 return None;
             }
@@ -212,8 +224,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // Get a left paren (
         let mut tok = self.next_token();
 
-        if !self.expect_token(&tok, Symbol(Symbols::ParenOpen)) {
-            self.expect_error("", "an opening paren '('", "something else");
+        if !Tokens::expect(&tok, Symbol(Symbols::ParenOpen)) {
+            self.write_expect_error("", "an opening paren '('", "something else");
 
             return None;
         }
@@ -230,7 +242,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 let arg_name = match tok {
                     Identifier(ident) => ident,
                     _ => {
-                        self.expect_error("", "a function name", "something else");
+                        self.write_expect_error("", "a function name", "something else");
 
                         return None;
                     }
@@ -238,8 +250,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
                 tok = self.next_token();
 
-                if !self.expect_token(&tok, Symbol(Symbols::Colon)) {
-                    self.expect_error("", "a colon ':'", "something else");
+                if !Tokens::expect(&tok, Symbol(Symbols::Colon)) {
+                    self.write_expect_error("", "a colon ':'", "something else");
 
                     return None;
                 }
@@ -247,7 +259,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 match self.next_token() {
                     Identifier(ident) => args.push((arg_name, Identifier(ident))),
                     _ => {
-                        self.expect_error("", "a return type", "something else");
+                        self.write_expect_error("", "a return type", "something else");
 
                         return None;
                     }
@@ -262,7 +274,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
                     // Found something else, error
                     _ => {
-                        self.expect_error("", "a closing paren ')' or comma ','", "something else");
+                        self.write_expect_error("", "a closing paren ')' or comma ','", "something else");
 
                         return None;
                     }
@@ -275,8 +287,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // Get right arrow ->
         tok = self.next_token();
 
-        if !self.expect_token(&tok, Symbol(Symbols::RightThinArrow)) {
-            self.expect_error("", "a thin right arrow '->'", "something else");
+        if !Tokens::expect(&tok, Symbol(Symbols::RightThinArrow)) {
+            self.write_expect_error("", "a thin right arrow '->'", "something else");
 
             return None;
         }
@@ -289,7 +301,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 Identifier(ident)
             },
             _ => {
-                self.expect_error("", "a return type", "something else");
+                self.write_expect_error("", "a return type", "something else");
 
                 return None;
             }
@@ -302,7 +314,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         match tok {
             Indent(depth) => self.check_indentation(depth),
             _ => {
-                self.expect_error("", "a new line", "something else");
+                self.write_expect_error("", "a new line", "something else");
 
                 return None;
             }
@@ -336,8 +348,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         let tok = self.next_token();
 
-        if !self.expect_token(&tok, Symbol(Symbols::Comma)) {
-            self.expect_error("", "a comma ','", "something else");
+        if !Tokens::expect(&tok, Symbol(Symbols::Comma)) {
+            self.write_expect_error("", "a comma ','", "something else");
 
             return None;
         }
@@ -347,7 +359,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         match self.next_token() {
             Indent(depth) => self.check_indentation(depth),
             _ => {
-                self.expect_error("", "a new line", "something else");
+                self.write_expect_error("", "a new line", "something else");
 
                 return None;
             }
@@ -360,7 +372,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Some(ExprWrapper::default(expr))
     }
 
-    fn is_infix_op(&self, token: &Token) -> bool {
+    fn is_infix_op(&self, token: &Tokens) -> bool {
         match *token {
             Symbol(Symbols::Plus) => true,
             Symbol(Symbols::Minus) => true,
@@ -373,7 +385,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    fn get_precedence(&self, token: &Token) -> u8 {
+    fn get_precedence(&self, token: &Tokens) -> u8 {
         match *token {
             Symbol(Symbols::Plus) => InfixOp::Add.get_precedence(),
             Symbol(Symbols::Minus) => InfixOp::Sub.get_precedence(),
@@ -453,8 +465,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
                 let tok = self.next_token();
 
-                if !self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
-                    self.expect_error("", "a closing paren ')'", "something else");
+                if !Tokens::expect(&tok, Symbol(Symbols::ParenClose)) {
+                    self.write_expect_error("", "a closing paren ')'", "something else");
 
                     return None;
                 }
@@ -632,35 +644,23 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         expr.push(exprwrapper);
                     }
                 },
-                Comment(text) => {
-                    // ToDo: Docstring, else ignore
-                },
-                Symbol(punc) => {
-                    panic!("Unimplemented top level token 'Symbol'");
-                },
-                StrLiteral(lit) => {
-                    panic!("Unimplemented top level token 'StrLiteral'");
-                },
-                CharLiteral(lit) => {
-                    panic!("Unimplemented top level token 'CharLiteral'");
-                },
-                BoolLiteral(lit) => {
-                    panic!("Unimplemented top level token 'BoolLiteral'");
-                },
-                Numeric(string, type_) => {
-                    panic!("Unimplemented top level token 'Numeric'");
-                },
                 Error(err) => {
                     self.write_error(&err);
                 },
                 EOF => break,
+
+                // These tokens are all illegal in top level expressions
+                Symbol(_) | StrLiteral(_) | CharLiteral(_) |
+                BoolLiteral(_) | Numeric(_, _) | Comment(_) => {
+                    panic!("Unimplemented top level token '{:?}'", token);
+                },
             };
         }
 
         ExprWrapper::new(Expr::Block(expr), 0, 0, 0, 0)
     }
 
-    pub fn generated_valid_syntax(&self) -> bool {
-        self.valid_syntax
+    pub fn generated_valid_ast(&self) -> bool {
+        self.valid_ast
     }
 }
