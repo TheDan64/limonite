@@ -49,6 +49,10 @@ impl Context {
     pub fn get_builder(&self) -> *mut LLVMBuilder {
         self.builder
     }
+
+    pub fn clear_values(&mut self) {
+        self.named_values.clear();
+    }
 }
 
 impl Drop for Context {
@@ -75,17 +79,19 @@ impl CodeGen for Expr {
     fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue> {
         match *self {
             Expr::Block(ref vec) => {
+                let mut gen = None;
+
                 for expr in vec {
-                    expr.gen_code(context);
+                    gen = expr.gen_code(context);
                 }
 
-                None
+                gen
             },
             Expr::Ident(ref name) => {
                 match context.named_values.get(name) {
                     Some(val) => Some(*val),
                     None => {
-                        println!("Could not find func {}", name);
+                        println!("Could not find ident {}", name);
 
                         None
                     }
@@ -112,15 +118,14 @@ impl CodeGen for Expr {
                     let mut arg_values = Vec::new();
 
                     for arg in args {
-                        if let Some(value) = arg.gen_code(context) {
-                            arg_values.push(value);
+                        match arg.gen_code(context) {
+                            Some(value) => arg_values.push(value),
+                            None => return None
                         }
-
-                        return None;
                     }
 
                     Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, c_str_ptr("calltmp")))
-                }
+                 }
             },
             Expr::NoOp => None,
             _ => None

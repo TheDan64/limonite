@@ -174,7 +174,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let tok = self.peek();
 
         // Check to see if there are no args
-        if self.expect_token(&tok, Symbol(Symbols::ParenClose)) {
+        if Tokens::expect(&tok, Symbol(Symbols::ParenClose)) {
             self.next_token();
             return Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), Vec::new())));
         }
