@@ -1,16 +1,14 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
-#![feature(rustc_private)]
 #![allow(dead_code)]
-extern crate rustc;
-
-use llvm::codegen::{CodeGen, Context};
 use std::env;
 use std::io::{BufReader, Read};
 use std::fs::File;
 use std::path::Path;
 use syntax::lexer::Lexer;
 use syntax::parser::Parser;
+use llvm::codegen::{CodeGen, Context};
+use llvm::builtins::generate_builtins;
 
 pub mod syntax;
 pub mod llvm;
@@ -58,8 +56,10 @@ fn main() {
     // ToDo: Add a flag for disabling code gen
     let mut context = Context::new("module1");
 
+    generate_builtins(&mut context);
     ast_root.gen_code(&mut context);
 
     // ToDo: Add a flag for dumping ir to stdout
+
     context.dump();
 }
