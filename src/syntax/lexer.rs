@@ -1,11 +1,11 @@
-use syntax::core::tokens::Token;
-use syntax::core::tokens::Token::*;
+use syntax::core::tokens::Tokens;
+use syntax::core::tokens::Tokens::*;
 use syntax::core::types::Types;
 use syntax::core::keywords::Keywords;
 use syntax::core::symbols::Symbols;
 
 pub trait Tokenizer {
-    fn get_tok(&mut self) -> Token;
+    fn get_tok(&mut self) -> Tokens;
     fn get_error_pos(&self) -> (usize, usize, usize, usize);
 }
 
@@ -23,7 +23,7 @@ pub struct Lexer<'a> {
 
 impl<'a> Tokenizer for Lexer<'a> {
     // Parse the file where it left off and return the next token
-    fn get_tok(&mut self) -> Token {
+    fn get_tok(&mut self) -> Tokens {
         if self.eof() {
             return EOF;
         }
@@ -218,7 +218,7 @@ impl<'a> Lexer<'a> {
     }
 
     // Single and multi char symbols: *, -, +=, -=, ...
-    fn symbols_token(&self, punc: &str) -> Token {
+    fn symbols_token(&self, punc: &str) -> Tokens {
         Symbol(match punc.parse::<Symbols>() {
             Ok(p)  => p,
             Err(e) => panic!(e)
@@ -236,7 +236,7 @@ impl<'a> Lexer<'a> {
 
     // Identifiers: [a-zA-Z_][a-zA-z0-9_]*
     // Keywords are subsets of identifiers.
-    fn consume_identifier(&mut self) -> Token {
+    fn consume_identifier(&mut self) -> Tokens {
         // Lexer will only let you start with alpha or undescore,
         // so there is no need to check for numeric start
         let ident = self.consume_while(&mut |ch| match ch {
@@ -303,7 +303,7 @@ impl<'a> Lexer<'a> {
     }
 
     // Determines what type of number it is and consume it
-    fn consume_numeric(&mut self) -> Token {
+    fn consume_numeric(&mut self) -> Tokens {
         let mut number = String::new();
         let mut suffix = String::new();
 
@@ -470,7 +470,7 @@ impl<'a> Lexer<'a> {
         Numeric(number, suffix.parse::<Types>().ok())
      }
 
-    fn consume_comment(&mut self) -> Token {
+    fn consume_comment(&mut self) -> Tokens {
         let mut result = String::new();
 
         // Consume 2nd '>'
@@ -525,7 +525,7 @@ impl<'a> Lexer<'a> {
         Comment(result)
     }
 
-    fn consume_tabs(&mut self) -> Token {
+    fn consume_tabs(&mut self) -> Tokens {
         let mut count = 0usize;
 
         // Consume the newline token, count tabs
@@ -556,7 +556,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn consume_char_literal(&mut self) -> Token {
+    fn consume_char_literal(&mut self) -> Tokens {
         let ch: char;
 
         // Consume first '
@@ -588,7 +588,7 @@ impl<'a> Lexer<'a> {
     }
 
     // This is currently set up to accept multi line strings
-    fn consume_string_literal(&mut self) -> Token {
+    fn consume_string_literal(&mut self) -> Tokens {
         let mut result = String::new();
 
         // Consume first "

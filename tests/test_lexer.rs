@@ -2,13 +2,13 @@ extern crate limonite;
 
 use limonite::syntax::core::keywords::Keywords::{Def, Function, If, Is, Return, Var};
 use limonite::syntax::core::symbols::Symbols::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
-use limonite::syntax::core::tokens::Token;
-use limonite::syntax::core::tokens::Token::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Symbol, StrLiteral};
+use limonite::syntax::core::tokens::Tokens;
+use limonite::syntax::core::tokens::Tokens::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Symbol, StrLiteral};
 use limonite::syntax::core::types::Types::{Float32Bit, Float64Bit, Int32Bit, Int64Bit, UInt32Bit, UInt64Bit};
 use limonite::syntax::lexer::{Lexer, Tokenizer};
 
-fn cmp_tokens(mut lexer: Lexer, vec: Vec<Token>) {
-    let mut tok: Token;
+fn cmp_tokens(mut lexer: Lexer, vec: Vec<Tokens>) {
+    let mut tok: Tokens;
 
     for desired_tok in vec.iter() {
         tok = lexer.get_tok();
@@ -35,7 +35,11 @@ print(\"Hello World!\")";
     let lexer = Lexer::new(&input_string);
     let desired_output = vec![Comment(" Hello World!".to_string()), Indent(0),
                               Indent(0),
-                              Identifier("print".to_string()), Symbol(ParenOpen), StrLiteral("Hello World!".to_string()), Symbol(ParenClose), EOF];
+                              Identifier("print".to_string()),
+                              Symbol(ParenOpen),
+                              StrLiteral("Hello World!".to_string()),
+                              Symbol(ParenClose),
+                              EOF];
 
     cmp_tokens(lexer, desired_output);
 }

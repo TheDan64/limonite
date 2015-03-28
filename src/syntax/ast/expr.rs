@@ -1,8 +1,10 @@
+use std::fmt;
+
 use syntax::ast::consts::*;
 use syntax::ast::op::*;
-use syntax::core::tokens::Token;
+use syntax::core::tokens::Tokens;
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct ExprWrapper {
     expr: Box<Expr>,
     start_line: usize,
@@ -38,6 +40,12 @@ impl ExprWrapper {
     }
 }
 
+impl fmt::Debug for ExprWrapper {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.expr)
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     // Operations between two expressions
@@ -57,7 +65,7 @@ pub enum Expr {
     FnCall(String, Vec<ExprWrapper>),
     // Declare a function with a name, args(name, type | ident), return (type | ident), and expr
     // ToDo: Optional args
-    FnDecl(String, Vec<(String, Token)>, Token, ExprWrapper),
+    FnDecl(String, Vec<(String, Tokens)>, Tokens, ExprWrapper),
     // Run consecutive expressions
     Block(Vec<ExprWrapper>),
     // Variable name and expression.
