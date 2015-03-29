@@ -374,50 +374,5 @@ fn test_function_call() {
             ])
         )]);
 
-    assert!(*ast == desired_ast, "Expected: {:?}, but found: {:?}", desired_ast, *ast);
-}
-
-fn general_expect_test(tokens: Vec<Tokens>,
-                       expected: Vec<ExprWrapper>,
-                       should_match: bool) {
-    let lexer = MockLexer::new(tokens);
-    let mut parser = Parser::new(lexer);
-    let parse = parser.parse();
-    let ast = parse.get_expr();
-    let expected = Expr::Block(expected);
-
-    assert!((expected == *ast) == should_match,
-            "\nExpected:\n    {:?}\n, but found:\n    {:?}",
-            expected,
-            ast);
-}
-
-fn expect_test(tokens: Vec<Tokens>, expected: Vec<ExprWrapper>) {
-    general_expect_test(tokens, expected, true);
-}
-
-fn unexpect_test(tokens: Vec<Tokens>, expected: Vec<ExprWrapper>) {
-    general_expect_test(tokens, expected, false);
-}
-
-#[test]
-fn test_variable_declaration() {
-    for typ in vec![Keywords::Var, Keywords::Def] {
-        let tokens = vec![
-            Keyword(typ),
-            Identifier("name".to_string()),
-            Symbol(Symbols::Colon),
-            Identifier("int".to_string()),
-            Symbol(Symbols::Equals),
-            Numeric("123".to_string(), Some(Types::UInt32Bit)),
-        ];
-        let desired_ast = vec![
-            ExprWrapper::default(Expr::VarDecl(
-                typ == Keywords::Def,
-                "name".to_string(),
-                "int".to_string(),
-                ExprWrapper::default(Expr::Const(Const::U32Num(123))),
-            ))];
-        expect_test(tokens, desired_ast);
-    }
+    assert!(*ast == desired_ast, "Expected: {:?}, but found: {:?}", ast, desired_ast);
 }
