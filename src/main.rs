@@ -48,7 +48,7 @@ fn main() {
     // ToDo: Semantic Analysis
 
     // Avoid going to code gen when generating invalid syntax
-    if !parser.generated_valid_ast() {
+    if !parser.get_ast() {
         return;
     }
 
