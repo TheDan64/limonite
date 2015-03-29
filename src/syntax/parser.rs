@@ -509,7 +509,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             _    => 10
         };
 
-        let bytes = num.into_bytes().into_iter().filter(|byte| match *byte as char {
+        let chars = num.chars().filter(|chr| match *chr {
             '_' | 'x' | 'b' => false,
             _ => true
         });
@@ -525,41 +525,41 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let mut decimal_iteration = 1f32;
 
         // Does not account for overflow
-        for byte in bytes {
-            match byte as char {
-                b if b.is_digit(base) => {
+        for chr in chars {
+            match chr {
+                c if c.is_digit(base) => {
                     match type_ {
                         Some(Types::Int32Bit) => {
                             int32 *= base as i32;
-                            int32 += b.to_digit(base).unwrap() as i32;
+                            int32 += c.to_digit(base).unwrap() as i32;
                         },
                         Some(Types::Int64Bit) => {
                             int64 *= base as i64;
-                            int64 += b.to_digit(base).unwrap() as i64;
+                            int64 += c.to_digit(base).unwrap() as i64;
                         },
                         Some(Types::UInt32Bit) => {
                             uint32 *= base;
-                            uint32 += b.to_digit(base).unwrap();
+                            uint32 += c.to_digit(base).unwrap();
                         },
                         Some(Types::UInt64Bit) => {
                             uint64 *= base as u64;
-                            uint64 += b.to_digit(base).unwrap() as u64;
+                            uint64 += c.to_digit(base).unwrap() as u64;
                         },
                         Some(Types::Float32Bit) => {
                             if before_decimal_point {
                                 float32 *= base as f32;
-                                float32 += b.to_digit(base).unwrap() as f32;
+                                float32 += c.to_digit(base).unwrap() as f32;
                             } else {
-                                float32 += b.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
+                                float32 += c.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
                                 decimal_iteration += 1f32;
                             }
                         },
                         Some(Types::Float64Bit) => {
                             if before_decimal_point {
                                 float64 *= base as f64;
-                                float64 += b.to_digit(base).unwrap() as f64;
+                                float64 += c.to_digit(base).unwrap() as f64;
                             } else {
-                                float64 += b.to_digit(base).unwrap() as f64 / (base as f64 * decimal_iteration as f64);
+                                float64 += c.to_digit(base).unwrap() as f64 / (base as f64 * decimal_iteration as f64);
                                 decimal_iteration += 1f32;
                             }
                         },
@@ -568,14 +568,14 @@ impl<TokType: Tokenizer> Parser<TokType> {
                             if has_decimal_point {
                                 if before_decimal_point {
                                     float32 *= base as f32;
-                                    float32 += b.to_digit(base).unwrap() as f32;
+                                    float32 += c.to_digit(base).unwrap() as f32;
                                 } else {
-                                    float32 += b.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
+                                    float32 += c.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
                                     decimal_iteration += 1f32;
                                 }
                             } else {
                                 int32 *= base as i32;
-                                int32 += b.to_digit(base).unwrap() as i32;
+                                int32 += c.to_digit(base).unwrap() as i32;
                             }
 
                         }
