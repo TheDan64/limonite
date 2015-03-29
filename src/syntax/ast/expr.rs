@@ -61,17 +61,21 @@ pub enum Expr {
     // Assign a value to an expression
     Assign(ExprWrapper, ExprWrapper),
     // Fn call with name and args.
+    // ToDo: Vec<Option<ExprWrapper>> for optional args?
     FnCall(String, Vec<ExprWrapper>),
     // Declare a function with a name, args(name, type | ident), return (type | ident), and expr
+    // ToDo: Optional args
     FnDecl(String, Vec<(String, Tokens)>, Tokens, ExprWrapper),
     // Run consecutive expressions
     Block(Vec<ExprWrapper>),
-    // Const declaration?, type, Variable name and expression
-    VarDecl(bool, String, String, ExprWrapper),
+    // Variable name and expression.
+    // ToDo: Does this need a variable type here?
+    // ToDo: A bool for whether it is const(def) or not(var)?
+    VarDecl(Vec<(String, ExprWrapper)>),
+    // Reference to a value in an identifier
+    Ident(String),
     // Return an expression from a function
     Return(Option<ExprWrapper>),
-    // Ident
-    Ident(String),
-    // Does nothing
+    // A lot more to come
     NoOp,
 }
