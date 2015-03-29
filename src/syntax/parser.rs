@@ -671,7 +671,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     // however this isn't guarenteed for multi line comments (because
                     // you could have code after the end of the comment).
                     // TODO: Account to multiline comments
-                    let difference = match self.peek() {
+                    let difference = match self.next_token() {
                         Comment(_) => continue,
                         Indent(_) => continue,
                         _ => self.check_indentation(depth)
