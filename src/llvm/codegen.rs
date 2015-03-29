@@ -128,8 +128,10 @@ impl CodeGen for Expr {
                     let ret_var = if LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(function))) == LLVMVoidTypeInContext(context.context) {
                         c_str_ptr("")
                     } else {
-                        let tmp = name.to_string().push_str("ret");
-                        c_str_ptr(tmp)
+                        let mut tmp = name.to_string();
+                        tmp.push_str("tmp");
+
+                        c_str_ptr(&tmp)
                     };
 
                     Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, ret_var))
