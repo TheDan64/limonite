@@ -28,16 +28,36 @@ pub fn generate_builtins(context: &mut Context) {
 }
 
 fn generate_print(context: &mut Context) {
+    // Defining a string structure that looks like:
+    // string {
+    //     len: i32,
+    //     array: i8*
+    // }
+
     unsafe {
         let void = LLVMVoidTypeInContext(context.get_context());
+        let mut string_type_fields = vec![LLVMInt32TypeInContext(context.get_context())];
+        let ptr_type = LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0);
+
+        string_type_fields.push(ptr_type);
+
+        let string_type = LLVMStructTypeInContext(context.get_context(), string_type_fields.as_ptr() as *mut _, 2, 0);
+        let args = vec![string_type];
+
         // 2nd arg is param types (*mut LLVMTypeRef) and 3rd is param count. 4 is variable # of args t/f?
-        let fn_type = LLVMFunctionType(void, ptr::null_mut(), 0, 0);
+        let fn_type = LLVMFunctionType(void, args.as_ptr() as *mut _, 1, 0);
         let print_fn = LLVMAddFunction(context.get_module(), c_str_ptr("print"), fn_type);
 
-        // Create a basic block to generate code in
-        let bb = LLVMAppendBasicBlockInContext(context.get_context(), print_fn, c_str_ptr("entry"));
+        // Name the param
+        let param = LLVMGetFirstParam(print_fn);
+        LLVMSetValueName(param, c_str_ptr("str"));
 
-        LLVMPositionBuilderAtEnd(context.get_builder(), bb);
+        // Create a basic block to generate code in
+        let bb = LLVMAppendBasicBlockInContext(context.get_context(), print_fn, c_str_ptr(""));
+
+        // Generate print code here
+
+        LLVMPositionBuilderAtEnd(context.get_builder(), bb); // Not needed?
         LLVMBuildRetVoid(context.get_builder());
     }
 }

@@ -1,10 +1,11 @@
 extern crate llvm_sys;
 
-use syntax::ast::expr::*;
 use std::collections::HashMap;
 use std::ffi::CString;
 use self::llvm_sys::core::*;
 use self::llvm_sys::*;
+use syntax::ast::expr::*;
+use syntax::ast::consts::*;
 
 // Struct to keep track of data needed to build IR
 pub struct Context {
@@ -97,6 +98,33 @@ impl CodeGen for Expr {
                     }
                 }
             },
+            Expr::Const(ref const_type) => {
+                match const_type {
+                    &Const::UTF8String(ref val) => {
+                        unsafe {
+                            // Types
+                            let int8 = LLVMInt8TypeInContext(context.get_context());
+                            let int32 = LLVMInt32TypeInContext(context.get_context());
+                            let int8_ptr = LLVMPointerType(int8, val.len() as u32);
+
+                            // Values
+                            let len = LLVMConstInt(int32, val.len() as u64, 0); // 0 = unsigned?
+
+                            // Alloca might be less portable than malloc, but I read it is overall better.
+                            // Should look into this.
+                            let string = LLVMBuildAlloca(context.get_builder(), int8_ptr, c_str_ptr("alloca"));
+
+                            let struct_fields = vec![len, string];
+
+                            Some(LLVMConstStructInContext(context.get_context(), struct_fields.as_ptr() as *mut _, 2, 0))
+                        }
+                    },
+                    _ => {
+                        println!("Error: Codegen unimplemented for {:?}", const_type);
+                        None
+                    }
+                }
+            },
             Expr::FnCall(ref name, ref args) => {
                 // This expr should always contain a string
                 unsafe {
@@ -120,7 +148,10 @@ impl CodeGen for Expr {
                     for arg in args {
                         match arg.gen_code(context) {
                             Some(value) => arg_values.push(value),
-                            None => return None
+                            None => {
+                                println!("Fatal Error: Argument {:?} codegen failed!", arg);
+                                return None
+                            }
                         }
                     }
 

@@ -80,7 +80,7 @@ fn main() {
     let mut parser = Parser::new(lexer);
     let ast_root = parser.parse();
 
-    // ToDo: Semantic Analysis
+    // TODO: Semantic Analysis
 
     // Avoid going to code gen when generating invalid syntax
     if !parser.generated_valid_ast() {
@@ -88,13 +88,12 @@ fn main() {
     }
 
     // Run Code Gen
-    // ToDo: Add a flag for disabling code gen
+    // TODO: Add a flag for disabling code gen
     let mut context = Context::new("module1");
 
     generate_builtins(&mut context);
     ast_root.gen_code(&mut context);
 
-    // ToDo: Add a flag for dumping ir to stdout
-
+    // TODO: Add a flag for dumping ir to stdout
     context.dump();
 }
