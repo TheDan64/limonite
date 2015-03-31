@@ -7,15 +7,15 @@ use syntax::core::tokens::Tokens;
 #[derive(PartialEq)]
 pub struct ExprWrapper {
     expr: Box<Expr>,
-    start_line: usize,
-    start_column: usize,
-    end_line: usize,
-    end_column: usize
+    start_line: u64,
+    start_column: u64,
+    end_line: u64,
+    end_column: u64
 }
 
 impl ExprWrapper {
     // Create an associated expression with start and end positions
-    pub fn new(expr: Expr, startl: usize, startc: usize, endl: usize, endc: usize) -> ExprWrapper {
+    pub fn new(expr: Expr, startl: u64, startc: u64, endl: u64, endc: u64) -> ExprWrapper {
         ExprWrapper {
             expr: Box::new(expr),
             start_line: startl,

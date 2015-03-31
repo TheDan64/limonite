@@ -11,7 +11,7 @@ pub enum Tokens {
     Identifier(String),
 
     // Count the number of tabs after a newline
-    Indent(usize),
+    Indent(u64),
 
     // True, False
     BoolLiteral(bool),
