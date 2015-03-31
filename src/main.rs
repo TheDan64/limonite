@@ -91,8 +91,10 @@ fn main() {
     // TODO: Add a flag for disabling code gen
     let mut context = Context::new("module1");
 
-    generate_builtins(&mut context);
-    ast_root.gen_code(&mut context);
+    unsafe {
+        generate_builtins(&mut context);
+        ast_root.gen_code(&mut context);
+    }
 
     // TODO: Add a flag for dumping ir to stdout
     context.dump();
