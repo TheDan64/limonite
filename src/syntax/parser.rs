@@ -191,16 +191,26 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), args)))
     }
 
+    fn parse_assignment(&mut self, ident: String) -> Option<ExprWrapper> {
+        // Clear the equals sign
+        self.next_token();
+
+        if let Some(rvalue) = self.parse_expression(0) {
+            let ident = ExprWrapper::default(Expr::Ident(ident));
+            return Some(ExprWrapper::default(Expr::Assign(ident, rvalue)));
+        } else {
+            self.write_expect_error("", "An expression", "None");
+        }
+        None
+    }
+
     fn parse_idents(&mut self, ident: String) -> Option<ExprWrapper> {
         self.next_token();
         let tok = self.peek();
         match tok {
-            Symbol(Symbols::ParenOpen) => {
-                self.parse_fn_call(ident)
-            },
-            _ => {
-                None
-            }
+            Symbol(Symbols::ParenOpen) => self.parse_fn_call(ident),
+            Symbol(Symbols::Equals) => self.parse_assignment(ident),
+            _ => None,
         }
     }
 

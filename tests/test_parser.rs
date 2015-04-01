@@ -421,3 +421,53 @@ fn test_variable_declaration() {
         expect_test(tokens, desired_ast);
     }
 }
+
+#[test]
+fn test_assign() {
+    let tokens = vec![
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+    ];
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::Assign(
+            ExprWrapper::default(Expr::Ident("b".to_string())),
+            ExprWrapper::default(
+                Expr::Const(Const::U32Num(123)),
+            )
+        ))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_while_loop() {
+    let tokens = vec![
+        Keyword(Keywords::While),
+        Identifier("a".to_string()),
+        Symbol(Symbols::Plus),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(1),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+    ];
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::WhileLoop(
+            ExprWrapper::default(Expr::InfixOp(
+                InfixOp::Add,
+                ExprWrapper::default(Expr::Ident("a".to_string())),
+                ExprWrapper::default(Expr::Ident("b".to_string())),
+            )),
+            ExprWrapper::default(Expr::Block(vec![
+                ExprWrapper::default(Expr::Assign(
+                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(
+                        Expr::Const(Const::U32Num(123)),
+                    )
+                ))
+            ]))
+        ))];
+    expect_test(tokens, desired_ast);
+}
