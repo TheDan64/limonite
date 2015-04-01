@@ -130,13 +130,20 @@ impl CodeGen for Expr {
 
                         // Alloca might be less portable than malloc, but I read it is overall better.
                         // Should look into this.
-                        let twelve = LLVMConstInt(int32_type, 10, 0);
-                        let args = vec![twelve, twelve];
-                        let allocated_str_ptr = LLVMBuildAlloca(context.get_builder(), int8_ptr_type, c_str_ptr("strptr"));
-                        let element_ptr = LLVMBuildGEP(context.get_builder(), const_str_var, args.as_ptr() as *mut _, 0, c_str_ptr(""));
-                        let store = LLVMBuildStore(context.get_builder(), element_ptr, allocated_str_ptr); // not correct, GEP not working?
+                        let zero = LLVMConstInt(int32_type, 0, 0);
+                        let args = vec![zero, zero];
+                        let allocated_str_ptr = LLVMBuildAlloca(context.get_builder(), int8_ptr_type, c_str_ptr("a"));
+                        let mallocated_ptr = LLVMBuildMalloc(context.get_builder(), int8_type, c_str_ptr("m"));
+                        LLVMBuildStore(context.get_builder(), mallocated_ptr, allocated_str_ptr);
+                        let element_ptr = LLVMBuildGEP(context.get_builder(), const_str_var, args.as_ptr() as *mut _, 2, c_str_ptr(""));
+                        LLVMBuildStore(context.get_builder(), element_ptr, allocated_str_ptr);
+                        let loaded_ptr = LLVMBuildLoad(context.get_builder(), allocated_str_ptr, c_str_ptr("l"));
 
-                        let struct_fields = vec![len, allocated_str_ptr];
+                        let struct_fields = vec![len, loaded_ptr];
+
+//                        LLVMBuildInsertValue(context.get_builder(), struct_fields.as_ptr() as *mut _, , 0, c_str_ptr("i"));
+
+
 
                         Some(LLVMConstStructInContext(context.get_context(), struct_fields.as_ptr() as *mut _, 2, 0))
                     },
