@@ -538,7 +538,7 @@ impl<'a> Lexer<'a> {
             _    => false
         });
 
-        Indent(count)
+        Indent(count as u64)
     }
 
     fn escape_char(ch: char) -> Result<char, String> {

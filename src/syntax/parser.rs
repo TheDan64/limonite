@@ -12,10 +12,16 @@ use syntax::core::types::*;
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     ast_root: ExprWrapper,
-    indent_level: usize,
+    indent_level: u64,
     preview_token: Option<Tokens>,
     valid_ast: bool,
-    in_block: bool,
+    block_status: BlockStatus,
+}
+
+enum BlockStatus {
+    Out,
+    Starting,
+    In,
 }
 
 impl<TokType: Tokenizer> Parser<TokType> {
@@ -26,28 +32,45 @@ impl<TokType: Tokenizer> Parser<TokType> {
             indent_level: 0,
             valid_ast: true,
             preview_token: None,
-            in_block: false,
+            block_status: BlockStatus::Out,
         }
     }
 
     /// Consume the next `Token` from the lexer
-    /// Ignores `Comment`s entirely, and ignores `Indent`s when in blocks
+    /// - Ignores `Comment`s entirely
+    /// - Smartly handlers `Indent`s by:
+    ///    - When in blocks ignores them
+    ///    - Ensures correct indentation size, then gets the next token
     fn next_token(&mut self) -> Tokens {
         loop {
             let result = match self.preview_token.take() {
                 Some(tok) => tok,
-                None => self.lexer.get_tok()
+                None => self.lexer.get_tok(),
             };
             match result {
-                Comment(_) => {},
-                Indent(_) => {
-                    if !self.in_block {
-                        return result;
+                Indent(depth) => {
+                    match self.block_status {
+                        BlockStatus::Out => {
+                            // If the new depth is smaller than the old depth, we've dedented
+                            if depth - self.indent_level <= 0 {
+                                self.indent_level = depth;
+                            }
+                            return result;
+                        },
+                        BlockStatus::Starting => {
+                            if self.indent_level == depth {
+                                self.block_status = BlockStatus::In;
+                            } else {
+                                return self.write_error("Invalid level of indentation");
+                            }
+                        },
+                        BlockStatus::In => {
+                            self.block_status = BlockStatus::Out;
+                        },
                     }
                 },
-                _ => {
-                    return result;
-                },
+                Comment(_) => (),
+                _ => return result,
             }
         }
     }
@@ -62,24 +85,12 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     /// Create an error from the current `Lexer`s state, with a message
-    fn write_error(&mut self, msg: &str) {
+    fn write_error(&mut self, msg: &str) -> Tokens {
         let (start_line, start_column, _, _) = self.lexer.get_error_pos();
         
         self.valid_ast = false;
 
-        println!("filename:{}:{} {}", start_line, start_column, msg);
-
-        // Skip to the end of the line (at Indent token) and allow parsing to continue
-        loop {
-            match self.next_token() {
-                Indent(depth) => {
-                    self.check_indentation(depth);
-                    break;
-                },
-                EOF => break,
-                _ => ()
-            }
-        }
+        Tokens::Error(format!("filename:{}:{} {}", start_line, start_column, msg))
     }
 
     fn write_expect_error(&mut self, reason: &str, expect: &str, got: &str) {
@@ -90,21 +101,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
     fn start(&self) {
     }
 
-    /// Ensures that the indentation matches the current level of indentation
-    #[allow(dead_code)]
-    fn check_indentation(&mut self, depth: usize) -> isize {
-        let difference = depth as isize - self.indent_level as isize;
-
-        if difference <= 0 {
-            self.indent_level = depth;
-        } else {
-            match self.peek() {
-                Indent(_) | Comment(_) => (),
-                _ => self.write_error("Increased indentation level in a non standard way.")
-            };
-        }
-
-        return difference;
+    fn incr_indentation(&mut self) {
+        self.block_status = BlockStatus::Starting;
+        self.indent_level += 1;
     }
 
     fn collect_args(&mut self) -> Option<Vec<ExprWrapper>> {
@@ -196,15 +195,25 @@ impl<TokType: Tokenizer> Parser<TokType> {
         Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), args)))
     }
 
+    fn parse_assignment(&mut self, ident: String) -> Option<ExprWrapper> {
+        // Clear the equals sign
+        self.next_token();
+
+        if let Some(rvalue) = self.parse_expression(0) {
+            let ident = ExprWrapper::default(Expr::Ident(ident));
+            return Some(ExprWrapper::default(Expr::Assign(ident, rvalue)));
+        } else {
+            self.write_expect_error("", "An expression", "None");
+        }
+        None
+    }
+
     fn parse_idents(&mut self, ident: String) -> Option<ExprWrapper> {
         let tok = self.peek();
         match tok {
-            Symbol(Symbols::ParenOpen) => {
-                self.parse_fn_call(ident)
-            },
-            _ => {
-                None
-            }
+            Symbol(Symbols::ParenOpen) => self.parse_fn_call(ident),
+            Symbol(Symbols::Equals) => self.parse_assignment(ident),
+            _ => None,
         }
     }
 
@@ -307,31 +316,84 @@ impl<TokType: Tokenizer> Parser<TokType> {
             }
         };
 
-        tok = self.next_token();
-
-        self.indent_level += 1;
-
-        match tok {
-            Indent(depth) => self.check_indentation(depth),
-            _ => {
-                self.write_expect_error("", "a new line", "something else");
-
-                return None;
-            }
-        };
+        self.incr_indentation();
 
         // Combine the rest of the function definiton with the fn info
-        let definition = self.parse();
+        let definition = self.sub_parse();
 
         let expr = Expr::FnDecl(fn_name, args, return_type, definition);
 
         return Some(ExprWrapper::default(expr));
     }
 
-    // Handles top-level keywords to start parsing them
-    fn handle_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
+    fn parse_declaration(&mut self) -> Option<ExprWrapper> {
+        let keyword = self.next_token();
+        let def_decl = keyword.expect(Keyword(Keywords::Def));
+
+        let token = self.next_token();
+        if let Identifier(ident) = token {
+            let token = self.next_token();
+            if !token.expect(Symbol(Symbols::Colon)) {
+                self.write_expect_error("", "a colon", &format!("{:?}", token));
+                return None
+            }
+
+            let token = self.next_token();
+            if let Identifier(typ) = token {
+                let token = self.next_token();
+                if !token.expect(Symbol(Symbols::Equals)) {
+                    self.write_expect_error("", "an Equal", &format!("{:?}", token));
+                    return None
+                }
+
+                let expr = self.parse_expression(0);
+                if let Some(value) = expr {
+                    return Some(ExprWrapper::default(
+                        Expr::VarDecl(def_decl, ident, typ, value)));
+                } else {
+                    self.write_expect_error("No value", "an expression",
+                                            &format!("{:?}", token));
+                }
+            } else {
+                self.write_expect_error("No identifier", "an identifier",
+                                        &format!("{:?}", token));
+            }
+        } else {
+            self.write_expect_error("No identifier", "an identifier",
+                                    &format!("{:?}", token));
+        }
+        None
+    }
+
+    /// Parse a while block
+    fn parse_while(&mut self) -> Option<ExprWrapper> {
+        self.next_token();
+        if let Some(expr) = self.parse_expression(0) {
+            let token = self.next_token();
+            if !token.expect(Symbol(Symbols::Comma)) {
+                self.write_expect_error("Incomplete while expression",
+                                        &format!("{:?}", Symbols::Comma),
+                                        &format!("{:?}", token));
+                return None
+            }
+            self.incr_indentation();
+
+            let block = self.sub_parse();
+            let result = Expr::WhileLoop(expr, block);
+            return Some(ExprWrapper::default(result));
+        } else {
+            self.write_expect_error("While should have an expression",
+                                    &format!("{:?}", "An expression"),
+                                    &format!("{:?}", "Nothing"));
+            return None;
+        }
+    }
+
+    /// Handles top-level keywords to start parsing them
+    fn parse_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
         match keyword {
             Keywords::Function => self.parse_fn(),
+            Keywords::While => self.parse_while(),
             Keywords::If => self.parse_if(),
             _ => {
                 self.write_error(&format!("Unsupported keyword {:?}.", keyword));
@@ -354,18 +416,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
             return None;
         }
 
-        self.indent_level += 1;
+        self.incr_indentation();
 
-        match self.next_token() {
-            Indent(depth) => self.check_indentation(depth),
-            _ => {
-                self.write_expect_error("", "a new line", "something else");
-
-                return None;
-            }
-        };
-
-        let block = self.parse();
+        let block = self.sub_parse();
 
         let expr = Expr::If(condition, block, None);
 
@@ -604,63 +657,45 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }))
     }
 
-    // Parse the file
-    #[allow(unused_variables)]
-    pub fn parse(&mut self) -> ExprWrapper {
-        self.start();
-
+    /// Returns an `ExprWrapper` to the root of the current AST branch
+    fn sub_parse(&mut self) -> ExprWrapper {
         let mut expr = Vec::new();
-
-        // Generate AST
         loop {
-            // Parse the token into the next node of the AST
-            let token = self.next_token();
-
-            match token {
+            match self.peek() {
                 Identifier(ident) => {
                     if let Some(exprwrapper) = self.parse_idents(ident) {
                         expr.push(exprwrapper);
                     }
                 },
-                Indent(depth) => {
-                    // Look ahead. If you find another Indent token it's a blank line
-                    // and didn't actually dedent. Same is true for single line comments
-                    // however this isn't guarenteed for multi line comments (because
-                    // you could have code after the end of the comment).
-                    // TODO: Account to multiline comments
-                    let difference = match self.next_token() {
-                        Comment(_) => continue,
-                        Indent(_) => continue,
-                        _ => self.check_indentation(depth)
-                    };
-
-                    // Break if you dedent (cannot happen at top level) else continue
-                    if difference < 0 {
-                        break;
-                    }
-                },
                 Keyword(keyword) => {
-                    if let Some(exprwrapper) = self.handle_keywords(keyword) {
+                    if let Some(exprwrapper) = self.parse_keywords(keyword) {
                         expr.push(exprwrapper);
                     }
                 },
                 Error(err) => {
                     self.write_error(&err);
+                    break
                 },
                 EOF => break,
 
                 // These tokens are all illegal in top level expressions
-                Symbol(_) | StrLiteral(_) | CharLiteral(_) |
-                BoolLiteral(_) | Numeric(_, _) | Comment(_) => {
-                    panic!("Unimplemented top level token '{:?}'", token);
+                Symbol(_) | StrLiteral(_) | CharLiteral(_) | BoolLiteral(_) |
+                Numeric(_, _) | Comment(_) | Indent(_) => {
+                    panic!("Unimplemented top level token '{:?}'", self.peek());
                 },
             };
         }
 
         ExprWrapper::new(Expr::Block(expr), 0, 0, 0, 0)
     }
+    
+    pub fn parse(&mut self) -> Option<ExprWrapper>{
+        let ast_root = self.sub_parse();
 
-    pub fn generated_valid_ast(&self) -> bool {
-        self.valid_ast
+        if self.valid_ast {
+            Some(ast_root)
+        } else {
+            None
+        }
     }
 }

@@ -11,7 +11,7 @@ pub enum Tokens {
     Identifier(String),
 
     // Count the number of tabs after a newline
-    Indent(usize),
+    Indent(u64),
 
     // True, False
     BoolLiteral(bool),
@@ -39,7 +39,7 @@ pub enum Tokens {
 }
 
 impl Tokens {
-    pub fn expect(token: &Tokens, next_token: Tokens) -> bool {
-        *token == next_token
+    pub fn expect(&self, token: Tokens) -> bool {
+        *self == token
     }
 }
