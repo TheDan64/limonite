@@ -35,11 +35,11 @@ pub enum Tokens {
     Error(String),
 
     // End of File
-    EOF,
+    EOF
 }
 
 impl Tokens {
-    pub fn expect(&self, next_token: Tokens) -> bool {
-        *self == next_token
+    pub fn expect(&self, token: Tokens) -> bool {
+        *self == token
     }
 }

@@ -6,7 +6,7 @@ This is a compiler for the Limonite programming language.
 Limonite is a relatively basic programming language written in rust using LLVM as a backend.
 
 * Uses a custom tokenizer and parser.
-* LLVM compilation to Rust source is being looked into.
+* Compiles to LLVM IR.
 * Syntax is by no means final. See sample.lim for examples.
 
 ## Building
@@ -14,8 +14,9 @@ Limonite is a relatively basic programming language written in rust using LLVM a
 	* Rust (nightly)
 	* Cargo
 	* git
+	* LLVM 3.6.0 (newer versions may work)
 
-2. Download and build Limonite
+2. Download and build Limonite.
 
     Run the following commands
 

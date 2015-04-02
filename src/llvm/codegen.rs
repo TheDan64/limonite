@@ -1,10 +1,11 @@
 extern crate llvm_sys;
 
-use syntax::ast::expr::*;
 use std::collections::HashMap;
 use std::ffi::CString;
 use self::llvm_sys::core::*;
 use self::llvm_sys::*;
+use syntax::ast::expr::*;
+use syntax::ast::consts::*;
 
 // Struct to keep track of data needed to build IR
 pub struct Context {
@@ -66,17 +67,17 @@ impl Drop for Context {
 }
 
 pub trait CodeGen {
-    fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue>;
+    unsafe fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue>;
 }
 
 impl CodeGen for ExprWrapper {
-    fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+    unsafe fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue> {
         self.get_expr().gen_code(context)
     }
 }
 
 impl CodeGen for Expr {
-    fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+    unsafe fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue> {
         match *self {
             Expr::Block(ref vec) => {
                 let mut gen = None;
@@ -97,35 +98,96 @@ impl CodeGen for Expr {
                     }
                 }
             },
+            Expr::Const(ref const_type) => {
+                match const_type {
+                    &Const::UTF8String(ref val) => {
+                        // Types
+                        let array_type1 = LLVMArrayType(LLVMInt8TypeInContext(context.get_context()), val.len() as u32);
+                        // let string_struct_type = LLVMGetNamedGlobal(context.get_module(), c_str_ptr("struct.string"));
+                        // if string_struct_type.is_null() {
+                        //     println!("TMP Error: Cannot find builtin string type!");
+                        // }
+                        let int8_type = LLVMInt8TypeInContext(context.get_context());
+                        let int8_ptr_type = LLVMPointerType(int8_type, 0);
+                        let int32_type = LLVMInt32TypeInContext(context.get_context());
+                        let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),
+                                      LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0)];
+
+                        // Values
+                        let len = LLVMConstInt(int32_type, val.len() as u64, 0);
+
+                        // Make a global string constant and assign the value:
+                        let const_str_var = LLVMAddGlobal(context.get_module(), array_type1, c_str_ptr("str"));
+                        let mut chars = Vec::new();
+                        for chr in val.bytes() {
+                            chars.push(LLVMConstInt(int8_type, chr as u64, 0));
+                        }
+
+                        let const_str_array = LLVMConstArray(int8_type, chars.as_ptr() as *mut _, chars.len() as u32);
+                        LLVMSetInitializer(const_str_var, const_str_array);
+                        LLVMSetGlobalConstant(const_str_var, 1);
+
+                        let args = vec![LLVMConstInt(int32_type, 0, 0), LLVMConstInt(int32_type, 0, 0)];
+                        let allocated_str_ptr = LLVMBuildAlloca(context.get_builder(), int8_ptr_type, c_str_ptr("a"));
+                        let mallocated_ptr = LLVMBuildMalloc(context.get_builder(), int8_type, c_str_ptr("m"));
+
+                        LLVMSetTailCall(mallocated_ptr, 0);
+                        LLVMBuildStore(context.get_builder(), mallocated_ptr, allocated_str_ptr);
+
+                        let element_ptr = LLVMBuildGEP(context.get_builder(), const_str_var, args.as_ptr() as *mut _, 2, c_str_ptr(""));
+                        LLVMBuildStore(context.get_builder(), element_ptr, allocated_str_ptr);
+
+                        let loaded_ptr = LLVMBuildLoad(context.get_builder(), allocated_str_ptr, c_str_ptr("l"));
+                        let struct_fields = vec![len, LLVMGetUndef(int8_ptr_type)];
+                        let const_struct = LLVMConstStructInContext(context.get_context(), struct_fields.as_ptr() as *mut _, 2, 0);
+
+                        Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 1, c_str_ptr("i")))
+                    },
+                    _ => {
+                        println!("Error: Codegen unimplemented for {:?}", const_type);
+                        None
+                    }
+                }
+            },
             Expr::FnCall(ref name, ref args) => {
-                // This expr should always contain a string
-                unsafe {
-                    let function = LLVMGetNamedFunction(context.module, c_str_ptr(name));
+                let function = LLVMGetNamedFunction(context.module, c_str_ptr(name));
 
-                    if function.is_null() {
-                        // TODO: Add standardized error message writing?
-                        println!("Error: Function {} not found.", name);
-                        return None;
-                    }
+                if function.is_null() {
+                    // TODO: Add standardized error message writing?
+                    println!("Error: Function {} not found.", name);
+                    return None;
+                }
 
-                    let arg_count = LLVMCountParams(function) as usize;
+                let arg_count = LLVMCountParams(function) as usize;
 
-                    if arg_count != args.len() {
-                        println!("Error: Function {} requires {} argument(s), {} given.", name, arg_count, args.len());
-                        return None;
-                    }
+                if arg_count != args.len() {
+                    println!("Error: Function {} requires {} argument(s), {} given.", name, arg_count, args.len());
+                    return None;
+                }
 
-                    let mut arg_values = Vec::new();
+                let mut arg_values = Vec::new();
 
-                    for arg in args {
-                        match arg.gen_code(context) {
-                            Some(value) => arg_values.push(value),
-                            None => return None
+                for arg in args {
+                    match arg.gen_code(context) {
+                        Some(value) => arg_values.push(value),
+                        None => {
+                            println!("Fatal Error: Argument {:?} codegen failed!", arg);
+                            return None
                         }
                     }
+                }
 
-                    Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, c_str_ptr("calltmp")))
-                 }
+                // Void functions don't get saved return values
+                let ret_var = if LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(function))) == LLVMVoidTypeInContext(context.context) {
+                    c_str_ptr("")
+                } else {
+                    let mut tmp = name.to_string();
+                    tmp.push_str("tmp");
+
+                    c_str_ptr(&tmp)
+                };
+
+                Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, ret_var))
             },
             Expr::NoOp => None,
             _ => None
