@@ -116,11 +116,11 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 tok = self.next_token();
             }
 
-            if !first_arg && Tokens::expect(&tok, Symbol(Symbols::Comma)) {
+            if !first_arg && tok.expect(Symbol(Symbols::Comma)) {
                 tok = self.next_token(); 
             }
 
-            if Tokens::expect(&tok, Symbol(Symbols::ParenClose)) {
+            if tok.expect(Symbol(Symbols::ParenClose)) {
                 return Some(args);
             }
 
@@ -146,14 +146,14 @@ impl<TokType: Tokenizer> Parser<TokType> {
     fn collect_sequence<F, G>
         (&mut self, mut collect_arg: F, sequence_end: G) -> Vec<ExprWrapper>
         where F: FnMut(&mut Parser<TokType>, Tokens) -> Option<ExprWrapper>,
-              G: Fn(&Parser<TokType>, &Tokens) -> bool {
+              G: Fn(&Parser<TokType>, Tokens) -> bool {
         let mut args = Vec::new();
         loop {
             if let Some(new_arg) = collect_arg(self, Symbol(Symbols::Comma)) {
                 args.push(new_arg);
             }
             let tok = self.peek();
-            if sequence_end(self, &tok) {
+            if sequence_end(self, tok) {
                 break;
             }
 
@@ -165,7 +165,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     fn parse_fn_call(&mut self, ident: String) -> Option<ExprWrapper> {
         let token = self.next_token();
-        if !Tokens::expect(&token, Symbol(Symbols::ParenOpen)) {
+        if !token.expect(Symbol(Symbols::ParenOpen)) {
             self.write_error("Expected an open parenthesis here.");
             return None;
         }
@@ -173,20 +173,20 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let tok = self.peek();
 
         // Check to see if there are no args
-        if Tokens::expect(&tok, Symbol(Symbols::ParenClose)) {
+        if tok.expect(Symbol(Symbols::ParenClose)) {
             self.next_token();
             return Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), Vec::new())));
         }
 
         let parse_args = |this: &mut Parser<TokType>, seperator: Tokens| {
-            if !Tokens::expect(&seperator, Symbol(Symbols::Comma)) {
+            if !seperator.expect(Symbol(Symbols::Comma)) {
                 this.write_error("Missing a comma between arguments.");
             }
             this.parse_expression(0)
         };
 
-        let sequence_end = |this: &Parser<TokType>, current_token: &Tokens| {
-            Tokens::expect(current_token, Symbol(Symbols::ParenClose))
+        let sequence_end = |this: &Parser<TokType>, current_token: Tokens| {
+            current_token.expect(Symbol(Symbols::ParenClose))
         };
 
         let args = self.collect_sequence(parse_args, sequence_end);
@@ -209,6 +209,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     fn parse_idents(&mut self, ident: String) -> Option<ExprWrapper> {
+        self.next_token();
+
         let tok = self.peek();
         match tok {
             Symbol(Symbols::ParenOpen) => self.parse_fn_call(ident),
@@ -220,6 +222,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
     // Parse function definitions: fn ident(args) -> type
     #[allow(unused_variables)]
     fn parse_fn(&mut self) -> Option<ExprWrapper> {
+        self.next_token();
+
         // Get the function name
         let fn_name = match self.next_token() {
             Identifier(string) => string,
@@ -233,7 +237,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // Get a left paren (
         let mut tok = self.next_token();
 
-        if !Tokens::expect(&tok, Symbol(Symbols::ParenOpen)) {
+        if !tok.expect(Symbol(Symbols::ParenOpen)) {
             self.write_expect_error("", "an opening paren '('", "something else");
 
             return None;
@@ -259,7 +263,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
                 tok = self.next_token();
 
-                if !Tokens::expect(&tok, Symbol(Symbols::Colon)) {
+                if !tok.expect(Symbol(Symbols::Colon)) {
                     self.write_expect_error("", "a colon ':'", "something else");
 
                     return None;
@@ -296,7 +300,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // Get right arrow ->
         tok = self.next_token();
 
-        if !Tokens::expect(&tok, Symbol(Symbols::RightThinArrow)) {
+        if tok.expect(Symbol(Symbols::RightThinArrow)) {
             self.write_expect_error("", "a thin right arrow '->'", "something else");
 
             return None;
@@ -392,6 +396,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     /// Handles top-level keywords to start parsing them
     fn parse_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
         match keyword {
+            Keywords::Var | Keywords::Def => self.parse_declaration(),
             Keywords::Function => self.parse_fn(),
             Keywords::While => self.parse_while(),
             Keywords::If => self.parse_if(),
@@ -403,6 +408,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     fn parse_if(&mut self) -> Option<ExprWrapper> {
+        self.next_token();
+
         let condition = match self.parse_expression(0) {
             Some(exprwrapper) => exprwrapper,
             None => return None
@@ -410,7 +417,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         let tok = self.next_token();
 
-        if !Tokens::expect(&tok, Symbol(Symbols::Comma)) {
+        if !tok.expect(Symbol(Symbols::Comma)) {
             self.write_expect_error("", "a comma ','", "something else");
 
             return None;
@@ -518,7 +525,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
                 let tok = self.next_token();
 
-                if !Tokens::expect(&tok, Symbol(Symbols::ParenClose)) {
+                if !tok.expect(Symbol(Symbols::ParenClose)) {
                     self.write_expect_error("", "a closing paren ')'", "something else");
 
                     return None;

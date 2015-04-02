@@ -2,86 +2,33 @@ use std::str::FromStr;
 
 #[derive(Copy, Debug, PartialEq, Clone)]
 pub enum Symbols {
-    // '('
     ParenOpen,
-
-    // ')'
     ParenClose,
-
-    // '['
     SBracketOpen,
-
-    // ']'
     SBracketClose,
-
-    // '{'
     CBracketOpen,
-
-    // '}'
     CBracketClose,
-
-    // '.'
     Period,
-
-    // ','
     Comma,
-
-    // ':'
     Colon,
-
-    // '^'
     Caret,
-
-    // '>'
     GreaterThan,
-
-    // '<'
     LessThan,
-
-    // ">="
     GreaterThanEqual,
-
-    // "<="
     LessThanEqual,
-
-    // '+'
     Plus,
-
-    // '-'
     Minus,
-
-    // '*'
     Asterisk,
-
-    // '/'
     Slash,
-
-    // '%'
     Percent,
-
-    // '~'
     Tilde,
-
-    // '='
     Equals,
-
-    // "+="
     PlusEquals,
-
-    // "-="
     MinusEquals,
-
-    // "*="
     AsteriskEquals,
-
-    // "/="
     SlashEquals,
-
-    // "%="
     PercentEquals,
-
-    // "->"
-    RightThinArrow
+    RightThinArrow,
 }
 
 impl FromStr for Symbols {

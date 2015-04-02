@@ -35,7 +35,7 @@ pub enum Tokens {
     Error(String),
 
     // End of File
-    EOF
+    EOF,
 }
 
 impl Tokens {

@@ -97,13 +97,13 @@ fn test_print() {
                     ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
                     ExprWrapper::default(Expr::Ident("meow".to_string())),
                 ],
-            ))
-    ];
+            ))];
+
     expect_test(tokens, desired_ast);
 }
 
 #[test]
-fn test_valid_fn_declaration() {
+fn test_valid_fn_definition() {
     // No args: foo() -> u64
     let tokens = vec![
         Keyword(Keywords::Function),

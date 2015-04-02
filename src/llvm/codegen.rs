@@ -110,8 +110,8 @@ impl CodeGen for Expr {
                         let int8_type = LLVMInt8TypeInContext(context.get_context());
                         let int8_ptr_type = LLVMPointerType(int8_type, 0);
                         let int32_type = LLVMInt32TypeInContext(context.get_context());
-                        let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),
-                                      LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0)];
+                        // let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),
+                        //               LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0)];
 
                         // Values
                         let len = LLVMConstInt(int32_type, val.len() as u64, 0);
