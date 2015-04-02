@@ -43,15 +43,13 @@ fn main() {
 
     // Parse & Build an AST
     let mut parser = Parser::new(lexer);
-    let ast_root = parser.parse();
+
+    let ast_root = match parser.parse() {
+        Some(ast) => ast,
+        None => return,
+    };
 
     // ToDo: Semantic Analysis
-
-    // Avoid going to code gen when generating invalid syntax
-    if !parser.get_ast() {
-        return;
-    }
-
     // Run Code Gen
     // ToDo: Add a flag for disabling code gen
     let mut context = Context::new("module1");

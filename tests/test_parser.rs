@@ -39,355 +39,32 @@ impl Tokenizer for MockLexer {
     }
 }
 
-#[test]
-fn test_print() {
-    let lexer = MockLexer::new(vec![
-        Identifier("print".to_string()),
-        Symbol(Symbols::ParenOpen),
-        Identifier("meow".to_string()),
-        Symbol(Symbols::Comma),
-        StrLiteral("meow".to_string()),
-        Symbol(Symbols::Comma),
-        Identifier("meow".to_string()),
-        Symbol(Symbols::ParenClose),
-    ]);
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let desired_ast = ExprWrapper::default(Expr::Block(
-        vec![ExprWrapper::default(
-            Expr::FnCall(
-                "print".to_string(),
-                vec![
-                    ExprWrapper::default(Expr::Ident("meow".to_string())),
-                    ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
-                    ExprWrapper::default(Expr::Ident("meow".to_string())),
-                ],
-            ))
-        ]));
-
-    assert!(ast == desired_ast, "\nActual AST: {:?}\nDesired AST: {:?}", ast, desired_ast);
-}
-
-#[test]
-fn test_variable_int_declaration() {
-    // let mLexer = MockLexer::new(vec![
-        // Keyword(Keywords::Var),
-        // Identifier("meow".to_string()),
-        // Symbol(Symbols::Equals),
-    // ]);
-    // let mut parser = Parser::new(mLexer);
-
-    // parser.parse();
-}
-
-#[test]
-fn test_valid_fn_declaration() {
-    // No args: foo() -> u64
-    let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
-                                    Identifier("foo".to_string()),
-                                    Symbol(Symbols::ParenOpen),
-                                    Symbol(Symbols::ParenClose),
-                                    Symbol(Symbols::RightThinArrow),
-                                    Identifier("int".to_string()),
-                                    Indent(1),
-                                    EOF]);
-
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::FnDecl("foo".to_string(), Vec::new(), Identifier("int".to_string()),
-                      ExprWrapper::default(Expr::Block(Vec::new()))))]));
-
-    println!("Desired ast: {:?}", desired_ast);
-    println!("Actual ast: {:?}", ast);
-
-    assert!(ast == desired_ast, "No argument test failed");
-
-    // One arg: foo(bar: i32) -> str
-    let args = vec![("bar".to_string(), Identifier("int".to_string()))];
-
-    let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
-                                    Identifier("foo".to_string()),
-                                    Symbol(Symbols::ParenOpen),
-                                    Identifier("bar".to_string()),
-                                    Symbol(Symbols::Colon),
-                                    Identifier("int".to_string()),
-                                    Symbol(Symbols::ParenClose),
-                                    Symbol(Symbols::RightThinArrow),
-                                    Identifier("str".to_string()),
-                                    Indent(1),
-                                    EOF]);
-
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::FnDecl("foo".to_string(), args, Identifier("str".to_string()),
-                      ExprWrapper::default(Expr::Block(Vec::new()))))]));
-
-    println!("Desired ast: {:?}", desired_ast);
-    println!("Actual ast: {:?}", ast);
-
-    assert!(ast == desired_ast, "One argument test failed");
-
-    // Multiple args: foo(bar: i32, left: Obj, right: Obj) -> None
-    let args = vec![("bar".to_string(), Identifier("int".to_string())),
-                    ("left".to_string(), Identifier("Obj".to_string())),
-                    ("right".to_string(), Identifier("Obj".to_string()))];
-
-    let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
-                                    Identifier("foo".to_string()),
-                                    Symbol(Symbols::ParenOpen),
-                                    Identifier("bar".to_string()),
-                                    Symbol(Symbols::Colon),
-                                    Identifier("int".to_string()),
-                                    Symbol(Symbols::Comma),
-                                    Identifier("left".to_string()),
-                                    Symbol(Symbols::Colon),
-                                    Identifier("Obj".to_string()),
-                                    Symbol(Symbols::Comma),
-                                    Identifier("right".to_string()),
-                                    Symbol(Symbols::Colon),
-                                    Identifier("Obj".to_string()),
-                                    Symbol(Symbols::ParenClose),
-                                    Symbol(Symbols::RightThinArrow),
-                                    Identifier("None".to_string()),
-                                    Indent(1),
-                                    EOF]);
-
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::FnDecl("foo".to_string(), args, Identifier("None".to_string()),
-                      ExprWrapper::default(Expr::Block(Vec::new()))))]));
-
-    println!("Desired ast: {:?}", desired_ast);
-    println!("Actual ast: {:?}", ast);
-
-    assert!(ast == desired_ast, "Multiple argument test failed");
-}
-
-#[test]
-fn test_indentation_levels() {
-    // Correct indentation level +1 after fn decl
-    // let lexer = MockLexer::new(vec![Keyword(Keywords::Function),
-    //                                 Identifier("foo".to_string()),
-    //                                 Symbol(Symbols::ParenOpen),
-    //                                 Symbol(Symbols::ParenClose),
-    //                                 Symbol(Symbols::RightThinArrow),
-    //                                 Type(Types::UInt64Bit),
-    //                                 Indent(1)]);
-
-    // let mut parser = Parser::new(lexer);
-    // let ast = parser.parse();
-
-    // ToDo: this test
-}
-
-#[test]
-fn test_expression() {
-    // if foo + bar equals "foobar",
-    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
-                                    Identifier("foo".to_string()),
-                                    Symbol(Symbols::Plus),
-                                    Identifier("bar".to_string()),
-                                    Keyword(Keywords::Equals),
-                                    StrLiteral("foobar".to_string()),
-                                    Symbol(Symbols::Comma),
-                                    Indent(1)]);
-
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Equ,
-                    ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
-                    ExprWrapper::default(Expr::Ident("foo".to_string())),
-                    ExprWrapper::default(Expr::Ident("bar".to_string())))),
-                    ExprWrapper::default(Expr::Const(Const::UTF8String("foobar".to_string())))));
-
-    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
-                      None))]));
-
-    assert!(ast == desired_ast, "{:?}, {:?}", ast, desired_ast);
-}
-
-#[test]
-fn test_expression_precedence_add_mult() {
-    // Make sure a + b * c + d generates a + (b * c) + d
-    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
-                                    Identifier("a".to_string()),
-                                    Symbol(Symbols::Plus),
-                                    Identifier("b".to_string()),
-                                    Symbol(Symbols::Asterisk),
-                                    Identifier("c".to_string()),
-                                    Symbol(Symbols::Plus),
-                                    Identifier("d".to_string()),
-                                    Symbol(Symbols::Comma),
-                                    Indent(1)]);
-
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let mult = ExprWrapper::default(Expr::InfixOp(InfixOp::Mul,
-               ExprWrapper::default(Expr::Ident("b".to_string())),
-               ExprWrapper::default(Expr::Ident("c".to_string()))));
-
-    let left_add = ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
-                   ExprWrapper::default(Expr::Ident("a".to_string())), mult));
-
-    let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Add, left_add,
-                    ExprWrapper::default(Expr::Ident("d".to_string()))));
-
-    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
-                      None))]));
-
-
-    println!("Desired ast: {:?}", desired_ast);
-    println!("Actual ast: {:?}", ast);
-
-    assert!(ast == desired_ast, "Addition and multiplication precedence check failed");
-}
-
-#[test]
-fn test_expression_precedence_pow() {
-    // Make sure a ^ b ^ c generates a ^ (b ^ c) which is right associative
-    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
-                                    Identifier("a".to_string()),
-                                    Symbol(Symbols::Caret),
-                                    Identifier("b".to_string()),
-                                    Symbol(Symbols::Caret),
-                                    Identifier("c".to_string()),
-                                    Symbol(Symbols::Comma),
-                                    Indent(1)]);
-
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let right_pow = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
-                    ExprWrapper::default(Expr::Ident("b".to_string())),
-                    ExprWrapper::default(Expr::Ident("c".to_string()))));
-
-    let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
-                    ExprWrapper::default(Expr::Ident("a".to_string())), right_pow));
-
-    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
-                      None))]));
-
-    println!("Desired ast: {:?}", desired_ast);
-    println!("Actual ast: {:?}", ast);
-
-    assert!(ast == desired_ast, "Power precedence check failed");
-}
-
-#[test]
-fn test_numerics() {
-    // Test default type assignment (42.0 should default to f32)
-    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
-                                    Numeric("42.0".to_string(), None),
-                                    Symbol(Symbols::Comma),
-                                    Indent(1)]);
-
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let condition = ExprWrapper::default(Expr::Const(Const::F32Num(42f32)));
-
-    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
-                      None))]));
-
-    println!("Desired ast: {:?}", desired_ast);
-    println!("Actual ast: {:?}", ast);
-
-    assert!(ast == desired_ast, "Numeric default type test failed");
-
-    // Test explicit type assignment via suffix (42u32 should be u32 as designated)
-    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
-                                    Numeric("42".to_string(), Some(Types::UInt32Bit)),
-                                    Symbol(Symbols::Comma),
-                                    Indent(1)]);
-
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let condition = ExprWrapper::default(Expr::Const(Const::U32Num(42u32)));
-
-    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
-                      None))]));
-
-    println!("Desired ast: {:?}", desired_ast);
-    println!("Actual ast: {:?}", ast);
-
-    assert!(ast == desired_ast, "Numeric explicit type test failed");
-
-    // Test underscores are removed (3_200 = 3200)
-    let lexer = MockLexer::new(vec![Keyword(Keywords::If),
-                                    Numeric("0xAF_F3".to_string(), Some(Types::UInt32Bit)),
-                                    Symbol(Symbols::Comma),
-                                    Indent(1)]);
-
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse();
-
-    let condition = ExprWrapper::default(Expr::Const(Const::U32Num(45043u32)));
-
-    let desired_ast = ExprWrapper::default(Expr::Block(vec![ExprWrapper::default(
-                      Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])),
-                      None))]));
-
-    println!("Desired ast: {:?}", desired_ast);
-    println!("Actual ast: {:?}", ast);
-
-    assert!(ast == desired_ast, "Numeric underscore removal test failed");
-}
-
-#[test]
-fn test_function_call() {
-    let lexer = MockLexer::new(vec![Identifier("fn_name".to_string()),
-                                    Symbol(Symbols::ParenOpen),
-                                    Numeric("42".to_string(), Some(Types::UInt32Bit)),
-                                    Symbol(Symbols::Comma),
-                                    StrLiteral("b".to_string()),
-                                    Symbol(Symbols::Comma),
-                                    Numeric("123".to_string(), Some(Types::UInt32Bit)),
-                                    Symbol(Symbols::ParenClose),
-    ]);
-
-    let mut parser = Parser::new(lexer);
-    let parse = parser.parse();
-    let ast = parse.get_expr();
-
-    let desired_ast = Expr::Block(
-        vec![ExprWrapper::default(Expr::FnCall(
-            "fn_name".to_string(),
-            vec![
-                ExprWrapper::default(Expr::Const(Const::U32Num(42))),
-                ExprWrapper::default(Expr::Const(Const::UTF8String("b".to_string()))),
-                ExprWrapper::default(Expr::Const(Const::U32Num(123))),
-            ])
-        )]);
-
-    assert!(*ast == desired_ast, "Expected: {:?}, but found: {:?}", desired_ast, *ast);
-}
-
 fn general_expect_test(tokens: Vec<Tokens>,
                        expected: Vec<ExprWrapper>,
                        should_match: bool) {
     let lexer = MockLexer::new(tokens);
     let mut parser = Parser::new(lexer);
-    let parse = parser.parse();
-    let ast = parse.get_expr();
+    let ast_root = match parser.parse() {
+        Some(ast) => ast,
+        None => {
+            if should_match {
+                panic!("Expected an ast root");
+            }
+            ExprWrapper::default(Expr::NoOp)
+        },
+    };
+
+    let ast = ast_root.get_expr();
     let expected = Expr::Block(expected);
 
+    let verbiage = if should_match {
+        "Expected"
+    } else {
+        "Did not expect"
+    };
     assert!((expected == *ast) == should_match,
-            "\nExpected:\n    {:?}\n, but found:\n    {:?}",
+            "\n{}:\n    {:?}\n, but found:\n    {:?}",
+            verbiage,
             expected,
             ast);
 }
@@ -398,6 +75,265 @@ fn expect_test(tokens: Vec<Tokens>, expected: Vec<ExprWrapper>) {
 
 fn unexpect_test(tokens: Vec<Tokens>, expected: Vec<ExprWrapper>) {
     general_expect_test(tokens, expected, false);
+}
+
+#[test]
+fn test_print() {
+    let tokens = vec![
+        Identifier("print".to_string()),
+        Symbol(Symbols::ParenOpen),
+        Identifier("meow".to_string()),
+        Symbol(Symbols::Comma),
+        StrLiteral("meow".to_string()),
+        Symbol(Symbols::Comma),
+        Identifier("meow".to_string()),
+        Symbol(Symbols::ParenClose),
+    ];
+    let desired_ast = vec![ExprWrapper::default(
+            Expr::FnCall(
+                "print".to_string(),
+                vec![
+                    ExprWrapper::default(Expr::Ident("meow".to_string())),
+                    ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
+                    ExprWrapper::default(Expr::Ident("meow".to_string())),
+                ],
+            ))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_valid_fn_declaration() {
+    // No args: foo() -> u64
+    let tokens = vec![
+        Keyword(Keywords::Function),
+        Identifier("foo".to_string()),
+        Symbol(Symbols::ParenOpen),
+        Symbol(Symbols::ParenClose),
+        Symbol(Symbols::RightThinArrow),
+        Identifier("int".to_string()),
+        Indent(1),
+        EOF
+    ];
+    let desired_ast = vec![
+        ExprWrapper::default(
+            Expr::FnDecl("foo".to_string(), Vec::new(), Identifier("int".to_string()),
+            ExprWrapper::default(Expr::Block(Vec::new()))))
+    ];
+    expect_test(tokens, desired_ast);
+
+    let tokens = vec![
+        Keyword(Keywords::Function),
+        Identifier("foo".to_string()),
+        Symbol(Symbols::ParenOpen),
+        Identifier("bar".to_string()),
+        Symbol(Symbols::Colon),
+        Identifier("int".to_string()),
+        Symbol(Symbols::ParenClose),
+        Symbol(Symbols::RightThinArrow),
+        Identifier("str".to_string()),
+        Indent(1),
+        EOF
+    ];
+
+    // One arg: foo(bar: i32) -> str
+    let args = vec![("bar".to_string(), Identifier("int".to_string()))];
+    let desired_ast = vec![
+        ExprWrapper::default(
+            Expr::FnDecl("foo".to_string(), args, Identifier("str".to_string()),
+            ExprWrapper::default(Expr::Block(Vec::new()))))
+    ];
+    expect_test(tokens, desired_ast);
+
+    let tokens = vec![
+        Keyword(Keywords::Function),
+        Identifier("foo".to_string()),
+        Symbol(Symbols::ParenOpen),
+        Identifier("bar".to_string()),
+        Symbol(Symbols::Colon),
+        Identifier("int".to_string()),
+        Symbol(Symbols::Comma),
+        Identifier("left".to_string()),
+        Symbol(Symbols::Colon),
+        Identifier("Obj".to_string()),
+        Symbol(Symbols::Comma),
+        Identifier("right".to_string()),
+        Symbol(Symbols::Colon),
+        Identifier("Obj".to_string()),
+        Symbol(Symbols::ParenClose),
+        Symbol(Symbols::RightThinArrow),
+        Identifier("None".to_string()),
+        Indent(1),
+        EOF
+    ];
+    //
+    // Multiple args: foo(bar: i32, left: Obj, right: Obj) -> None
+    let args = vec![("bar".to_string(), Identifier("int".to_string())),
+                    ("left".to_string(), Identifier("Obj".to_string())),
+                    ("right".to_string(), Identifier("Obj".to_string()))];
+    let desired_ast = vec![
+        ExprWrapper::default(
+            Expr::FnDecl("foo".to_string(), args, Identifier("None".to_string()),
+            ExprWrapper::default(Expr::Block(Vec::new()))))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_expression() {
+    // if foo + bar equals "foobar",
+    let tokens = vec![
+        Keyword(Keywords::If),
+        Identifier("foo".to_string()),
+        Symbol(Symbols::Plus),
+        Identifier("bar".to_string()),
+        Keyword(Keywords::Equals),
+        StrLiteral("foobar".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(1)
+    ];
+
+    let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Equ,
+                    ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
+                    ExprWrapper::default(Expr::Ident("foo".to_string())),
+                    ExprWrapper::default(Expr::Ident("bar".to_string())))),
+                    ExprWrapper::default(Expr::Const(Const::UTF8String("foobar".to_string())))));
+    let desired_ast = vec![
+        ExprWrapper::default(
+            Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_expression_precedence_add_mult() {
+    // Make sure a + b * c + d generates a + (b * c) + d
+    let tokens = vec![
+        Keyword(Keywords::If),
+        Identifier("a".to_string()),
+        Symbol(Symbols::Plus),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Asterisk),
+        Identifier("c".to_string()),
+        Symbol(Symbols::Plus),
+        Identifier("d".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(1)
+    ];
+
+    let mult = ExprWrapper::default(Expr::InfixOp(InfixOp::Mul,
+               ExprWrapper::default(Expr::Ident("b".to_string())),
+               ExprWrapper::default(Expr::Ident("c".to_string()))));
+    let left_add = ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
+                   ExprWrapper::default(Expr::Ident("a".to_string())), mult));
+    let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Add, left_add,
+                    ExprWrapper::default(Expr::Ident("d".to_string()))));
+
+    let desired_ast = vec![
+        ExprWrapper::default(
+            Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_expression_precedence_pow() {
+    // Make sure a ^ b ^ c generates a ^ (b ^ c) which is right associative
+    let tokens = vec![
+        Keyword(Keywords::If),
+        Identifier("a".to_string()),
+        Symbol(Symbols::Caret),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Caret),
+        Identifier("c".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(1)
+    ];
+
+    let right_pow = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
+                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(Expr::Ident("c".to_string()))));
+    let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
+                    ExprWrapper::default(Expr::Ident("a".to_string())), right_pow));
+
+    let desired_ast = vec![
+        ExprWrapper::default(
+            Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_numerics() {
+    // Test default type assignment (42.0 should default to f32)
+    let tokens = vec![
+        Keyword(Keywords::If),
+        Numeric("42.0".to_string(), None),
+        Symbol(Symbols::Comma),
+        Indent(1)
+    ];
+
+    let condition = ExprWrapper::default(Expr::Const(Const::F32Num(42f32)));
+    let desired_ast = vec![
+        ExprWrapper::default(
+            Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
+    ];
+    expect_test(tokens, desired_ast);
+
+    // Test explicit type assignment via suffix (42u32 should be u32 as designated)
+    let tokens = vec![
+        Keyword(Keywords::If),
+        Numeric("42".to_string(), Some(Types::UInt32Bit)),
+        Symbol(Symbols::Comma),
+        Indent(1)
+    ];
+
+    let condition = ExprWrapper::default(Expr::Const(Const::U32Num(42u32)));
+    let desired_ast = vec![
+        ExprWrapper::default(
+            Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
+    ];
+    expect_test(tokens, desired_ast);
+
+    // Test underscores are removed (3_200 = 3200)
+    let tokens = vec![
+        Keyword(Keywords::If),
+        Numeric("0xAF_F3".to_string(), Some(Types::UInt32Bit)),
+        Symbol(Symbols::Comma),
+        Indent(1)
+    ];
+
+    let condition = ExprWrapper::default(Expr::Const(Const::U32Num(45043u32)));
+    let desired_ast = vec![
+        ExprWrapper::default(
+            Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_function_call() {
+    let tokens = vec![
+        Identifier("fn_name".to_string()),
+        Symbol(Symbols::ParenOpen),
+        Numeric("42".to_string(), Some(Types::UInt32Bit)),
+        Symbol(Symbols::Comma),
+        StrLiteral("b".to_string()),
+        Symbol(Symbols::Comma),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+        Symbol(Symbols::ParenClose),
+    ];
+
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::FnCall(
+            "fn_name".to_string(),
+            vec![
+                ExprWrapper::default(Expr::Const(Const::U32Num(42))),
+                ExprWrapper::default(Expr::Const(Const::UTF8String("b".to_string()))),
+                ExprWrapper::default(Expr::Const(Const::U32Num(123))),
+            ])
+        )];
+    expect_test(tokens, desired_ast);
 }
 
 #[test]
@@ -420,4 +356,152 @@ fn test_variable_declaration() {
             ))];
         expect_test(tokens, desired_ast);
     }
+}
+
+#[test]
+fn test_assign() {
+    let tokens = vec![
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+    ];
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::Assign(
+            ExprWrapper::default(Expr::Ident("b".to_string())),
+            ExprWrapper::default(
+                Expr::Const(Const::U32Num(123)),
+            )
+        ))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_while_loop() {
+    let tokens = vec![
+        Keyword(Keywords::While),
+        Identifier("a".to_string()),
+        Symbol(Symbols::Plus),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(1),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+    ];
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::WhileLoop(
+            ExprWrapper::default(Expr::InfixOp(
+                InfixOp::Add,
+                ExprWrapper::default(Expr::Ident("a".to_string())),
+                ExprWrapper::default(Expr::Ident("b".to_string())),
+            )),
+            ExprWrapper::default(Expr::Block(vec![
+                ExprWrapper::default(Expr::Assign(
+                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(
+                        Expr::Const(Const::U32Num(123)),
+                    )
+                ))
+            ]))
+        ))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_indentation() {
+    let indents = vec![(Indent(1), false), (Indent(2), true), (Indent(3), false)];
+    for (indent, expect) in indents {
+        let tokens = vec![
+            Keyword(Keywords::While),
+            Identifier("a".to_string()),
+            Symbol(Symbols::Plus),
+            Identifier("b".to_string()),
+            Symbol(Symbols::Comma),
+            Indent(1),
+            Keyword(Keywords::While),
+            Identifier("a".to_string()),
+            Symbol(Symbols::Plus),
+            Identifier("b".to_string()),
+            Symbol(Symbols::Comma),
+            indent,
+            Identifier("b".to_string()),
+            Symbol(Symbols::Equals),
+            Numeric("123".to_string(), Some(Types::UInt32Bit)),
+        ];
+        let desired_ast = vec![
+            ExprWrapper::default(Expr::WhileLoop(
+                ExprWrapper::default(Expr::InfixOp(
+                    InfixOp::Add,
+                    ExprWrapper::default(Expr::Ident("a".to_string())),
+                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                )),
+                ExprWrapper::default(Expr::Block(vec![
+                    ExprWrapper::default(Expr::WhileLoop(
+                        ExprWrapper::default(Expr::InfixOp(
+                            InfixOp::Add,
+                            ExprWrapper::default(Expr::Ident("a".to_string())),
+                            ExprWrapper::default(Expr::Ident("b".to_string())),
+                        )),
+                        ExprWrapper::default(Expr::Block(vec![
+                            ExprWrapper::default(Expr::Assign(
+                                ExprWrapper::default(Expr::Ident("b".to_string())),
+                                ExprWrapper::default(
+                                    Expr::Const(Const::U32Num(123)),
+                                )
+                            ))
+                        ]))
+                    ))
+                ]))
+            ))
+        ];
+        if expect {
+            expect_test(tokens, desired_ast);
+        } else {
+            unexpect_test(tokens, desired_ast);
+        }
+    }
+}
+
+#[test]
+fn test_multiple_statements() {
+    let tokens = vec![
+        Keyword(Keywords::While),
+        Identifier("a".to_string()),
+        Symbol(Symbols::Plus),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(1),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+    ];
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::WhileLoop(
+            ExprWrapper::default(Expr::InfixOp(
+                InfixOp::Add,
+                ExprWrapper::default(Expr::Ident("a".to_string())),
+                ExprWrapper::default(Expr::Ident("b".to_string())),
+            )),
+            ExprWrapper::default(Expr::Block(vec![
+                ExprWrapper::default(Expr::Assign(
+                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(
+                        Expr::Const(Const::U32Num(123)),
+                    )
+                )),
+                ExprWrapper::default(Expr::Assign(
+                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(
+                        Expr::Const(Const::U32Num(123)),
+                    )
+                )),
+            ]))
+        ))
+    ];
+    expect_test(tokens, desired_ast);
 }
