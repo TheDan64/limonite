@@ -103,11 +103,10 @@ impl CodeGen for Expr {
                     &Const::UTF8String(ref val) => {
                         // Types
                         let array_type1 = LLVMArrayType(LLVMInt8TypeInContext(context.get_context()), val.len() as u32);
-                        let ptr_type1 = LLVMPointerType(array_type1, 0);
-                        let string_struct_type = LLVMGetNamedGlobal(context.get_module(), c_str_ptr("struct.string"));
-                        if string_struct_type.is_null() {
-                            println!("TMP Error: Cannot find builtin string type!");
-                        }
+                        // let string_struct_type = LLVMGetNamedGlobal(context.get_module(), c_str_ptr("struct.string"));
+                        // if string_struct_type.is_null() {
+                        //     println!("TMP Error: Cannot find builtin string type!");
+                        // }
                         let int8_type = LLVMInt8TypeInContext(context.get_context());
                         let int8_ptr_type = LLVMPointerType(int8_type, 0);
                         let int32_type = LLVMInt32TypeInContext(context.get_context());
@@ -118,7 +117,7 @@ impl CodeGen for Expr {
                         let len = LLVMConstInt(int32_type, val.len() as u64, 0);
 
                         // Make a global string constant and assign the value:
-                        let const_str_var = LLVMAddGlobal(context.get_module(), array_type1, c_str_ptr("conststr"));
+                        let const_str_var = LLVMAddGlobal(context.get_module(), array_type1, c_str_ptr("str"));
                         let mut chars = Vec::new();
                         for chr in val.bytes() {
                             chars.push(LLVMConstInt(int8_type, chr as u64, 0));
@@ -128,24 +127,21 @@ impl CodeGen for Expr {
                         LLVMSetInitializer(const_str_var, const_str_array);
                         LLVMSetGlobalConstant(const_str_var, 1);
 
-                        // Alloca might be less portable than malloc, but I read it is overall better.
-                        // Should look into this.
-                        let zero = LLVMConstInt(int32_type, 0, 0);
-                        let args = vec![zero, zero];
+                        let args = vec![LLVMConstInt(int32_type, 0, 0), LLVMConstInt(int32_type, 0, 0)];
                         let allocated_str_ptr = LLVMBuildAlloca(context.get_builder(), int8_ptr_type, c_str_ptr("a"));
                         let mallocated_ptr = LLVMBuildMalloc(context.get_builder(), int8_type, c_str_ptr("m"));
+
+                        LLVMSetTailCall(mallocated_ptr, 0);
                         LLVMBuildStore(context.get_builder(), mallocated_ptr, allocated_str_ptr);
+
                         let element_ptr = LLVMBuildGEP(context.get_builder(), const_str_var, args.as_ptr() as *mut _, 2, c_str_ptr(""));
                         LLVMBuildStore(context.get_builder(), element_ptr, allocated_str_ptr);
+
                         let loaded_ptr = LLVMBuildLoad(context.get_builder(), allocated_str_ptr, c_str_ptr("l"));
+                        let struct_fields = vec![len, LLVMGetUndef(int8_ptr_type)];
+                        let const_struct = LLVMConstStructInContext(context.get_context(), struct_fields.as_ptr() as *mut _, 2, 0);
 
-                        let struct_fields = vec![len, loaded_ptr];
-
-//                        LLVMBuildInsertValue(context.get_builder(), struct_fields.as_ptr() as *mut _, , 0, c_str_ptr("i"));
-
-
-
-                        Some(LLVMConstStructInContext(context.get_context(), struct_fields.as_ptr() as *mut _, 2, 0))
+                        Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 1, c_str_ptr("i")))
                     },
                     _ => {
                         println!("Error: Codegen unimplemented for {:?}", const_type);
