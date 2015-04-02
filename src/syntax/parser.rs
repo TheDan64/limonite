@@ -37,15 +37,17 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     /// Consume the next `Token` from the lexer
-    /// Ignores `Comment`s entirely, and ignores `Indent`s when in blocks
+    /// - Ignores `Comment`s entirely
+    /// - Smartly handlers `Indent`s by:
+    ///    - When in blocks ignores them
+    ///    - Ensures correct indentation size, then gets the next token
     fn next_token(&mut self) -> Tokens {
         loop {
             let result = match self.preview_token.take() {
                 Some(tok) => tok,
-                None => self.lexer.get_tok()
+                None => self.lexer.get_tok(),
             };
             match result {
-                Comment(_) => {},
                 Indent(depth) => {
                     match self.block_status {
                         BlockStatus::Out => {
@@ -58,14 +60,17 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         BlockStatus::Starting => {
                             if self.indent_level == depth {
                                 self.block_status = BlockStatus::In;
+                            } else {
+                                return self.write_error("Invalid level of indentation");
                             }
                         },
-                        BlockStatus::In => (),
+                        BlockStatus::In => {
+                            self.block_status = BlockStatus::Out;
+                        },
                     }
                 },
-                _ => {
-                    return result;
-                },
+                Comment(_) => (),
+                _ => return result,
             }
         }
     }
@@ -80,12 +85,12 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     /// Create an error from the current `Lexer`s state, with a message
-    fn write_error(&mut self, msg: &str) {
+    fn write_error(&mut self, msg: &str) -> Tokens {
         let (start_line, start_column, _, _) = self.lexer.get_error_pos();
         
         self.valid_ast = false;
 
-        panic!("filename:{}:{} {}", start_line, start_column, msg);
+        Tokens::Error(format!("filename:{}:{} {}", start_line, start_column, msg))
     }
 
     fn write_expect_error(&mut self, reason: &str, expect: &str, got: &str) {
@@ -317,7 +322,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         self.incr_indentation();
 
         // Combine the rest of the function definiton with the fn info
-        let definition = self.parse();
+        let definition = self.sub_parse();
 
         let expr = Expr::FnDecl(fn_name, args, return_type, definition);
 
@@ -376,7 +381,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             }
             self.incr_indentation();
 
-            let block = self.parse();
+            let block = self.sub_parse();
             let result = Expr::WhileLoop(expr, block);
             return Some(ExprWrapper::default(result));
         } else {
@@ -388,7 +393,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     /// Handles top-level keywords to start parsing them
-    fn handle_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
+    fn parse_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
         match keyword {
             Keywords::Var | Keywords::Def => self.parse_declaration(),
             Keywords::Function => self.parse_fn(),
@@ -418,7 +423,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         self.incr_indentation();
 
-        let block = self.parse();
+        let block = self.sub_parse();
 
         let expr = Expr::If(condition, block, None);
 
@@ -653,46 +658,44 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }))
     }
 
-    /// Parse the file
-    /// Returns an `ExprWrapper` reference to the root of the AST
-    pub fn parse(&mut self) -> ExprWrapper {
-        self.start();
-
+    /// Returns an `ExprWrapper` to the root of the current AST branch
+    fn sub_parse(&mut self) -> ExprWrapper {
         let mut expr = Vec::new();
-
-        // Generate AST
         loop {
-            // Parse the token into the next node of the AST
-            let token = self.peek();
-
-            match token {
+            match self.peek() {
                 Identifier(ident) => {
                     if let Some(exprwrapper) = self.parse_idents(ident) {
                         expr.push(exprwrapper);
                     }
                 },
                 Keyword(keyword) => {
-                    if let Some(exprwrapper) = self.handle_keywords(keyword) {
+                    if let Some(exprwrapper) = self.parse_keywords(keyword) {
                         expr.push(exprwrapper);
                     }
                 },
                 Error(err) => {
                     self.write_error(&err);
+                    break
                 },
                 EOF => break,
 
                 // These tokens are all illegal in top level expressions
                 Symbol(_) | StrLiteral(_) | CharLiteral(_) | BoolLiteral(_) |
                 Numeric(_, _) | Comment(_) | Indent(_) => {
-                    panic!("Unimplemented top level token '{:?}'", token);
+                    panic!("Unimplemented top level token '{:?}'", self.peek());
                 },
             };
         }
 
         ExprWrapper::new(Expr::Block(expr), 0, 0, 0, 0)
     }
-
-    pub fn get_ast(&self) -> bool {
-        self.valid_ast
+    
+    pub fn parse(&mut self) -> Option<ExprWrapper>{
+        let a = self.sub_parse();
+        if self.valid_ast {
+            Some(a)
+        } else {
+            None
+        }
     }
 }
