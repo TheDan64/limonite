@@ -6,6 +6,7 @@ use self::llvm_sys::core::*;
 use self::llvm_sys::analysis::*;
 use self::llvm_sys::execution_engine::*;
 use self::llvm_sys::prelude::*;
+use self::llvm_sys::target::*;
 use self::llvm_sys::*;
 use syntax::ast::expr::*;
 use syntax::ast::consts::*;
@@ -22,6 +23,12 @@ pub struct Context {
 impl Context {
     pub fn new(module_name: &str) -> Context {
         unsafe {
+            // Needed for codegen but not available until llvm-sys 0.11
+            // which isn't available atm over crates due to a renaming problem..
+            // LLVM_InitializeNativeTarget();
+            // LLVM_InitializeNativeTargetAsmPrinter();
+            // LLVM_InitializeNativeTargetAsmParser();
+
             let context = LLVMContextCreate();
             let module = LLVMModuleCreateWithNameInContext(c_str_ptr(module_name), context);
             let builder = LLVMCreateBuilderInContext(context);
@@ -29,8 +36,8 @@ impl Context {
             let mut execution_engine = 0 as LLVMExecutionEngineRef;
             let mut error_msg = 0 as *mut i8;
 
-            LLVMCreateExecutionEngineForModule(&mut execution_engine, module, &mut error_msg);
-            assert!(execution_engine != 0 as LLVMExecutionEngineRef, "Failed to initialize the execution engine.");
+            // LLVMCreateExecutionEngineForModule(&mut execution_engine, module, &mut error_msg);
+            // assert!(execution_engine != 0 as LLVMExecutionEngineRef, "Failed to initialize the execution engine.");
 
             Context {
                 context: context,
@@ -62,6 +69,8 @@ impl Context {
     }
 
     pub fn run(&self) -> u64 {
+        panic!("This function doesn't work ATM!");
+
         unsafe {
             let main = LLVMGetNamedFunction(self.module, c_str_ptr("main"));
             let result = LLVMRunFunction(self.execution_engine, main, 0, 0 as *mut LLVMGenericValueRef);
