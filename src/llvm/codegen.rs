@@ -3,16 +3,20 @@ extern crate llvm_sys;
 use std::collections::HashMap;
 use std::ffi::CString;
 use self::llvm_sys::core::*;
+use self::llvm_sys::analysis::*;
+use self::llvm_sys::execution_engine::*;
+use self::llvm_sys::prelude::*;
 use self::llvm_sys::*;
 use syntax::ast::expr::*;
 use syntax::ast::consts::*;
 
 // Struct to keep track of data needed to build IR
 pub struct Context {
-    context: *mut LLVMContext,
-    module: *mut LLVMModule,
-    builder: *mut LLVMBuilder,
-    named_values: HashMap<String, *mut LLVMValue>
+    context: LLVMContextRef,
+    module: LLVMModuleRef,
+    builder: LLVMBuilderRef,
+    execution_engine: LLVMExecutionEngineRef,
+    named_values: HashMap<String, LLVMValueRef>,
 }
 
 impl Context {
@@ -22,12 +26,18 @@ impl Context {
             let module = LLVMModuleCreateWithNameInContext(c_str_ptr(module_name), context);
             let builder = LLVMCreateBuilderInContext(context);
             let named_values = HashMap::new();
+            let mut execution_engine = 0 as LLVMExecutionEngineRef;
+            let mut error_msg = 0 as *mut i8;
+
+            LLVMCreateExecutionEngineForModule(&mut execution_engine, module, &mut error_msg);
+            assert!(execution_engine != 0 as LLVMExecutionEngineRef, "Failed to initialize the execution engine.");
 
             Context {
                 context: context,
                 module: module,
                 builder: builder,
-                named_values: named_values
+                execution_engine: execution_engine,
+                named_values: named_values,
             }
         }
     }
@@ -39,6 +49,28 @@ impl Context {
         }
     }
 
+    // Verifies that the llvm code is valid. Optionally prints
+    // the error message, else abort.
+    pub fn verify(&self) {
+        unsafe {
+            let action = LLVMVerifierFailureAction::LLVMPrintMessageAction;
+            let msg = vec![c_str_ptr("")];
+
+            LLVMVerifyModule(self.module, action, msg.as_ptr() as *mut _);
+            LLVMDisposeMessage(msg[0] as *mut _);
+        }
+    }
+
+    pub fn run(&self) -> u64 {
+        unsafe {
+            let main = LLVMGetNamedFunction(self.module, c_str_ptr("main"));
+            let result = LLVMRunFunction(self.execution_engine, main, 0, 0 as *mut LLVMGenericValueRef);
+
+            LLVMGenericValueToInt(result, 1)
+        }
+    }
+
+    // Struct getters
     pub fn get_context(&self) -> *mut LLVMContext {
         self.context
     }
@@ -59,6 +91,7 @@ impl Context {
 impl Drop for Context {
     fn drop(&mut self) {
         unsafe {
+            LLVMDisposeExecutionEngine(self.execution_engine);
             LLVMDisposeBuilder(self.builder);
             LLVMDisposeModule(self.module);
             LLVMContextDispose(self.context);
@@ -67,17 +100,17 @@ impl Drop for Context {
 }
 
 pub trait CodeGen {
-    unsafe fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue>;
+    unsafe fn gen_code(&self, context: &mut Context) -> Option<LLVMValueRef>;
 }
 
 impl CodeGen for ExprWrapper {
-    unsafe fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+    unsafe fn gen_code(&self, context: &mut Context) -> Option<LLVMValueRef> {
         self.get_expr().gen_code(context)
     }
 }
 
 impl CodeGen for Expr {
-    unsafe fn gen_code(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+    unsafe fn gen_code(&self, context: &mut Context) -> Option<LLVMValueRef> {
         match *self {
             Expr::Block(ref vec) => {
                 let mut gen = None;
