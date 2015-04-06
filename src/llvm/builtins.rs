@@ -52,13 +52,13 @@ unsafe fn generate_print(context: &mut Context) {
     // Start
     LLVMPositionBuilderAtEnd(context.get_builder(), start_block);
 
-    let zero = LLVMConstInt(int32_type, 0, 0);
+    let i32_zero = LLVMConstInt(int32_type, 0, 0);
     let op = LLVMIntPredicate::LLVMIntEQ;
     let offset_ptr = LLVMBuildAlloca(context.get_builder(), int32_type, c_str_ptr("offsetptr"));
-    LLVMBuildStore(context.get_builder(), zero, offset_ptr);
+    LLVMBuildStore(context.get_builder(), i32_zero, offset_ptr);
     let len = LLVMBuildExtractValue(context.get_builder(), param, 0, c_str_ptr("len"));
     let str_ptr = LLVMBuildExtractValue(context.get_builder(), param, 1, c_str_ptr("strptr"));
-    let cmp = LLVMBuildICmp(context.get_builder(), op, len, zero, c_str_ptr("cmp"));
+    let cmp = LLVMBuildICmp(context.get_builder(), op, len, i32_zero, c_str_ptr("cmp"));
 
     // Branch to end if string len is 0
     LLVMBuildCondBr(context.get_builder(), cmp, end_block, loop_block);
@@ -66,8 +66,8 @@ unsafe fn generate_print(context: &mut Context) {
     // Loop
     LLVMPositionBuilderAtEnd(context.get_builder(), loop_block);
 
-    let offset_val = LLVMBuildLoad(context.get_builder(), offset_ptr, c_str_ptr("offsetsval"));
-    let ptr_iter = LLVMBuildAdd(context.get_builder(), str_ptr, offset_val, c_str_ptr("iter"));
+    let offset = LLVMBuildLoad(context.get_builder(), offset_ptr, c_str_ptr("offset"));
+    let ptr_iter = LLVMBuildAdd(context.get_builder(), str_ptr, offset, c_str_ptr("iter"));
     let mut putchar_fn = LLVMGetNamedFunction(context.get_module(), c_str_ptr("putchar"));
     if putchar_fn.is_null() {
         let fn_type2 = LLVMFunctionType(int32_type, vec![int32_type].as_ptr() as *mut _, 1, 0);
@@ -77,11 +77,15 @@ unsafe fn generate_print(context: &mut Context) {
     // Print char at ptr_iter here
     LLVMBuildCall(context.get_builder(), putchar_fn, vec![ptr_iter].as_ptr() as *mut _, 1, c_str_ptr(""));
 
-    // TODO: Increment offset_val? (move its init out of the loop?)
+    // Increment the offset
+    let i32_one = LLVMConstInt(int32_type, 1, 0);
+    let inc = LLVMBuildAdd(context.get_builder(), offset, i32_one, c_str_ptr("inc"));
+    LLVMBuildStore(context.get_builder(), inc, offset_ptr);
 
-    // TODO: If equal to len, branch to end else branch to loop
-
-    LLVMBuildBr(context.get_builder(), end_block);
+    // Branch if offset equals len, else keep looping
+    let op = LLVMIntPredicate::LLVMIntEQ;
+    let cmp2 = LLVMBuildICmp(context.get_builder(), op, inc, len, c_str_ptr("cmp"));
+    LLVMBuildCondBr(context.get_builder(), cmp2, end_block, loop_block);
 
     // End
     LLVMPositionBuilderAtEnd(context.get_builder(), end_block);
