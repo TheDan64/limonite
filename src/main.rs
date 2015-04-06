@@ -1,6 +1,7 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
 #![allow(dead_code)]
+
 use std::env;
 use std::io::{BufReader, Read};
 use std::fs::File;

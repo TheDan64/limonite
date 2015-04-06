@@ -31,7 +31,7 @@ impl<'a> Tokenizer for Lexer<'a> {
         self.consume_whitespace();
 
         self.error_start = (self.line_number, self.column_number);
-        
+
         let tok = match self.next_char() {
             // Find Keywords and Identifiers
             Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
@@ -45,10 +45,10 @@ impl<'a> Tokenizer for Lexer<'a> {
             // Error: Found tabs without preceeding newline
             Some('\t') => {
                 self.consume_char().unwrap();
-                
+
                 Error("Found an out of place tab.".to_string())
             },
-            
+
             // Find single-char symbols
             Some('(') | Some(')') |
             Some('[') | Some(']') |
@@ -73,7 +73,7 @@ impl<'a> Tokenizer for Lexer<'a> {
 
                 if let Some('=') = self.next_char() {
                     punc.push(self.consume_char().unwrap());
-                }   
+                }
 
                 self.symbols_token(&punc)
             },
@@ -93,7 +93,7 @@ impl<'a> Tokenizer for Lexer<'a> {
             // Find >> and >>> comments, otherwise > or >= symbols
             Some('>') => {
                 self.consume_char();
-                
+
                 match self.next_char() {
                     Some('>') => self.consume_comment(),
                     Some('=') => {
@@ -124,9 +124,9 @@ impl<'a> Tokenizer for Lexer<'a> {
 
             // Find string literals, "String"
             Some('\"') => self.consume_string_literal(),
-            
+
             Some(ch) => Error(format!("Unknown character '{}'.", ch)),
-            
+
             None => EOF
         };
 
@@ -179,7 +179,7 @@ impl<'a> Lexer<'a> {
             Some(ch) => {
                 self.buffer_pos += 1;
                 self.column_number += 1;
-                
+
                 if ch == '\n' {
                     self.line_number += 1;
                     self.column_number = 1;
@@ -267,7 +267,7 @@ impl<'a> Lexer<'a> {
         match self.next_char() {
             Some('3') => {
                 string.push(self.consume_char().unwrap());
-                
+
                 match self.next_char() {
                     Some('2')  => {
                         string.push(self.consume_char().unwrap());
@@ -282,11 +282,11 @@ impl<'a> Lexer<'a> {
             },
             Some('6') => {
                 string.push(self.consume_char().unwrap());
-                
+
                 match self.next_char() {
                     Some('4')  => {
                         string.push(self.consume_char().unwrap());
-                        
+
                         Ok(string)
                     },
                     Some('\n') | // NL & CR have pesky visual effects.
@@ -332,7 +332,7 @@ impl<'a> Lexer<'a> {
                 Some('u') |
                 Some('i') => {
                     let ch = self.consume_char().unwrap();
-                    
+
                     match self.consume_32_64(ch) {
                         Ok(s)    => suffix.push_str(&s),
                         Err(err) => return Error(err)
@@ -346,7 +346,7 @@ impl<'a> Lexer<'a> {
 
                     return Error(err);
                 },
-                
+
                 // If eof or other just return the numeric token without a suffix
                 _ => ()
             };
@@ -388,11 +388,11 @@ impl<'a> Lexer<'a> {
 
                     return Error(err);
                 },
-                
+
                 // If eof or other just return the numeric token without a suffix
                 _ => ()
             };
-            
+
         } else {
             // Found int: [0-9]+ or float: [0-9]+.[0-9]+
 
@@ -437,7 +437,7 @@ impl<'a> Lexer<'a> {
 
                             return Error(err);
                         },
-                        
+
                         // No suffix found, can hit symbols or other
                         _ => ()
                     }
@@ -447,7 +447,7 @@ impl<'a> Lexer<'a> {
                 Some('u') |
                 Some('i') => {
                     let ch = self.consume_char().unwrap();
-                    
+
                     match self.consume_32_64(ch) {
                         Ok(s)    => suffix.push_str(&s),
                         Err(err) => return Error(err)
@@ -487,7 +487,7 @@ impl<'a> Lexer<'a> {
                 result.push_str(&self.consume_while(&mut |ch| match ch {
                     '<' => {
                         sequence += 1;
-                        
+
                         if sequence == 3 {
                             return false;
                         }
@@ -521,7 +521,7 @@ impl<'a> Lexer<'a> {
             // Single line comment w/ EOF at start should be valid:
             None => ()
         }
-        
+
         Comment(result)
     }
 
@@ -618,5 +618,5 @@ impl<'a> Lexer<'a> {
         };
 
         return Error("Hit EOF before end of string literal.".to_string());
-    }    
+    }
 }

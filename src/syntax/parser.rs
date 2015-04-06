@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Tokens;
 use syntax::core::tokens::Tokens::*;
@@ -12,10 +13,12 @@ use syntax::core::types::*;
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,
     ast_root: ExprWrapper,
-    indent_level: u64,
     preview_token: Option<Tokens>,
-    valid_ast: bool,
     block_status: BlockStatus,
+    indent_level: u64,
+    valid_ast: bool,
+    require_newline: bool,
+    between_brackets: bool,
 }
 
 enum BlockStatus {
@@ -33,6 +36,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
             valid_ast: true,
             preview_token: None,
             block_status: BlockStatus::Out,
+            require_newline: false,
+            between_brackets: false,
         }
     }
 
@@ -41,7 +46,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     /// - Smartly handlers `Indent`s by:
     ///    - When in blocks ignores them
     ///    - Ensures correct indentation size, then gets the next token
-    fn next_token(&mut self) -> Tokens {
+    fn _next_token(&mut self, allow_any: bool) -> Tokens {
         loop {
             let result = match self.preview_token.take() {
                 Some(tok) => tok,
@@ -52,10 +57,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     match self.block_status {
                         BlockStatus::Out => {
                             // If the new depth is smaller than the old depth, we've dedented
-                            if depth - self.indent_level <= 0 {
-                                self.indent_level = depth;
-                            }
-                            return result;
+                            // if depth - self.indent_level <= 0 {
+                                // self.indent_level = depth;
+                            // }
                         },
                         BlockStatus::Starting => {
                             if self.indent_level == depth {
@@ -68,28 +72,55 @@ impl<TokType: Tokenizer> Parser<TokType> {
                             self.block_status = BlockStatus::Out;
                         },
                     }
+                    if !self.between_brackets && allow_any {
+                        return result;
+                    }
                 },
                 Comment(_) => (),
-                _ => return result,
+                _ => {
+                    return result;
+                },
             }
         }
     }
 
+    fn next_token(&mut self) -> Tokens {
+        self._next_token(false)
+    }
+
+    fn next_token_any(&mut self) -> Tokens {
+        self._next_token(true)
+    }
+
     /// Returns a peek at the next `Token` without consuming it
+    ///
     /// The next call to `next_token` will return the same `Token` returned
     /// by the last call to `peek`
-    fn peek(&mut self) -> Tokens {
-        let tok = self.next_token();
+    fn _peek(&mut self, allow_any: bool) -> Tokens {
+        let tok = self._next_token(allow_any);
         self.preview_token = Some(tok.clone());
         tok
+    }
+
+    /// Peeks the next token while doing smart filtering out of tokens
+    /// which most callers would not want to see.
+    fn peek(&mut self) -> Tokens {
+        self._peek(false)
+    }
+
+    /// Peeks the next token, but does not do any filtering
+    /// on `Tokens`
+    fn peek_any(&mut self) -> Tokens {
+        self._peek(true)
     }
 
     /// Create an error from the current `Lexer`s state, with a message
     fn write_error(&mut self, msg: &str) -> Tokens {
         let (start_line, start_column, _, _) = self.lexer.get_error_pos();
-        
+
         self.valid_ast = false;
 
+        println!("filename:{}:{} {}", start_line, start_column, msg);
         Tokens::Error(format!("filename:{}:{} {}", start_line, start_column, msg))
     }
 
@@ -117,7 +148,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             }
 
             if !first_arg && tok.expect(Symbol(Symbols::Comma)) {
-                tok = self.next_token(); 
+                tok = self.next_token();
             }
 
             if tok.expect(Symbol(Symbols::ParenClose)) {
@@ -467,7 +498,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
         let mut lhs = subroutine.unwrap();
 
-        let mut token = self.peek();
+        let mut token = self.peek_any();
+        println!("parse expr: {:?}", token);
         while self.is_infix_op(&token) && self.get_precedence(&token) >= precedence {
             token = self.next_token();
             let new_precedence = self.get_precedence(&token) + match token {
@@ -492,7 +524,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
             } else {
                 return None;
             }
-            token = self.peek();
+            token = self.peek_any();
+            println!("parse expr end: {:?}", token);
         }
         return Some(lhs);
     }
@@ -662,6 +695,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     fn sub_parse(&mut self) -> ExprWrapper {
         let mut expr = Vec::new();
         loop {
+            println!("top level: {:?}", self.peek());
             match self.peek() {
                 Identifier(ident) => {
                     if let Some(exprwrapper) = self.parse_idents(ident) {
@@ -677,19 +711,79 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     self.write_error(&err);
                     break
                 },
+                // Indent(_) => {},
                 EOF => break,
 
                 // These tokens are all illegal in top level expressions
                 Symbol(_) | StrLiteral(_) | CharLiteral(_) | BoolLiteral(_) |
                 Numeric(_, _) | Comment(_) | Indent(_) => {
-                    panic!("Unimplemented top level token '{:?}'", self.peek());
+                    let token = self.peek();
+                    self.write_error(&format!("Unimplemented top level token '{:?}'", token));
                 },
             };
+
+            println!("finished the first match: {:?}", expr);
+            // Skip repeated 0 depth indents
+            let mut outer_break = false;
+            let mut last_depth = None;
+            loop {
+                println!("token: {:?}", self.peek_any());
+                match self.peek_any() {
+                    Indent(depth) => {
+                        if let Some(de) = last_depth {
+                            if de == 0 {
+                                last_depth = Some(depth)
+                            } else {
+                                self.write_error("ASD");
+                                outer_break = true;
+                                break;
+                            }
+                        } else {
+                            last_depth = Some(depth)
+                        }
+                        println!("iden last: {:?}", last_depth);
+                        self.next_token_any();
+                    },
+                    EOF => {
+                        outer_break = true;
+                        break;
+                    },
+                    Error(err) => {
+                        self.write_error(&err);
+                        outer_break = true;
+                        break;
+                    },
+                    _ => {
+                        println!("last: {:?}", last_depth);
+                        if let Some(_) = last_depth {
+                            println!("asdfa");
+                        } else {
+                            println!("qwer");
+                            // let token = self.peek_any();
+                            // self.write_expect_error("There should be at most one statement per line",
+                                                     // "a newline", &format!("{:?}", token));
+                            // outer_break = true;
+                        }
+                        break;
+                    }
+                }
+            }
+            if outer_break {
+                break;
+            }
+            if let Some(depth) = last_depth {
+                println!("dedenting {:?} {:?}", depth, self.indent_level);
+                if depth < self.indent_level {
+                    self.indent_level = depth;
+                    break;
+                }
+            }
         }
 
+        println!("{:?}", expr);
         ExprWrapper::new(Expr::Block(expr), 0, 0, 0, 0)
     }
-    
+
     pub fn parse(&mut self) -> Option<ExprWrapper>{
         let a = self.sub_parse();
         if self.valid_ast {

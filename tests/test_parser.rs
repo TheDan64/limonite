@@ -476,6 +476,7 @@ fn test_multiple_statements() {
         Identifier("b".to_string()),
         Symbol(Symbols::Equals),
         Numeric("123".to_string(), Some(Types::UInt32Bit)),
+        Indent(1),
         Identifier("b".to_string()),
         Symbol(Symbols::Equals),
         Numeric("123".to_string(), Some(Types::UInt32Bit)),
@@ -501,6 +502,81 @@ fn test_multiple_statements() {
                     )
                 )),
             ]))
+        ))
+    ];
+    expect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_statements_on_one_indent_level() {
+    let tokens = vec![
+        Comment("Wow!".to_string()),
+        Indent(0),
+        Identifier("print".to_string()),
+        Symbol(Symbols::ParenOpen),
+        Identifier("meow".to_string()),
+        Symbol(Symbols::ParenClose),
+        Identifier("print".to_string()),
+        Symbol(Symbols::ParenOpen),
+        Identifier("meow".to_string()),
+        Symbol(Symbols::ParenClose),
+     ];
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::FnCall(
+            "print".to_string(),
+            vec![
+                ExprWrapper::default(Expr::Ident("meow".to_string())),
+            ],
+        )),
+        ExprWrapper::default(Expr::FnCall(
+            "print".to_string(),
+            vec![
+                ExprWrapper::default(Expr::Ident("meow".to_string())),
+            ],
+        )),
+    ];
+    unexpect_test(tokens, desired_ast);
+}
+
+#[test]
+fn test_indent_then_dedent() {
+    let tokens = vec![
+        Keyword(Keywords::While),
+        Identifier("a".to_string()),
+        Symbol(Symbols::Plus),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(1),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+        Indent(0),
+        Identifier("print".to_string()),
+        Symbol(Symbols::ParenOpen),
+        Identifier("meow".to_string()),
+        Symbol(Symbols::ParenClose),
+     ];
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::WhileLoop(
+            ExprWrapper::default(Expr::InfixOp(
+                InfixOp::Add,
+                ExprWrapper::default(Expr::Ident("a".to_string())),
+                ExprWrapper::default(Expr::Ident("b".to_string())),
+            )),
+            ExprWrapper::default(Expr::Block(vec![
+                ExprWrapper::default(Expr::Assign(
+                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(
+                        Expr::Const(Const::U32Num(123)),
+                    )
+                )),
+            ])),
+        )),
+        ExprWrapper::default(Expr::FnCall(
+            "print".to_string(),
+            vec![
+                ExprWrapper::default(Expr::Ident("meow".to_string())),
+            ],
         ))
     ];
     expect_test(tokens, desired_ast);
