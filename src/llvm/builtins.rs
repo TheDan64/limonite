@@ -54,8 +54,8 @@ unsafe fn generate_print(context: &mut Context) {
 
     let zero = LLVMConstInt(int32_type, 0, 0);
     let op = LLVMIntPredicate::LLVMIntEQ;
-    let iter = LLVMBuildAlloca(context.get_builder(), int32_type, c_str_ptr("iter"));
-    LLVMBuildStore(context.get_builder(), zero, iter);
+    let offset_ptr = LLVMBuildAlloca(context.get_builder(), int32_type, c_str_ptr("offsetptr"));
+    LLVMBuildStore(context.get_builder(), zero, offset_ptr);
     let len = LLVMBuildExtractValue(context.get_builder(), param, 0, c_str_ptr("len"));
     let str_ptr = LLVMBuildExtractValue(context.get_builder(), param, 1, c_str_ptr("strptr"));
     let cmp = LLVMBuildICmp(context.get_builder(), op, len, zero, c_str_ptr("cmp"));
@@ -65,9 +65,21 @@ unsafe fn generate_print(context: &mut Context) {
 
     // Loop
     LLVMPositionBuilderAtEnd(context.get_builder(), loop_block);
-    // Do more stuff here
-    let ptr_offset = LLVMBuildAdd(context.get_builder(), str_ptr, iter, c_str_ptr("offset"));
 
+    let offset_val = LLVMBuildLoad(context.get_builder(), offset_ptr, c_str_ptr("offsetsval"));
+    let ptr_iter = LLVMBuildAdd(context.get_builder(), str_ptr, offset_val, c_str_ptr("iter"));
+    let mut putchar_fn = LLVMGetNamedFunction(context.get_module(), c_str_ptr("putchar"));
+    if putchar_fn.is_null() {
+        let fn_type2 = LLVMFunctionType(int32_type, vec![int32_type].as_ptr() as *mut _, 1, 0);
+        putchar_fn = LLVMAddFunction(context.get_module(), c_str_ptr("putchar"), fn_type2);
+    }
+
+    // Print char at ptr_iter here
+    LLVMBuildCall(context.get_builder(), putchar_fn, vec![ptr_iter].as_ptr() as *mut _, 1, c_str_ptr(""));
+
+    // TODO: Increment offset_val? (move its init out of the loop?)
+
+    // TODO: If equal to len, branch to end else branch to loop
 
     LLVMBuildBr(context.get_builder(), end_block);
 
