@@ -581,3 +581,65 @@ fn test_indent_then_dedent() {
     ];
     expect_test(tokens, desired_ast);
 }
+
+#[test]
+fn test_nested_indent_then_dedent() {
+    // while a,
+    //     while a,
+    //         while a,
+    //             b = b
+    //         b = b
+    // b = b
+    let tokens = vec![
+        Keyword(Keywords::While),
+        Identifier("a".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(1),
+        Keyword(Keywords::While),
+        Identifier("a".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(2),
+        Keyword(Keywords::While),
+        Identifier("a".to_string()),
+        Symbol(Symbols::Comma),
+        Indent(3),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Identifier("b".to_string()),
+        Indent(2),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Identifier("b".to_string()),
+        Indent(0),
+        Identifier("b".to_string()),
+        Symbol(Symbols::Equals),
+        Identifier("b".to_string()),
+    ];
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::WhileLoop(
+            ExprWrapper::default(Expr::Ident("a".to_string())),
+            ExprWrapper::default(Expr::Block(vec![
+                ExprWrapper::default(Expr::WhileLoop(
+                    ExprWrapper::default(Expr::Ident("a".to_string())),
+                    ExprWrapper::default(Expr::Block(vec![
+                        ExprWrapper::default(Expr::WhileLoop(
+                            ExprWrapper::default(Expr::Ident("a".to_string())),
+                            ExprWrapper::default(Expr::Block(vec![
+                                ExprWrapper::default(Expr::Assign(
+                                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                                )),
+                            ])),
+                        )),
+                    ])),
+                )),
+            ])),
+        )),
+        ExprWrapper::default(Expr::Assign(
+            ExprWrapper::default(Expr::Ident("b".to_string())),
+            ExprWrapper::default(Expr::Ident("b".to_string())),
+        )),
+    ];
+    expect_test(tokens, desired_ast);
+
+}

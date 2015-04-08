@@ -17,8 +17,8 @@ pub struct Parser<TokType: Tokenizer> {
     block_status: BlockStatus,
     indent_level: u64,
     valid_ast: bool,
-    require_newline: bool,
     between_brackets: bool,
+    last_depth: Option<u64>,
 }
 
 enum BlockStatus {
@@ -34,10 +34,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
             ast_root: ExprWrapper::default(Expr::NoOp),
             indent_level: 0,
             valid_ast: true,
-            preview_token: None,
+            preview_token: Some(Indent(0)),
             block_status: BlockStatus::Out,
-            require_newline: false,
             between_brackets: false,
+            last_depth: None,
         }
     }
 
@@ -77,6 +77,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     }
                 },
                 Comment(_) => (),
+                Error(_) => {
+                    // self.write_error(&err);
+                    return result;
+                },
                 _ => {
                     return result;
                 },
@@ -694,7 +698,58 @@ impl<TokType: Tokenizer> Parser<TokType> {
     /// Returns an `ExprWrapper` to the root of the current AST branch
     fn sub_parse(&mut self) -> ExprWrapper {
         let mut expr = Vec::new();
+        let current_level = self.indent_level;
         loop {
+            println!("finished the first match: {:?}", expr);
+            // Skip repeated 0 depth indents
+            let mut outer_break = false;
+            loop {
+                println!("token: {:?}", self.peek_any());
+                match self.peek_any() {
+                    Indent(this_depth) => {
+                        println!("iden last: {:?}", self.last_depth);
+                        if let Some(last_depth) = self.last_depth {
+                            if last_depth != 0 {
+                                self.write_error(&format!("There were two indents in a row, {} and {}",
+                                                 last_depth, this_depth));
+                                outer_break = true;
+                                break;
+                            }
+                        }
+                        self.last_depth = Some(this_depth);
+                        self.next_token_any();
+                    },
+                    Error(_) | EOF => {
+                        outer_break = true;
+                        break;
+                    },
+                    _ => {
+                        println!("last: {:?}", self.last_depth);
+                        if let Some(last_depth) = self.last_depth {
+                            println!("dedenting? {:?} {:?}", last_depth, self.indent_level);
+                            println!("         ? {:?}", current_level);
+
+                            if last_depth < self.indent_level {
+                                self.indent_level = last_depth;
+                                self.last_depth = Some(last_depth);
+
+                                outer_break = true;
+                            }
+                            break;
+                        } else {
+                            let token = self.peek_any();
+                            self.write_expect_error("There should be at most one statement per line",
+                                                     "a newline", &format!("{:?}", token));
+                            return ExprWrapper::default(Expr::NoOp)
+                        }
+                    },
+                }
+            }
+            if outer_break {
+                break;
+            }
+
+            self.last_depth = None;
             println!("top level: {:?}", self.peek());
             match self.peek() {
                 Identifier(ident) => {
@@ -711,7 +766,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     self.write_error(&err);
                     break
                 },
-                // Indent(_) => {},
                 EOF => break,
 
                 // These tokens are all illegal in top level expressions
@@ -721,67 +775,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     self.write_error(&format!("Unimplemented top level token '{:?}'", token));
                 },
             };
-
-            println!("finished the first match: {:?}", expr);
-            // Skip repeated 0 depth indents
-            let mut outer_break = false;
-            let mut last_depth = None;
-            loop {
-                println!("token: {:?}", self.peek_any());
-                match self.peek_any() {
-                    Indent(depth) => {
-                        if let Some(de) = last_depth {
-                            if de == 0 {
-                                last_depth = Some(depth)
-                            } else {
-                                self.write_error("ASD");
-                                outer_break = true;
-                                break;
-                            }
-                        } else {
-                            last_depth = Some(depth)
-                        }
-                        println!("iden last: {:?}", last_depth);
-                        self.next_token_any();
-                    },
-                    EOF => {
-                        outer_break = true;
-                        break;
-                    },
-                    Error(err) => {
-                        self.write_error(&err);
-                        outer_break = true;
-                        break;
-                    },
-                    _ => {
-                        println!("last: {:?}", last_depth);
-                        if let Some(_) = last_depth {
-                            println!("asdfa");
-                        } else {
-                            println!("qwer");
-                            // let token = self.peek_any();
-                            // self.write_expect_error("There should be at most one statement per line",
-                                                     // "a newline", &format!("{:?}", token));
-                            // outer_break = true;
-                        }
-                        break;
-                    }
-                }
-            }
-            if outer_break {
-                break;
-            }
-            if let Some(depth) = last_depth {
-                println!("dedenting {:?} {:?}", depth, self.indent_level);
-                if depth < self.indent_level {
-                    self.indent_level = depth;
-                    break;
-                }
-            }
         }
 
         println!("{:?}", expr);
-        ExprWrapper::new(Expr::Block(expr), 0, 0, 0, 0)
+        ExprWrapper::default(Expr::Block(expr))
     }
 
     pub fn parse(&mut self) -> Option<ExprWrapper>{
