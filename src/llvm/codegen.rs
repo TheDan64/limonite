@@ -185,6 +185,34 @@ impl CodeGen for Expr {
 
                         Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 1, c_str_ptr("i")))
                     },
+                    &Literal::I32Num(ref val) => {
+                        let ty = LLVMInt32TypeInContext(context.get_context());
+                        Ok(LLVMConstInt(ty, *val, 1))
+                    },
+                    &Literal::I64Num(ref val) => {
+                        let ty = LLVMInt64TypeInContext(context.get_context());
+                        Ok(LLVMConstInt(ty, *val, 1))
+                    },
+                    &Literal::U32Num(ref val) => {
+                        let ty = LLVMInt32TypeInContext(context.get_context());
+                        Ok(LLVMConstInt(ty, *val, 0))
+                    },
+                    &Literal::U64Num(ref val) => {
+                        let ty = LLVMInt64TypeInContext(context.get_context());
+                        Ok(LLVMConstInt(ty, *val, 0))
+                    },
+                    &Literal::F32Num(ref val) => {
+                        let ty = LLVMFloatTypeInContext(context.get_context());
+                        Ok(LLVMConstReal(ty, *val))
+                    },
+                    &Literal::F64Num(ref val) => {
+                        let ty = LLVMDoubleTypeInContext(context.get_context());
+                        Ok(LLVMConstReal(ty, *val))
+                    },
+                    &Literal::Bool(ref val) => {
+                        let ty = LLVMInt1TypeInContext(context.get_context());
+                        Ok(LLVMConstInt(ty, *val))
+                    },
                     _ => {
                         println!("Error: Codegen unimplemented for {:?}", literal_type);
                         None
