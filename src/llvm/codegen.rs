@@ -6,10 +6,10 @@ use self::llvm_sys::core::*;
 use self::llvm_sys::analysis::*;
 use self::llvm_sys::execution_engine::*;
 use self::llvm_sys::prelude::*;
-use self::llvm_sys::target::*;
+//use self::llvm_sys::target::*;
 use self::llvm_sys::*;
 use syntax::ast::expr::*;
-use syntax::ast::consts::*;
+use syntax::ast::literals::*;
 
 // Struct to keep track of data needed to build IR
 pub struct Context {
@@ -140,9 +140,9 @@ impl CodeGen for Expr {
                     }
                 }
             },
-            Expr::Const(ref const_type) => {
-                match const_type {
-                    &Const::UTF8String(ref val) => {
+            Expr::Literal(ref literal_type) => {
+                match literal_type {
+                    &Literal::UTF8String(ref val) => {
                         // Types
                         let array_type1 = LLVMArrayType(LLVMInt8TypeInContext(context.get_context()), val.len() as u32);
                         // let string_struct_type = LLVMGetNamedGlobal(context.get_module(), c_str_ptr("struct.string"));
@@ -186,7 +186,7 @@ impl CodeGen for Expr {
                         Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 1, c_str_ptr("i")))
                     },
                     _ => {
-                        println!("Error: Codegen unimplemented for {:?}", const_type);
+                        println!("Error: Codegen unimplemented for {:?}", literal_type);
                         None
                     }
                 }

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use syntax::ast::consts::*;
+use syntax::ast::literals::*;
 use syntax::ast::op::*;
 use syntax::core::tokens::Tokens;
 
@@ -52,8 +52,8 @@ pub enum Expr {
     InfixOp(InfixOp, ExprWrapper, ExprWrapper),
     // Operation on a single expression
     UnaryOp(UnaryOp, ExprWrapper),
-    // Constants such as numbers and strings
-    Const(Const),
+    // Literals such as numbers and strings
+    Literal(Literal),
     // Run expression while conditional is true
     WhileLoop(ExprWrapper, ExprWrapper),
     // If condition true, run expression, optional elif, else
