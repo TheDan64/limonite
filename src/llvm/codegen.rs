@@ -7,7 +7,6 @@ use self::llvm_sys::analysis::*;
 use self::llvm_sys::execution_engine::*;
 use self::llvm_sys::prelude::*;
 //use self::llvm_sys::target::*;
-use self::llvm_sys::*;
 use syntax::ast::expr::*;
 use syntax::ast::literals::*;
 
@@ -21,72 +20,66 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(module_name: &str) -> Context {
-        unsafe {
-            // Needed for codegen but not available until llvm-sys 0.11
-            // which isn't available atm over crates due to a renaming problem..
-            // LLVM_InitializeNativeTarget();
-            // LLVM_InitializeNativeTargetAsmPrinter();
-            // LLVM_InitializeNativeTargetAsmParser();
+    #![allow(unused_mut)]
+    #![allow(unused_variables)]
+    pub unsafe fn new(module_name: &str) -> Context {
+        // Needed for codegen but not available until llvm-sys 0.11
+        // which isn't available atm over crates due to a renaming problem..
+        // LLVM_InitializeNativeTarget();
+        // LLVM_InitializeNativeTargetAsmPrinter();
+        // LLVM_InitializeNativeTargetAsmParser();
 
-            let context = LLVMContextCreate();
-            let module = LLVMModuleCreateWithNameInContext(c_str_ptr(module_name), context);
-            let builder = LLVMCreateBuilderInContext(context);
-            let named_values = HashMap::new();
-            let mut execution_engine = 0 as LLVMExecutionEngineRef;
-            let mut error_msg = 0 as *mut i8;
+        let context = LLVMContextCreate();
+        let module = LLVMModuleCreateWithNameInContext(c_str_ptr(module_name), context);
+        let builder = LLVMCreateBuilderInContext(context);
+        let named_values = HashMap::new();
+        let mut execution_engine = 0 as LLVMExecutionEngineRef;
+        let mut error_msg = 0 as *mut i8;
 
-            // LLVMCreateExecutionEngineForModule(&mut execution_engine, module, &mut error_msg);
-            // assert!(execution_engine != 0 as LLVMExecutionEngineRef, "Failed to initialize the execution engine.");
+        // LLVMCreateExecutionEngineForModule(&mut execution_engine, module, &mut error_msg);
+        // assert!(execution_engine != 0 as LLVMExecutionEngineRef, "Failed to initialize the execution engine.");
 
-            Context {
-                context: context,
-                module: module,
-                builder: builder,
-                execution_engine: execution_engine,
-                named_values: named_values,
-            }
+        Context {
+            context: context,
+            module: module,
+            builder: builder,
+            execution_engine: execution_engine,
+            named_values: named_values,
         }
     }
 
     // Dump the IR to stdout
-    pub fn dump(&self) {
-        unsafe {
-            LLVMDumpModule(self.module);
-        }
+    pub unsafe fn dump(&self) {
+        LLVMDumpModule(self.module);
     }
 
     // Verifies that the llvm code is valid. Optionally prints
     // the error message, else abort.
-    pub fn verify(&self) {
-        unsafe {
-            let action = LLVMVerifierFailureAction::LLVMPrintMessageAction;
-            let msg = vec![c_str_ptr("")];
+    pub unsafe fn verify(&self) {
+        let action = LLVMVerifierFailureAction::LLVMPrintMessageAction;
+        let msg = vec![c_str_ptr("")];
 
-            LLVMVerifyModule(self.module, action, msg.as_ptr() as *mut _);
-            LLVMDisposeMessage(msg[0] as *mut _);
-        }
+        LLVMVerifyModule(self.module, action, msg.as_ptr() as *mut _);
+        LLVMDisposeMessage(msg[0] as *mut _);
     }
 
-    pub fn run(&self) -> u64 {
-        unsafe {
-            let main = LLVMGetNamedFunction(self.module, c_str_ptr("main"));
-            let result = LLVMRunFunction(self.execution_engine, main, 0, 0 as *mut LLVMGenericValueRef);
+    pub unsafe fn run(&self) -> u64 {
+        let main = LLVMGetNamedFunction(self.module, c_str_ptr("main"));
+        let result = LLVMRunFunction(self.execution_engine, main, 0, 0 as *mut LLVMGenericValueRef);
 
-            LLVMGenericValueToInt(result, 1)
-        }
+        LLVMGenericValueToInt(result, 1)
     }
 
     // Struct getters
-    pub fn get_context(&self) -> *mut LLVMContext {
+    pub fn get_context(&self) -> LLVMContextRef {
         self.context
     }
 
-    pub fn get_module(&self) -> *mut LLVMModule {
+    pub fn get_module(&self) -> LLVMModuleRef {
         self.module
     }
 
-    pub fn get_builder(&self) -> *mut LLVMBuilder {
+    pub fn get_builder(&self) -> LLVMBuilderRef {
         self.builder
     }
 
