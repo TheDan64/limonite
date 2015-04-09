@@ -68,10 +68,10 @@ pub enum Expr {
     Block(Vec<ExprWrapper>),
     // Const declaration?, type, Variable name and expression
     VarDecl(bool, String, String, ExprWrapper),
+    // Reference to a value in an identifier
+    Ident(String),
     // Return an expression from a function
     Return(Option<ExprWrapper>),
-    // Ident
-    Ident(String),
     // Does nothing
     NoOp,
 }

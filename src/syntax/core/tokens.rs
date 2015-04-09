@@ -39,7 +39,7 @@ pub enum Tokens {
 }
 
 impl Tokens {
-    pub fn expect(&self, next_token: Tokens) -> bool {
-        *self == next_token
+    pub fn expect(&self, token: Tokens) -> bool {
+        *self == token
     }
 }

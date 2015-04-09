@@ -28,7 +28,7 @@ pub enum Symbols {
     AsteriskEquals,
     SlashEquals,
     PercentEquals,
-    RightThinArrow
+    RightThinArrow,
 }
 
 impl FromStr for Symbols {

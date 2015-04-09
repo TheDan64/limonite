@@ -526,7 +526,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn consume_tabs(&mut self) -> Tokens {
-        let mut count = 0usize;
+        let mut count = 0u64;
 
         // Consume the newline token, count tabs
         self.consume_char();
@@ -538,7 +538,7 @@ impl<'a> Lexer<'a> {
             _    => false
         });
 
-        Indent(count as u64)
+        Indent(count)
     }
 
     fn escape_char(ch: char) -> Result<char, String> {

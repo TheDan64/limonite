@@ -198,7 +198,6 @@ impl<TokType: Tokenizer> Parser<TokType> {
         args
     }
 
-    #[allow(unused_variables)]
     fn parse_fn_call(&mut self, ident: String) -> Option<ExprWrapper> {
         let token = self.next_token();
         if !token.expect(Symbol(Symbols::ParenOpen)) {
@@ -209,7 +208,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let tok = self.peek();
 
         // Check to see if there are no args
-        if Tokens::expect(&tok, Symbol(Symbols::ParenClose)) {
+        if tok.expect(Symbol(Symbols::ParenClose)) {
             self.next_token();
             return Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), Vec::new())));
         }
@@ -246,6 +245,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
     fn parse_idents(&mut self, ident: String) -> Option<ExprWrapper> {
         self.next_token();
+
         let tok = self.peek();
         match tok {
             Symbol(Symbols::ParenOpen) => self.parse_fn_call(ident),
@@ -258,6 +258,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     #[allow(unused_variables)]
     fn parse_fn(&mut self) -> Option<ExprWrapper> {
         self.next_token();
+
         // Get the function name
         let fn_name = match self.next_token() {
             Identifier(string) => string,
@@ -334,7 +335,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         // Get right arrow ->
         tok = self.next_token();
 
-        if !tok.expect(Symbol(Symbols::RightThinArrow)) {
+        if tok.expect(Symbol(Symbols::RightThinArrow)) {
             self.write_expect_error("", "a thin right arrow '->'", "something else");
 
             return None;
@@ -437,12 +438,13 @@ impl<TokType: Tokenizer> Parser<TokType> {
             _ => {
                 self.write_error(&format!("Unsupported keyword {:?}.", keyword));
                 None
-            },
+            }
         }
     }
 
     fn parse_if(&mut self) -> Option<ExprWrapper> {
         self.next_token();
+
         let condition = match self.parse_expression(0) {
             Some(exprwrapper) => exprwrapper,
             None => return None
@@ -554,6 +556,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             },
             Numeric(string, _type) => Some(self.parse_number(string, _type)),
 
+            // Parens
             Symbol(Symbols::ParenOpen) => {
                 let exprwrapper = self.parse_expression(0);
 
@@ -565,7 +568,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     return None;
                 }
 
-                return exprwrapper;
+                exprwrapper
             },
 
             // Unary ops, precedence hard coded to a (high) 8
@@ -582,6 +585,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 }
             },
 
+            // Else error
             _ => {
                 self.write_error("Not sure how you got here.");
 
@@ -590,7 +594,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
     }
 
-    /// Parse numbers into their correct representation
+    // Parse numbers into their correct representation
+    #[allow(unused_variables)]
+    #[allow(dead_code)]
     fn parse_number(&mut self, num: String, type_: Option<Types>) -> ExprWrapper {
         let has_decimal_point = num.contains('.');
 
@@ -600,7 +606,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             _    => 10
         };
 
-        let bytes = num.into_bytes().into_iter().filter(|byte| match *byte as char {
+        let chars = num.chars().filter(|chr| match *chr {
             '_' | 'x' | 'b' => false,
             _ => true
         });
@@ -616,41 +622,41 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let mut decimal_iteration = 1f32;
 
         // Does not account for overflow
-        for byte in bytes {
-            match byte as char {
-                b if b.is_digit(base) => {
+        for chr in chars {
+            match chr {
+                c if c.is_digit(base) => {
                     match type_ {
                         Some(Types::Int32Bit) => {
                             int32 *= base as i32;
-                            int32 += b.to_digit(base).unwrap() as i32;
+                            int32 += c.to_digit(base).unwrap() as i32;
                         },
                         Some(Types::Int64Bit) => {
                             int64 *= base as i64;
-                            int64 += b.to_digit(base).unwrap() as i64;
+                            int64 += c.to_digit(base).unwrap() as i64;
                         },
                         Some(Types::UInt32Bit) => {
                             uint32 *= base;
-                            uint32 += b.to_digit(base).unwrap();
+                            uint32 += c.to_digit(base).unwrap();
                         },
                         Some(Types::UInt64Bit) => {
                             uint64 *= base as u64;
-                            uint64 += b.to_digit(base).unwrap() as u64;
+                            uint64 += c.to_digit(base).unwrap() as u64;
                         },
                         Some(Types::Float32Bit) => {
                             if before_decimal_point {
                                 float32 *= base as f32;
-                                float32 += b.to_digit(base).unwrap() as f32;
+                                float32 += c.to_digit(base).unwrap() as f32;
                             } else {
-                                float32 += b.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
+                                float32 += c.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
                                 decimal_iteration += 1f32;
                             }
                         },
                         Some(Types::Float64Bit) => {
                             if before_decimal_point {
                                 float64 *= base as f64;
-                                float64 += b.to_digit(base).unwrap() as f64;
+                                float64 += c.to_digit(base).unwrap() as f64;
                             } else {
-                                float64 += b.to_digit(base).unwrap() as f64 / (base as f64 * decimal_iteration as f64);
+                                float64 += c.to_digit(base).unwrap() as f64 / (base as f64 * decimal_iteration as f64);
                                 decimal_iteration += 1f32;
                             }
                         },
@@ -659,14 +665,14 @@ impl<TokType: Tokenizer> Parser<TokType> {
                             if has_decimal_point {
                                 if before_decimal_point {
                                     float32 *= base as f32;
-                                    float32 += b.to_digit(base).unwrap() as f32;
+                                    float32 += c.to_digit(base).unwrap() as f32;
                                 } else {
-                                    float32 += b.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
+                                    float32 += c.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
                                     decimal_iteration += 1f32;
                                 }
                             } else {
                                 int32 *= base as i32;
-                                int32 += b.to_digit(base).unwrap() as i32;
+                                int32 += c.to_digit(base).unwrap() as i32;
                             }
 
                         }
@@ -782,9 +788,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
     }
 
     pub fn parse(&mut self) -> Option<ExprWrapper>{
-        let a = self.sub_parse();
+        let ast_root = self.sub_parse();
+
         if self.valid_ast {
-            Some(a)
+            Some(ast_root)
         } else {
             None
         }
