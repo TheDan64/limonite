@@ -69,8 +69,6 @@ impl Context {
     }
 
     pub fn run(&self) -> u64 {
-        panic!("This function doesn't work ATM!");
-
         unsafe {
             let main = LLVMGetNamedFunction(self.module, c_str_ptr("main"));
             let result = LLVMRunFunction(self.execution_engine, main, 0, 0 as *mut LLVMGenericValueRef);
@@ -187,31 +185,31 @@ impl CodeGen for Expr {
                     },
                     &Literal::I32Num(ref val) => {
                         let ty = LLVMInt32TypeInContext(context.get_context());
-                        Ok(LLVMConstInt(ty, *val, 1))
+                        Some(LLVMConstInt(ty, *val as u64, 1))
                     },
                     &Literal::I64Num(ref val) => {
                         let ty = LLVMInt64TypeInContext(context.get_context());
-                        Ok(LLVMConstInt(ty, *val, 1))
+                        Some(LLVMConstInt(ty, *val as u64, 1))
                     },
                     &Literal::U32Num(ref val) => {
                         let ty = LLVMInt32TypeInContext(context.get_context());
-                        Ok(LLVMConstInt(ty, *val, 0))
+                        Some(LLVMConstInt(ty, *val as u64, 0))
                     },
                     &Literal::U64Num(ref val) => {
                         let ty = LLVMInt64TypeInContext(context.get_context());
-                        Ok(LLVMConstInt(ty, *val, 0))
+                        Some(LLVMConstInt(ty, *val, 0))
                     },
                     &Literal::F32Num(ref val) => {
                         let ty = LLVMFloatTypeInContext(context.get_context());
-                        Ok(LLVMConstReal(ty, *val))
+                        Some(LLVMConstReal(ty, *val as f64))
                     },
                     &Literal::F64Num(ref val) => {
                         let ty = LLVMDoubleTypeInContext(context.get_context());
-                        Ok(LLVMConstReal(ty, *val))
+                        Some(LLVMConstReal(ty, *val))
                     },
                     &Literal::Bool(ref val) => {
                         let ty = LLVMInt1TypeInContext(context.get_context());
-                        Ok(LLVMConstInt(ty, *val))
+                        Some(LLVMConstInt(ty, *val as u64, 0))
                     },
                     _ => {
                         println!("Error: Codegen unimplemented for {:?}", literal_type);
