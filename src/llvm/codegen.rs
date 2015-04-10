@@ -254,21 +254,9 @@ impl CodeGen for Expr {
             },
             Expr::UnaryOp(ref op, ref expr) => {
                 match *op {
-                    UnaryOp::Negate => match expr.gen_code(context) {
-                        Some(val) => {
-                            // TODO: Find out how bools and unsigned vals are affected by this:
-                            let neg = match LLVMTypeOf(val) {
-                                ty if ty == LLVMInt32TypeInContext(context.get_context()) => LLVMConstInt(ty, -1i64 as u64, 1),
-                                ty if ty == LLVMInt64TypeInContext(context.get_context()) => LLVMConstInt(ty, -1i64 as u64, 1),
-                                ty if ty == LLVMFloatTypeInContext(context.get_context()) => LLVMConstReal(ty, -1f64),
-                                ty if ty == LLVMDoubleTypeInContext(context.get_context()) => LLVMConstReal(ty, -1f64),
-                                _ => panic!("Unary codegen failed!")
-                            };
-
-                            Some(LLVMBuildMul(context.get_builder(), neg, val, c_str_ptr("negtmp")))
-                        },
-
-                        None => None
+                    UnaryOp::Negate => {
+                        // I think this would be easier to handle by replacing by multiply * -1
+                        panic!("Codegen error: Negation not supported in codegen.");
                     },
                     UnaryOp::Not => match expr.gen_code(context) {
                         Some(val) => Some(LLVMBuildNot(context.get_builder(), val, c_str_ptr("nottmp"))),
