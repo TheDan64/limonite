@@ -11,8 +11,8 @@ pub unsafe fn generate_builtins(context: &mut Context) {
     generate_print(context);
 
     // Generate a `main` function for the script to be housed
-    let int32 = LLVMInt32TypeInContext(context.get_context());
-    let fn_type = LLVMFunctionType(int32, ptr::null_mut(), 0, 0);
+    let i32_type= LLVMInt32TypeInContext(context.get_context());
+    let fn_type = LLVMFunctionType(i32_type, ptr::null_mut(), 0, 0);
     let main = LLVMAddFunction(context.get_module(), c_str_ptr("main"), fn_type);
     let bb = LLVMAppendBasicBlockInContext(context.get_context(), main, c_str_ptr("entry"));
 
@@ -20,7 +20,7 @@ pub unsafe fn generate_builtins(context: &mut Context) {
     LLVMPositionBuilderAtEnd(context.get_builder(), bb);
 
     // Adds a return statement
-    LLVMBuildRet(context.get_builder(), LLVMConstInt(int32, 1, 1));
+    LLVMBuildRet(context.get_builder(), LLVMConstInt(i32_type, 1, 1));
 
     // Reposition to the start of the block
     LLVMPositionBuilder(context.get_builder(), bb, LLVMGetFirstInstruction(bb));
@@ -29,9 +29,11 @@ pub unsafe fn generate_builtins(context: &mut Context) {
 unsafe fn generate_print(context: &mut Context) {
     // Types
     let void = LLVMVoidTypeInContext(context.get_context());
-    let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),
-                  LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0)];
-    let int32_type = LLVMInt32TypeInContext(context.get_context());
+    let i8_type = LLVMInt8TypeInContext(context.get_context());
+    let i32_type = LLVMInt32TypeInContext(context.get_context());
+    let i64_type = LLVMInt64TypeInContext(context.get_context());
+    let i32_ptr_type = LLVMPointerType(i32_type, 0);
+    let string_type_fields = vec![LLVMPointerType(i8_type, 0), i64_type];
     let string_type = LLVMStructTypeInContext(context.get_context(), string_type_fields.as_ptr() as *mut _, 2, 0);
 
     let args = vec![string_type];
@@ -52,13 +54,14 @@ unsafe fn generate_print(context: &mut Context) {
     // Start
     LLVMPositionBuilderAtEnd(context.get_builder(), start_block);
 
-    let i32_zero = LLVMConstInt(int32_type, 0, 0);
+    // let i32_zero = LLVMConstInt(i32_type, 0, 0);
+    let i64_zero = LLVMConstInt(i64_type, 0, 0);
     let op = LLVMIntPredicate::LLVMIntEQ;
-    let offset_ptr = LLVMBuildAlloca(context.get_builder(), int32_type, c_str_ptr("offsetptr"));
-    LLVMBuildStore(context.get_builder(), i32_zero, offset_ptr);
-    let len = LLVMBuildExtractValue(context.get_builder(), param, 0, c_str_ptr("len"));
-    let str_ptr = LLVMBuildExtractValue(context.get_builder(), param, 1, c_str_ptr("strptr"));
-    let cmp = LLVMBuildICmp(context.get_builder(), op, len, i32_zero, c_str_ptr("cmp"));
+    let offset_ptr = LLVMBuildAlloca(context.get_builder(), i64_type, c_str_ptr("offsetptr"));
+    LLVMBuildStore(context.get_builder(), i64_zero, offset_ptr);
+    let str_ptr = LLVMBuildExtractValue(context.get_builder(), param, 0, c_str_ptr("strptr"));
+    let len = LLVMBuildExtractValue(context.get_builder(), param, 1, c_str_ptr("len"));
+    let cmp = LLVMBuildICmp(context.get_builder(), op, len, i64_zero, c_str_ptr("cmp"));
 
     // Branch to end if string len is 0
     LLVMBuildCondBr(context.get_builder(), cmp, end_block, loop_block);
@@ -67,19 +70,26 @@ unsafe fn generate_print(context: &mut Context) {
     LLVMPositionBuilderAtEnd(context.get_builder(), loop_block);
 
     let offset = LLVMBuildLoad(context.get_builder(), offset_ptr, c_str_ptr("offset"));
-    let ptr_iter = LLVMBuildAdd(context.get_builder(), str_ptr, offset, c_str_ptr("iter"));
+    let indices = vec![offset];
+    let iter_ptr = LLVMBuildGEP(context.get_builder(), str_ptr, indices.as_ptr() as *mut _, 1, c_str_ptr("iterptr"));
+
+    let op = LLVMOpcode::LLVMBitCast;
+    let iterptr32 = LLVMBuildCast(context.get_builder(), op, iter_ptr, i32_ptr_type, c_str_ptr("iterptr32"));
+
+    let iter32 = LLVMBuildLoad(context.get_builder(), iterptr32, c_str_ptr("iter"));
+
     let mut putchar_fn = LLVMGetNamedFunction(context.get_module(), c_str_ptr("putchar"));
     if putchar_fn.is_null() {
-        let fn_type2 = LLVMFunctionType(int32_type, vec![int32_type].as_ptr() as *mut _, 1, 0);
+        let fn_type2 = LLVMFunctionType(i32_type, vec![i32_type].as_ptr() as *mut _, 1, 0);
         putchar_fn = LLVMAddFunction(context.get_module(), c_str_ptr("putchar"), fn_type2);
     }
 
     // Print char at ptr_iter here
-    LLVMBuildCall(context.get_builder(), putchar_fn, vec![ptr_iter].as_ptr() as *mut _, 1, c_str_ptr(""));
+    LLVMBuildCall(context.get_builder(), putchar_fn, vec![iter32].as_ptr() as *mut _, 1, c_str_ptr(""));
 
     // Increment the offset
-    let i32_one = LLVMConstInt(int32_type, 1, 0);
-    let inc = LLVMBuildAdd(context.get_builder(), offset, i32_one, c_str_ptr("inc"));
+    let i64_one = LLVMConstInt(i64_type, 1, 0);
+    let inc = LLVMBuildAdd(context.get_builder(), offset, i64_one, c_str_ptr("inc"));
     LLVMBuildStore(context.get_builder(), inc, offset_ptr);
 
     // Branch if offset equals len, else keep looping

@@ -7,6 +7,7 @@ use self::llvm_sys::analysis::*;
 use self::llvm_sys::execution_engine::*;
 use self::llvm_sys::prelude::*;
 //use self::llvm_sys::target::*;
+use syntax::ast::op::*;
 use syntax::ast::expr::*;
 use syntax::ast::literals::*;
 
@@ -143,11 +144,12 @@ impl CodeGen for Expr {
                         let int8_type = LLVMInt8TypeInContext(context.get_context());
                         let int8_ptr_type = LLVMPointerType(int8_type, 0);
                         let int32_type = LLVMInt32TypeInContext(context.get_context());
+                        let int64_type = LLVMInt64TypeInContext(context.get_context());
                         // let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),
                         //               LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0)];
 
                         // Values
-                        let len = LLVMConstInt(int32_type, val.len() as u64, 0);
+                        let len = LLVMConstInt(int64_type, val.len() as u64, 0);
 
                         // Make a global string constant and assign the value:
                         let const_str_var = LLVMAddGlobal(context.get_module(), array_type1, c_str_ptr("str"));
@@ -171,10 +173,10 @@ impl CodeGen for Expr {
                         LLVMBuildStore(context.get_builder(), element_ptr, allocated_str_ptr);
 
                         let loaded_ptr = LLVMBuildLoad(context.get_builder(), allocated_str_ptr, c_str_ptr("l"));
-                        let struct_fields = vec![len, LLVMGetUndef(int8_ptr_type)];
+                        let struct_fields = vec![LLVMGetUndef(int8_ptr_type), len];
                         let const_struct = LLVMConstStructInContext(context.get_context(), struct_fields.as_ptr() as *mut _, 2, 0);
 
-                        Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 1, c_str_ptr("i")))
+                        Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 0, c_str_ptr("i")))
                     },
                     &Literal::I32Num(ref val) => {
                         let ty = LLVMInt32TypeInContext(context.get_context());
@@ -249,6 +251,30 @@ impl CodeGen for Expr {
                 };
 
                 Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, ret_var))
+            },
+            Expr::UnaryOp(ref op, ref expr) => {
+                match *op {
+                    UnaryOp::Negate => match expr.gen_code(context) {
+                        Some(val) => {
+                            // TODO: Find out how bools and unsigned vals are affected by this:
+                            let neg = match LLVMTypeOf(val) {
+                                ty if ty == LLVMInt32TypeInContext(context.get_context()) => LLVMConstInt(ty, -1i64 as u64, 1),
+                                ty if ty == LLVMInt64TypeInContext(context.get_context()) => LLVMConstInt(ty, -1i64 as u64, 1),
+                                ty if ty == LLVMFloatTypeInContext(context.get_context()) => LLVMConstReal(ty, -1f64),
+                                ty if ty == LLVMDoubleTypeInContext(context.get_context()) => LLVMConstReal(ty, -1f64),
+                                _ => panic!("Unary codegen failed!")
+                            };
+
+                            Some(LLVMBuildMul(context.get_builder(), neg, val, c_str_ptr("negtmp")))
+                        },
+
+                        None => None
+                    },
+                    UnaryOp::Not => match expr.gen_code(context) {
+                        Some(val) => Some(LLVMBuildNot(context.get_builder(), val, c_str_ptr("nottmp"))),
+                        None => None
+                    }
+                }
             },
             Expr::NoOp => None,
             _ => None
