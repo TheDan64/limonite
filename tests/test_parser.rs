@@ -10,7 +10,7 @@ use limonite::syntax::core::types::Types;
 use limonite::syntax::core::keywords::Keywords;
 use limonite::syntax::core::symbols::Symbols;
 use limonite::syntax::ast::expr::{Expr, ExprWrapper};
-use limonite::syntax::ast::consts::*;
+use limonite::syntax::ast::literals::*;
 use limonite::syntax::ast::op::*;
 
 struct MockLexer {
@@ -94,7 +94,7 @@ fn test_print() {
                 "print".to_string(),
                 vec![
                     ExprWrapper::default(Expr::Ident("meow".to_string())),
-                    ExprWrapper::default(Expr::Const(Const::UTF8String("meow".to_string()))),
+                    ExprWrapper::default(Expr::Literal(Literal::UTF8String("meow".to_string()))),
                     ExprWrapper::default(Expr::Ident("meow".to_string())),
                 ],
             ))];
@@ -197,7 +197,7 @@ fn test_expression() {
                     ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
                     ExprWrapper::default(Expr::Ident("foo".to_string())),
                     ExprWrapper::default(Expr::Ident("bar".to_string())))),
-                    ExprWrapper::default(Expr::Const(Const::UTF8String("foobar".to_string())))));
+                    ExprWrapper::default(Expr::Literal(Literal::UTF8String("foobar".to_string())))));
     let desired_ast = vec![
         ExprWrapper::default(
             Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
@@ -273,7 +273,7 @@ fn test_numerics() {
         Indent(1)
     ];
 
-    let condition = ExprWrapper::default(Expr::Const(Const::F32Num(42f32)));
+    let condition = ExprWrapper::default(Expr::Literal(Literal::F32Num(42f32)));
     let desired_ast = vec![
         ExprWrapper::default(
             Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
@@ -288,7 +288,7 @@ fn test_numerics() {
         Indent(1)
     ];
 
-    let condition = ExprWrapper::default(Expr::Const(Const::U32Num(42u32)));
+    let condition = ExprWrapper::default(Expr::Literal(Literal::U32Num(42u32)));
     let desired_ast = vec![
         ExprWrapper::default(
             Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
@@ -303,7 +303,7 @@ fn test_numerics() {
         Indent(1)
     ];
 
-    let condition = ExprWrapper::default(Expr::Const(Const::U32Num(45043u32)));
+    let condition = ExprWrapper::default(Expr::Literal(Literal::U32Num(45043u32)));
     let desired_ast = vec![
         ExprWrapper::default(
             Expr::If(condition, ExprWrapper::default(Expr::Block(vec![])), None))
@@ -328,9 +328,9 @@ fn test_function_call() {
         ExprWrapper::default(Expr::FnCall(
             "fn_name".to_string(),
             vec![
-                ExprWrapper::default(Expr::Const(Const::U32Num(42))),
-                ExprWrapper::default(Expr::Const(Const::UTF8String("b".to_string()))),
-                ExprWrapper::default(Expr::Const(Const::U32Num(123))),
+                ExprWrapper::default(Expr::Literal(Literal::U32Num(42))),
+                ExprWrapper::default(Expr::Literal(Literal::UTF8String("b".to_string()))),
+                ExprWrapper::default(Expr::Literal(Literal::U32Num(123))),
             ])
         )];
     expect_test(tokens, desired_ast);
@@ -352,7 +352,7 @@ fn test_variable_declaration() {
                 typ == Keywords::Def,
                 "name".to_string(),
                 "int".to_string(),
-                ExprWrapper::default(Expr::Const(Const::U32Num(123))),
+                ExprWrapper::default(Expr::Literal(Literal::U32Num(123))),
             ))];
         expect_test(tokens, desired_ast);
     }
@@ -369,7 +369,7 @@ fn test_assign() {
         ExprWrapper::default(Expr::Assign(
             ExprWrapper::default(Expr::Ident("b".to_string())),
             ExprWrapper::default(
-                Expr::Const(Const::U32Num(123)),
+                Expr::Literal(Literal::U32Num(123)),
             )
         ))
     ];
@@ -400,7 +400,7 @@ fn test_while_loop() {
                 ExprWrapper::default(Expr::Assign(
                     ExprWrapper::default(Expr::Ident("b".to_string())),
                     ExprWrapper::default(
-                        Expr::Const(Const::U32Num(123)),
+                        Expr::Literal(Literal::U32Num(123)),
                     )
                 ))
             ]))
@@ -448,7 +448,7 @@ fn test_indentation() {
                             ExprWrapper::default(Expr::Assign(
                                 ExprWrapper::default(Expr::Ident("b".to_string())),
                                 ExprWrapper::default(
-                                    Expr::Const(Const::U32Num(123)),
+                                    Expr::Literal(Literal::U32Num(123)),
                                 )
                             ))
                         ]))
@@ -492,13 +492,13 @@ fn test_multiple_statements() {
                 ExprWrapper::default(Expr::Assign(
                     ExprWrapper::default(Expr::Ident("b".to_string())),
                     ExprWrapper::default(
-                        Expr::Const(Const::U32Num(123)),
+                        Expr::Literal(Literal::U32Num(123)),
                     )
                 )),
                 ExprWrapper::default(Expr::Assign(
                     ExprWrapper::default(Expr::Ident("b".to_string())),
                     ExprWrapper::default(
-                        Expr::Const(Const::U32Num(123)),
+                        Expr::Literal(Literal::U32Num(123)),
                     )
                 )),
             ]))

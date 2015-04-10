@@ -1,3 +1,3 @@
-pub mod consts;
+pub mod literals;
 pub mod expr;
 pub mod op;
