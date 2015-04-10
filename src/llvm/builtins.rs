@@ -105,8 +105,8 @@ unsafe fn generate_print(context: &mut Context) {
 unsafe fn generate_types(context: &mut Context) {
     // Define a string structure that looks like:
     // string {
-    //     len: i32,
     //     array: i8*
+    //     len: i64,
     // }
 
     let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),

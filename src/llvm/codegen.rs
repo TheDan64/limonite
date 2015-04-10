@@ -141,30 +141,30 @@ impl CodeGen for Expr {
                         // if string_struct_type.is_null() {
                         //     println!("TMP Error: Cannot find builtin string type!");
                         // }
-                        let int8_type = LLVMInt8TypeInContext(context.get_context());
-                        let int8_ptr_type = LLVMPointerType(int8_type, 0);
-                        let int32_type = LLVMInt32TypeInContext(context.get_context());
-                        let int64_type = LLVMInt64TypeInContext(context.get_context());
+                        let i8_type = LLVMInt8TypeInContext(context.get_context());
+                        let i8_ptr_type = LLVMPointerType(i8_type, 0);
+                        let i32_type = LLVMInt32TypeInContext(context.get_context());
+                        let i64_type = LLVMInt64TypeInContext(context.get_context());
                         // let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),
                         //               LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0)];
 
                         // Values
-                        let len = LLVMConstInt(int64_type, val.len() as u64, 0);
+                        let len = LLVMConstInt(i64_type, val.len() as u64, 0);
 
                         // Make a global string constant and assign the value:
                         let const_str_var = LLVMAddGlobal(context.get_module(), array_type1, c_str_ptr("str"));
                         let mut chars = Vec::new();
                         for chr in val.bytes() {
-                            chars.push(LLVMConstInt(int8_type, chr as u64, 0));
+                            chars.push(LLVMConstInt(i8_type, chr as u64, 0));
                         }
 
-                        let const_str_array = LLVMConstArray(int8_type, chars.as_ptr() as *mut _, chars.len() as u32);
+                        let const_str_array = LLVMConstArray(i8_type, chars.as_ptr() as *mut _, chars.len() as u32);
                         LLVMSetInitializer(const_str_var, const_str_array);
                         LLVMSetGlobalConstant(const_str_var, 1);
 
-                        let args = vec![LLVMConstInt(int32_type, 0, 0), LLVMConstInt(int32_type, 0, 0)];
-                        let allocated_str_ptr = LLVMBuildAlloca(context.get_builder(), int8_ptr_type, c_str_ptr("a"));
-                        let mallocated_ptr = LLVMBuildMalloc(context.get_builder(), int8_type, c_str_ptr("m"));
+                        let args = vec![LLVMConstInt(i32_type, 0, 0), LLVMConstInt(i32_type, 0, 0)];
+                        let allocated_str_ptr = LLVMBuildAlloca(context.get_builder(), i8_ptr_type, c_str_ptr("a"));
+                        let mallocated_ptr = LLVMBuildMalloc(context.get_builder(), i8_type, c_str_ptr("m"));
 
                         LLVMSetTailCall(mallocated_ptr, 0);
                         LLVMBuildStore(context.get_builder(), mallocated_ptr, allocated_str_ptr);
@@ -173,7 +173,7 @@ impl CodeGen for Expr {
                         LLVMBuildStore(context.get_builder(), element_ptr, allocated_str_ptr);
 
                         let loaded_ptr = LLVMBuildLoad(context.get_builder(), allocated_str_ptr, c_str_ptr("l"));
-                        let struct_fields = vec![LLVMGetUndef(int8_ptr_type), len];
+                        let struct_fields = vec![LLVMGetUndef(i8_ptr_type), len];
                         let const_struct = LLVMConstStructInContext(context.get_context(), struct_fields.as_ptr() as *mut _, 2, 0);
 
                         Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 0, c_str_ptr("i")))
