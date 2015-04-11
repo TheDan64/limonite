@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq)]
-pub enum Literal {
+pub enum Literals {
 	// UTF-8 Strings, "This is a string"
 	UTF8String(String),
 	// UTF-8 Char, 'c'

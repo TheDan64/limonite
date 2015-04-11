@@ -53,7 +53,7 @@ pub enum Expr {
     // Operation on a single expression
     UnaryOp(UnaryOp, ExprWrapper),
     // Literals such as numbers and strings
-    Literal(Literal),
+    Literal(Literals),
     // Run expression while conditional is true
     WhileLoop(ExprWrapper, ExprWrapper),
     // If condition true, run expression, optional elif, else
