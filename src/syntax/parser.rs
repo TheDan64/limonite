@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Tokens;
 use syntax::core::tokens::Tokens::*;
@@ -124,7 +123,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         self.valid_ast = false;
 
-        println!("filename:{}:{} {}", start_line, start_column, msg);
+        debug!("filename:{}:{} {}", start_line, start_column, msg);
         Tokens::Error(format!("filename:{}:{} {}", start_line, start_column, msg))
     }
 
@@ -504,7 +503,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
         let mut lhs = subroutine.unwrap();
 
-        println!("    parse_expression: sub({:?}) next({:?})", lhs, self.peek_any());
+        debug!("    parse_expression: sub({:?}) next({:?})", lhs, self.peek_any());
         let mut token = self.peek_any();
         while self.is_infix_op(&token) && self.get_precedence(&token) >= precedence {
             token = self.next_token_any();
@@ -531,7 +530,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 return None;
             }
             token = self.peek_any();
-            println!("parse expr end: {:?}", token);
+            debug!("parse expr end: {:?}", token);
         }
         return Some(lhs);
     }
@@ -706,15 +705,15 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let mut expr = Vec::new();
         let current_level = self.indent_level;
         loop {
-            println!("finished the first match: {:?}", expr);
+            debug!("finished the first match: {:?}", expr);
             // This inner loop is used to repeatedly consume Indent(0) tokens
             // for as many lines as necessary until the next real line.
             let mut outer_break = false;
             loop {
-                println!("token: {:?}", self.peek_any());
+                debug!("token: {:?}", self.peek_any());
                 match self.peek_any() {
                     Indent(this_depth) => {
-                        println!("iden last: {:?}", self.last_depth);
+                        debug!("iden last: {:?}", self.last_depth);
 
                         // Indents / repeated indents are fine as long as the first of
                         // the current indent and the directly previous indent is Indent(0).
@@ -736,14 +735,14 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         break;
                     },
                     _ => {
-                        println!("last: {:?}", self.last_depth);
+                        debug!("last: {:?}", self.last_depth);
 
                         // A new non-Indent is only allowed after there has been an Indent
                         // token. This forbids two statements (or any start of a block
                         // and its subsequent statments) from being on the same line.
                         if let Some(last_depth) = self.last_depth {
-                            println!("dedenting? {:?} {:?}", last_depth, self.indent_level);
-                            println!("         ? {:?}", current_level);
+                            debug!("dedenting? {:?} {:?}", last_depth, self.indent_level);
+                            debug!("         ? {:?}", current_level);
 
                             if last_depth < self.indent_level {
                                 self.indent_level = last_depth;
@@ -765,17 +764,17 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 break;
             }
 
-            println!("last depth before top level parse: {:?}", self.last_depth);
+            debug!("last depth before top level parse: {:?}", self.last_depth);
             self.last_depth = None;
             match self.peek() {
                 Identifier(ident) => {
-                    println!("Top level found an identifier: {:?}", self.peek());
+                    debug!("Top level found an identifier: {:?}", self.peek());
                     if let Some(exprwrapper) = self.parse_idents(ident) {
                         expr.push(exprwrapper);
                     }
                 },
                 Keyword(keyword) => {
-                    println!("Top level found an keyword: {:?}", self.peek());
+                    debug!("Top level found an keyword: {:?}", self.peek());
                     if let Some(exprwrapper) = self.parse_keywords(keyword) {
                         expr.push(exprwrapper);
                     }
@@ -795,7 +794,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             };
         }
 
-        println!("{:?}", expr);
+        debug!("{:?}", expr);
         ExprWrapper::default(Expr::Block(expr))
     }
 
