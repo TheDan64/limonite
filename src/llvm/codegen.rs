@@ -126,7 +126,7 @@ impl CodeGen for Expr {
                 match context.named_values.get(name) {
                     Some(val) => Some(*val),
                     None => {
-                        println!("Could not find ident {}", name);
+                        println!("Error: Unknown variable named {}", name);
 
                         None
                     }
@@ -254,10 +254,8 @@ impl CodeGen for Expr {
             },
             Expr::UnaryOp(ref op, ref expr) => {
                 match *op {
-                    UnaryOp::Negate => {
-                        // I think this would be easier to handle by replacing by multiply * -1
-                        panic!("Codegen error: Negation not supported in codegen.");
-                    },
+                    // I think Negate would be easier to handle by replacing it with multiply * -1 in the parser
+                    UnaryOp::Negate => panic!("Codegen error: Negation not supported in codegen."),
                     UnaryOp::Not => match expr.gen_code(context) {
                         Some(val) => Some(LLVMBuildNot(context.get_builder(), val, c_str_ptr("nottmp"))),
                         None => None
