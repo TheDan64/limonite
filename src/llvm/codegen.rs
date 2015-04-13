@@ -126,7 +126,7 @@ impl CodeGen for Expr {
                 match context.named_values.get(name) {
                     Some(val) => Some(*val),
                     None => {
-                        println!("Could not find ident {}", name);
+                        println!("Error: Unknown variable named {}", name);
 
                         None
                     }

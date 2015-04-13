@@ -62,11 +62,11 @@ pub enum Expr {
     Assign(ExprWrapper, ExprWrapper),
     // Fn call with name and args.
     FnCall(String, Vec<ExprWrapper>),
-    // Declare a function with a name, args(name, type | ident), return (type | ident), and expr
+    // Declare a function with a name, args(name, ident), return ident, and body expr
     FnDecl(String, Vec<(String, Tokens)>, Tokens, ExprWrapper),
     // Run consecutive expressions
     Block(Vec<ExprWrapper>),
-    // Const declaration?, type, Variable name and expression
+    // Const declaration?, type, variable name and expression
     VarDecl(bool, String, String, ExprWrapper),
     // Reference to a value in an identifier
     Ident(String),
