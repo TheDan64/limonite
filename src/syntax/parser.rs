@@ -503,7 +503,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
         let mut lhs = subroutine.unwrap();
 
-        debug!("    parse_expression: sub({:?}) next({:?})", lhs, self.peek_any());
+        debug!("        Parse_expression: sub({:?}) next({:?})", lhs, self.peek_any());
         let mut token = self.peek_any();
         while self.is_infix_op(&token) && self.get_precedence(&token) >= precedence {
             token = self.next_token_any();
@@ -530,7 +530,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 return None;
             }
             token = self.peek_any();
-            debug!("parse expr end: {:?}", token);
+            debug!("        Parse expr end: {:?}", token);
         }
         return Some(lhs);
     }
@@ -704,16 +704,19 @@ impl<TokType: Tokenizer> Parser<TokType> {
     fn sub_parse(&mut self) -> ExprWrapper {
         let mut expr = Vec::new();
         let current_level = self.indent_level;
+        debug!("Beginning parse");
         loop {
-            debug!("finished the first match: {:?}", expr);
+            debug!("{}Beginning TLL at level: {:?}", "    ", current_level);
+
             // This inner loop is used to repeatedly consume Indent(0) tokens
             // for as many lines as necessary until the next real line.
             let mut outer_break = false;
+            debug!("{}Start indent consumption loop", "    ");
             loop {
-                debug!("token: {:?}", self.peek_any());
+                debug!("{}Peek: {:?}", "        ", self.peek_any());
                 match self.peek_any() {
                     Indent(this_depth) => {
-                        debug!("iden last: {:?}", self.last_depth);
+                        debug!("        Hit an indent: {:?}", self.last_depth);
 
                         // Indents / repeated indents are fine as long as the first of
                         // the current indent and the directly previous indent is Indent(0).
@@ -735,21 +738,22 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         break;
                     },
                     _ => {
-                        debug!("last: {:?}", self.last_depth);
+                        debug!("        Not an indent: {:?}", self.last_depth);
 
                         // A new non-Indent is only allowed after there has been an Indent
                         // token. This forbids two statements (or any start of a block
                         // and its subsequent statments) from being on the same line.
                         if let Some(last_depth) = self.last_depth {
-                            debug!("dedenting? {:?} {:?}", last_depth, self.indent_level);
-                            debug!("         ? {:?}", current_level);
-
-                            if last_depth < self.indent_level {
+                            if last_depth < current_level {
+                                debug!("            Not a dedent: last({:?}) current({:?})", last_depth, current_level);
                                 self.indent_level = last_depth;
                                 self.last_depth = Some(last_depth);
 
                                 outer_break = true;
+                            } else {
+                                debug!("            A dedent: last({:?}) current({:?})", last_depth, current_level);
                             }
+                            debug!("    Breaking out of indent loop");
                             break;
                         } else {
                             let token = self.peek_any();
@@ -761,20 +765,21 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 }
             }
             if outer_break {
+                debug!("Breaking out of TLL");
                 break;
             }
 
-            debug!("last depth before top level parse: {:?}", self.last_depth);
+            debug!("    Last depth before TLL: {:?}", self.last_depth);
             self.last_depth = None;
             match self.peek() {
                 Identifier(ident) => {
-                    debug!("Top level found an identifier: {:?}", self.peek());
+                    debug!("    TLL found an identifier: {:?}", self.peek());
                     if let Some(exprwrapper) = self.parse_idents(ident) {
                         expr.push(exprwrapper);
                     }
                 },
                 Keyword(keyword) => {
-                    debug!("Top level found an keyword: {:?}", self.peek());
+                    debug!("    TLL found an keyword: {:?}", self.peek());
                     if let Some(exprwrapper) = self.parse_keywords(keyword) {
                         expr.push(exprwrapper);
                     }
@@ -794,7 +799,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             };
         }
 
-        debug!("{:?}", expr);
+        debug!("Returning from parse: {:?}", expr);
         ExprWrapper::default(Expr::Block(expr))
     }
 

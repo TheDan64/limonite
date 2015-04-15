@@ -1,4 +1,5 @@
 extern crate limonite;
+extern crate env_logger;
 
 use std::vec::IntoIter;
 
@@ -75,6 +76,11 @@ fn expect_test(tokens: Vec<Tokens>, expected: Vec<ExprWrapper>) {
 
 fn unexpect_test(tokens: Vec<Tokens>, expected: Vec<ExprWrapper>) {
     general_expect_test(tokens, expected, false);
+}
+
+#[test]
+fn main() {
+    env_logger::init().unwrap();
 }
 
 #[test]
@@ -587,9 +593,9 @@ fn test_nested_indent_then_dedent() {
     // while a,
     //     while a,
     //         while a,
-    //             b = b
-    //         b = b
-    // b = b
+    //             b = c
+    //         d = e
+    // f = g
     let tokens = vec![
         Keyword(Keywords::While),
         Identifier("a".to_string()),

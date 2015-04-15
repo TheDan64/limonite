@@ -2,11 +2,11 @@
 #![crate_type = "bin"]
 #![allow(dead_code)]
 
+extern crate docopt;
+extern crate rustc_serialize;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
-extern crate docopt;
-extern crate rustc_serialize;
 
 use std::env;
 use std::io::{BufReader, Read};
