@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/DanCardin/limonite.svg)](https://travis-ci.org/DanCardin/limonite)
+[![Build Status](https://travis-ci.org/TheDan64/limonite.svg)](https://travis-ci.org/TheDan64/limonite)
 
 Limonite
 ========
