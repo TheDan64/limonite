@@ -1,5 +1,4 @@
 [package]
-
 name = "limonite"
 version = "0.0.4"
 authors = [
@@ -10,13 +9,12 @@ description = "The Limonite language compiler"
 repository = "https://github.com/TheDan64/limonite.git"
 
 [[bin]]
-
 name = "limonite"
 path = "src/main.rs"
 
 [dependencies]
-llvm_sys = "*"
 docopt = "*"
-rustc-serialize = "*"
-log = "*"
 env_logger = "*"
+llvm_sys = "*"
+log = "*"
+rustc-serialize = "*"

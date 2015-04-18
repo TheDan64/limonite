@@ -5,7 +5,7 @@ use syntax::core::tokens::Tokens::*;
 use syntax::core::keywords::Keywords;
 use syntax::core::symbols::Symbols;
 use syntax::ast::expr::*;
-use syntax::ast::consts::*;
+use syntax::ast::literals::*;
 use syntax::ast::op::*;
 use syntax::core::types::*;
 
@@ -175,7 +175,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             };
 
             if let Some(arg) = name {
-                args.push(ExprWrapper::default(Expr::Const(Const::UTF8String(arg.to_string()))));
+                args.push(ExprWrapper::default(Expr::Literal(Literals::UTF8String(arg.to_string()))));
                 first_arg = false;
                 continue;
             }
@@ -504,7 +504,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
     fn parse_expression(&mut self, precedence: u8) -> Option<ExprWrapper> {
         // E -> (E) | [E] | E * E | E + E | E - E | E / E | E % E | E ^ E |
         // E equals E | E and E | E or E | not E | -E | Terminal
-        // Terminal -> identifier | const
+        // Terminal -> identifier | literal
 
         let subroutine = self.parse_expression_subroutine();
         if subroutine == None {
@@ -550,10 +550,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
         match self.next_token() {
             // Terminals
             StrLiteral(string) => {
-                Some(ExprWrapper::default(Expr::Const(Const::UTF8String(string))))
+                Some(ExprWrapper::default(Expr::Literal(Literals::UTF8String(string))))
             },
             CharLiteral(chr) => {
-                Some(ExprWrapper::default(Expr::Const(Const::UTF8Char(chr))))
+                Some(ExprWrapper::default(Expr::Literal(Literals::UTF8Char(chr))))
             },
             Identifier(ident) => {
                 if let Symbol(Symbols::ParenOpen) = self.peek_any() {
@@ -691,19 +691,19 @@ impl<TokType: Tokenizer> Parser<TokType> {
             }
         }
 
-        ExprWrapper::default(Expr::Const(match type_ {
-            Some(Types::Int32Bit)   => Const::I32Num(int32),
-            Some(Types::Int64Bit)   => Const::I64Num(int64),
-            Some(Types::UInt32Bit)  => Const::U32Num(uint32),
-            Some(Types::UInt64Bit)  => Const::U64Num(uint64),
-            Some(Types::Float32Bit) => Const::F32Num(float32),
-            Some(Types::Float64Bit) => Const::F64Num(float64),
+        ExprWrapper::default(Expr::Literal(match type_ {
+            Some(Types::Int32Bit)   => Literals::I32Num(int32),
+            Some(Types::Int64Bit)   => Literals::I64Num(int64),
+            Some(Types::UInt32Bit)  => Literals::U32Num(uint32),
+            Some(Types::UInt64Bit)  => Literals::U64Num(uint64),
+            Some(Types::Float32Bit) => Literals::F32Num(float32),
+            Some(Types::Float64Bit) => Literals::F64Num(float64),
             _ => {
                 // No given type suffix. Default to i32 or f32 when a decimal point present
                 if has_decimal_point {
-                    Const::F32Num(float32)
+                    Literals::F32Num(float32)
                 } else {
-                    Const::I32Num(int32)
+                    Literals::I32Num(int32)
                 }
             }
         }))

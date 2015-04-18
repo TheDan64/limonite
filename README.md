@@ -14,7 +14,8 @@ Limonite is a relatively basic programming language written in rust using LLVM a
 	* Rust (nightly)
 	* Cargo
 	* git
-	* LLVM 3.6.0 (newer versions may work)
+	* LLVM >= 3.6
+	* cmake >= 2.6
 
 2. Download and build Limonite.
 
