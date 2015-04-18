@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-
 use syntax::lexer::Tokenizer;
 use syntax::core::tokens::Tokens;
 use syntax::core::tokens::Tokens::*;
@@ -25,6 +24,14 @@ enum BlockStatus {
     Out,
     Starting,
     In,
+}
+
+fn debunt(val: u64) -> String {
+    let mut a = String::new();
+    for _ in 0..val {
+        a.push_str("    ");
+    }
+    return a;
 }
 
 impl<TokType: Tokenizer> Parser<TokType> {
@@ -124,7 +131,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         self.valid_ast = false;
 
-        println!("filename:{}:{} {}", start_line, start_column, msg);
+        debug!("filename:{}:{} {}", start_line, start_column, msg);
         Tokens::Error(format!("filename:{}:{} {}", start_line, start_column, msg))
     }
 
@@ -198,6 +205,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         args
     }
 
+    #[allow(unused_variables)]
     fn parse_fn_call(&mut self, ident: String) -> Option<ExprWrapper> {
         let token = self.next_token();
         if !token.expect(Symbol(Symbols::ParenOpen)) {
@@ -260,10 +268,11 @@ impl<TokType: Tokenizer> Parser<TokType> {
         self.next_token();
 
         // Get the function name
-        let fn_name = match self.next_token() {
+        let tok = self.next_token();
+        let fn_name = match tok {
             Identifier(string) => string,
             _ => {
-                self.write_expect_error("", "an identifier", "something else");
+                self.write_expect_error("", "an identifier", &format!("{:?}", tok));
 
                 return None;
             }
@@ -273,13 +282,12 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let mut tok = self.next_token();
 
         if !tok.expect(Symbol(Symbols::ParenOpen)) {
-            self.write_expect_error("", "an opening paren '('", "something else");
+            self.write_expect_error("", "an opening paren '('", &format!("{:?}", tok));
 
             return None;
         }
 
         // Get all args (ie a: u64)
-        // ToDo: optional args (ie a = "foo": str)
         let mut args = Vec::new();
 
         tok = self.next_token();
@@ -290,7 +298,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 let arg_name = match tok {
                     Identifier(ident) => ident,
                     _ => {
-                        self.write_expect_error("", "a function name", "something else");
+                        self.write_expect_error("", "a function name", &format!("{:?}", tok));
 
                         return None;
                     }
@@ -299,21 +307,23 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 tok = self.next_token();
 
                 if !tok.expect(Symbol(Symbols::Colon)) {
-                    self.write_expect_error("", "a colon ':'", "something else");
+                    self.write_expect_error("", "a colon ':'", &format!("{:?}", tok));
 
                     return None;
                 }
 
-                match self.next_token() {
+                let this_token = self.next_token();
+                match this_token {
                     Identifier(ident) => args.push((arg_name, Identifier(ident))),
                     _ => {
-                        self.write_expect_error("", "a return type", "something else");
+                        self.write_expect_error("", "a return type", &format!("{:?}", this_token));
 
                         return None;
                     }
                 };
 
-                match self.next_token() {
+                let this_token = self.next_token();
+                match this_token {
                     // Hit a closing paren, no more args
                     Symbol(Symbols::ParenClose) => break,
 
@@ -322,7 +332,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
                     // Found something else, error
                     _ => {
-                        self.write_expect_error("", "a closing paren ')' or comma ','", "something else");
+                        self.write_expect_error("", "a closing paren ')' or comma ','", &format!("{:?}", this_token));
 
                         return None;
                     }
@@ -334,10 +344,8 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         // Get right arrow ->
         tok = self.next_token();
-
-        if tok.expect(Symbol(Symbols::RightThinArrow)) {
-            self.write_expect_error("", "a thin right arrow '->'", "something else");
-
+        if !tok.expect(Symbol(Symbols::RightThinArrow)) {
+            self.write_expect_error("", "a thin right arrow '->'", &format!("{:?}", tok));
             return None;
         }
 
@@ -349,7 +357,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 Identifier(ident)
             },
             _ => {
-                self.write_expect_error("", "a return type", "something else");
+                self.write_expect_error("", "a return type", &format!("{:?}", tok));
 
                 return None;
             }
@@ -453,7 +461,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let tok = self.next_token();
 
         if !tok.expect(Symbol(Symbols::Comma)) {
-            self.write_expect_error("", "a comma ','", "something else");
+            self.write_expect_error("", "a comma ','", &format!("{:?}", tok));
 
             return None;
         }
@@ -504,10 +512,10 @@ impl<TokType: Tokenizer> Parser<TokType> {
         }
         let mut lhs = subroutine.unwrap();
 
+        debug!("        Parse_expression: sub({:?}) next({:?})", lhs, self.peek_any());
         let mut token = self.peek_any();
-        println!("parse expr: {:?}", token);
         while self.is_infix_op(&token) && self.get_precedence(&token) >= precedence {
-            token = self.next_token();
+            token = self.next_token_any();
             let new_precedence = self.get_precedence(&token) + match token {
                 // Right associative ops don't get the +1
                 Symbol(Symbols::Caret) => 0,
@@ -531,7 +539,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 return None;
             }
             token = self.peek_any();
-            println!("parse expr end: {:?}", token);
+            debug!("        Parse expr end: {:?}", token);
         }
         return Some(lhs);
     }
@@ -548,7 +556,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 Some(ExprWrapper::default(Expr::Literal(Literals::UTF8Char(chr))))
             },
             Identifier(ident) => {
-                if let Symbol(Symbols::ParenOpen) = self.peek() {
+                if let Symbol(Symbols::ParenOpen) = self.peek_any() {
                     return self.parse_fn_call(ident);
                 }
 
@@ -563,7 +571,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 let tok = self.next_token();
 
                 if !tok.expect(Symbol(Symbols::ParenClose)) {
-                    self.write_expect_error("", "a closing paren ')'", "something else");
+                    self.write_expect_error("", "a closing paren ')'", &format!("{:?}", tok));
 
                     return None;
                 }
@@ -704,16 +712,25 @@ impl<TokType: Tokenizer> Parser<TokType> {
     /// Returns an `ExprWrapper` to the root of the current AST branch
     fn sub_parse(&mut self) -> ExprWrapper {
         let mut expr = Vec::new();
-        let current_level = self.indent_level;
+        let cur_level = self.indent_level;
+        debug!("{}Beginning parse", debunt(cur_level));
         loop {
-            println!("finished the first match: {:?}", expr);
-            // Skip repeated 0 depth indents
+            debug!("{}Beginning TLL at level: {:?}", debunt(cur_level + 1), cur_level);
+
+            // This inner loop is used to repeatedly consume Indent(0) tokens
+            // for as many lines as necessary until the next real line.
             let mut outer_break = false;
+            debug!("{}Start indent consumption loop", debunt(cur_level + 1));
             loop {
-                println!("token: {:?}", self.peek_any());
+                debug!("{}Peek: {:?}", debunt(cur_level + 2), self.peek_any());
                 match self.peek_any() {
                     Indent(this_depth) => {
-                        println!("iden last: {:?}", self.last_depth);
+                        debug!("{}Hit an indent: {:?}", debunt(cur_level + 2), self.last_depth);
+
+                        // Indents / repeated indents are fine as long as the first of
+                        // the current indent and the directly previous indent is Indent(0).
+                        // The current one can be anything since it could be the last indent
+                        // before a new statement.
                         if let Some(last_depth) = self.last_depth {
                             if last_depth != 0 {
                                 self.write_error(&format!("There were two indents in a row, {} and {}",
@@ -730,17 +747,22 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         break;
                     },
                     _ => {
-                        println!("last: {:?}", self.last_depth);
-                        if let Some(last_depth) = self.last_depth {
-                            println!("dedenting? {:?} {:?}", last_depth, self.indent_level);
-                            println!("         ? {:?}", current_level);
+                        debug!("{}Not an indent: {:?}", debunt(cur_level + 2), self.last_depth);
 
-                            if last_depth < self.indent_level {
+                        // A new non-Indent is only allowed after there has been an Indent
+                        // token. This forbids two statements (or any start of a block
+                        // and its subsequent statments) from being on the same line.
+                        if let Some(last_depth) = self.last_depth {
+                            if last_depth < cur_level {
+                                debug!("{}Not a dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
                                 self.indent_level = last_depth;
                                 self.last_depth = Some(last_depth);
 
                                 outer_break = true;
+                            } else {
+                                debug!("{}A dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
                             }
+                            debug!("{}Breaking out of indent loop", debunt(cur_level + 2));
                             break;
                         } else {
                             let token = self.peek_any();
@@ -752,18 +774,21 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 }
             }
             if outer_break {
+                debug!("{}Breaking out of TLL", debunt(cur_level));
                 break;
             }
 
+            debug!("{}Last depth before TLL: {:?}", debunt(cur_level + 1), self.last_depth);
             self.last_depth = None;
-            println!("top level: {:?}", self.peek());
             match self.peek() {
                 Identifier(ident) => {
+                    debug!("{}TLL found an identifier: {:?}", debunt(cur_level + 1), self.peek());
                     if let Some(exprwrapper) = self.parse_idents(ident) {
                         expr.push(exprwrapper);
                     }
                 },
                 Keyword(keyword) => {
+                    debug!("{}TLL found an keyword: {:?}", debunt(cur_level + 1), self.peek());
                     if let Some(exprwrapper) = self.parse_keywords(keyword) {
                         expr.push(exprwrapper);
                     }
@@ -783,7 +808,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
             };
         }
 
-        println!("{:?}", expr);
+        debug!("{}Returning from parse: {:?}", debunt(cur_level), expr);
         ExprWrapper::default(Expr::Block(expr))
     }
 

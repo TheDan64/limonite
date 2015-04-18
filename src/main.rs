@@ -1,8 +1,12 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
 #![allow(dead_code)]
+
 extern crate docopt;
 extern crate rustc_serialize;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
 use std::env;
 use std::io::{BufReader, Read};
@@ -36,6 +40,8 @@ struct Args {
 }
 
 fn main() {
+    env_logger::init().unwrap();
+
     let args: Args = Docopt::new(USAGE)
                             .and_then(|d| d.decode())
                             .unwrap_or_else(|e| e.exit());
