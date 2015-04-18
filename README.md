@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/DanCardin/limonite.svg)](https://travis-ci.org/DanCardin/limonite)
+
 Limonite
 ========
 
