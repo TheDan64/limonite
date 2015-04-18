@@ -1,4 +1,5 @@
 extern crate limonite;
+extern crate env_logger;
 
 use std::vec::IntoIter;
 
@@ -75,6 +76,11 @@ fn expect_test(tokens: Vec<Tokens>, expected: Vec<ExprWrapper>) {
 
 fn unexpect_test(tokens: Vec<Tokens>, expected: Vec<ExprWrapper>) {
     general_expect_test(tokens, expected, false);
+}
+
+#[test]
+fn main() {
+    env_logger::init().unwrap();
 }
 
 #[test]
@@ -587,33 +593,33 @@ fn test_nested_indent_then_dedent() {
     // while a,
     //     while a,
     //         while a,
-    //             b = b
-    //         b = b
-    // b = b
+    //             b = c
+    //         d = e
+    // f = g
     let tokens = vec![
         Keyword(Keywords::While),
         Identifier("a".to_string()),
         Symbol(Symbols::Comma),
         Indent(1),
-        Keyword(Keywords::While),
-        Identifier("a".to_string()),
-        Symbol(Symbols::Comma),
-        Indent(2),
-        Keyword(Keywords::While),
-        Identifier("a".to_string()),
-        Symbol(Symbols::Comma),
-        Indent(3),
-        Identifier("b".to_string()),
-        Symbol(Symbols::Equals),
-        Identifier("b".to_string()),
-        Indent(2),
-        Identifier("b".to_string()),
-        Symbol(Symbols::Equals),
-        Identifier("b".to_string()),
+            Keyword(Keywords::While),
+            Identifier("a".to_string()),
+            Symbol(Symbols::Comma),
+            Indent(2),
+                Keyword(Keywords::While),
+                Identifier("a".to_string()),
+                Symbol(Symbols::Comma),
+                Indent(3),
+                    Identifier("b".to_string()),
+                    Symbol(Symbols::Equals),
+                    Identifier("c".to_string()),
+                Indent(2),
+                Identifier("d".to_string()),
+                Symbol(Symbols::Equals),
+                Identifier("e".to_string()),
         Indent(0),
-        Identifier("b".to_string()),
+        Identifier("f".to_string()),
         Symbol(Symbols::Equals),
-        Identifier("b".to_string()),
+        Identifier("g".to_string()),
     ];
     let desired_ast = vec![
         ExprWrapper::default(Expr::WhileLoop(
@@ -627,17 +633,21 @@ fn test_nested_indent_then_dedent() {
                             ExprWrapper::default(Expr::Block(vec![
                                 ExprWrapper::default(Expr::Assign(
                                     ExprWrapper::default(Expr::Ident("b".to_string())),
-                                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                                    ExprWrapper::default(Expr::Ident("c".to_string())),
                                 )),
                             ])),
+                        )),
+                        ExprWrapper::default(Expr::Assign(
+                            ExprWrapper::default(Expr::Ident("d".to_string())),
+                            ExprWrapper::default(Expr::Ident("e".to_string())),
                         )),
                     ])),
                 )),
             ])),
         )),
         ExprWrapper::default(Expr::Assign(
-            ExprWrapper::default(Expr::Ident("b".to_string())),
-            ExprWrapper::default(Expr::Ident("b".to_string())),
+            ExprWrapper::default(Expr::Ident("f".to_string())),
+            ExprWrapper::default(Expr::Ident("g".to_string())),
         )),
     ];
     expect_test(tokens, desired_ast);
