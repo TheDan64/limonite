@@ -262,6 +262,9 @@ impl CodeGen for Expr {
                     }
                 }
             },
+            // Expr::VarDecl(ref const_bool, ref typ, ref name, ref expr) => {
+            //     panic!("Codegen error: unimplemented variable declaration");
+            // },
             Expr::NoOp => None,
             _ => None
         }

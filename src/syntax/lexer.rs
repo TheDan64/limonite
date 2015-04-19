@@ -221,7 +221,7 @@ impl<'a> Lexer<'a> {
     fn symbols_token(&self, punc: &str) -> Tokens {
         Symbol(match punc.parse::<Symbols>() {
             Ok(p)  => p,
-            Err(e) => panic!(e)
+            Err(e) => unreachable!(e)
         })
     }
 

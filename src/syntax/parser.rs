@@ -531,7 +531,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     Symbol(Symbols::Percent) => InfixOp::Mod,
                     Symbol(Symbols::Caret) => InfixOp::Pow,
                     Keyword(Keywords::Equals) => InfixOp::Equ,
-                    _ => panic!("This shouldn't happen!")
+                    _ => unreachable!("Expression parse")
                 };
 
                 lhs = ExprWrapper::default(Expr::InfixOp(infix, lhs, rhs));
@@ -687,7 +687,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     }
                 },
                 '.' => before_decimal_point = false,
-                _ => panic!("Numeric parse failure: Invalid characters found!")
+                _ => unreachable!("Invalid characters found")
             }
         }
 
