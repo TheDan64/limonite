@@ -6,7 +6,7 @@ use self::llvm_sys::core::*;
 use self::llvm_sys::analysis::*;
 use self::llvm_sys::execution_engine::*;
 use self::llvm_sys::prelude::*;
-//use self::llvm_sys::target::*;
+use self::llvm_sys::target::*;
 use syntax::ast::op::*;
 use syntax::ast::expr::*;
 use syntax::ast::literals::*;
@@ -24,11 +24,9 @@ impl Context {
     #![allow(unused_mut)]
     #![allow(unused_variables)]
     pub unsafe fn new(module_name: &str) -> Context {
-        // Needed for codegen but not available until llvm-sys 0.11
-        // which isn't available atm over crates due to a renaming problem..
-        // LLVM_InitializeNativeTarget();
-        // LLVM_InitializeNativeTargetAsmPrinter();
-        // LLVM_InitializeNativeTargetAsmParser();
+        LLVM_InitializeNativeTarget();
+        LLVM_InitializeNativeAsmPrinter();
+        LLVM_InitializeNativeAsmParser();
 
         let context = LLVMContextCreate();
         let module = LLVMModuleCreateWithNameInContext(c_str_ptr(module_name), context);
