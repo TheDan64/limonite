@@ -104,6 +104,6 @@ fn main() {
         // Compiles the IR and displays errors
         context.verify();
 
-        // context.run();
+        context.run();
     }
 }

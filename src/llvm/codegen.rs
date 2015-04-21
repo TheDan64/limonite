@@ -1,12 +1,14 @@
 extern crate llvm_sys;
 
 use std::collections::HashMap;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
+use std::str;
 use self::llvm_sys::core::*;
 use self::llvm_sys::analysis::*;
 use self::llvm_sys::execution_engine::*;
 use self::llvm_sys::prelude::*;
 use self::llvm_sys::target::*;
+//use self::llvm_sys::transforms::scalar::*;
 use syntax::ast::op::*;
 use syntax::ast::expr::*;
 use syntax::ast::literals::*;
@@ -17,16 +19,16 @@ pub struct Context {
     module: LLVMModuleRef,
     builder: LLVMBuilderRef,
     execution_engine: LLVMExecutionEngineRef,
+    fn_pass_manager: LLVMPassManagerRef,
     named_values: HashMap<String, LLVMValueRef>,
 }
 
 impl Context {
-    #![allow(unused_mut)]
-    #![allow(unused_variables)]
     pub unsafe fn new(module_name: &str) -> Context {
         LLVM_InitializeNativeTarget();
         LLVM_InitializeNativeAsmPrinter();
         LLVM_InitializeNativeAsmParser();
+        LLVMLinkInInterpreter();
 
         let context = LLVMContextCreate();
         let module = LLVMModuleCreateWithNameInContext(c_str_ptr(module_name), context);
@@ -35,14 +37,28 @@ impl Context {
         let mut execution_engine = 0 as LLVMExecutionEngineRef;
         let mut error_msg = 0 as *mut i8;
 
-        // LLVMCreateExecutionEngineForModule(&mut execution_engine, module, &mut error_msg);
-        // assert!(execution_engine != 0 as LLVMExecutionEngineRef, "Failed to initialize the execution engine.");
+        if LLVMCreateExecutionEngineForModule(&mut execution_engine, module, &mut error_msg) == 1 {
+            panic!("{}", str::from_utf8(CStr::from_ptr(error_msg).to_bytes()).unwrap())
+        }
+
+        let fn_pass_manager = LLVMCreateFunctionPassManagerForModule(module);
+        let target_data = LLVMGetExecutionEngineTargetData(execution_engine);
+        let data_layout = LLVMCopyStringRepOfTargetData(target_data);
+        LLVMSetDataLayout(module, data_layout);
+        LLVMAddTargetData(target_data, fn_pass_manager);
+        LLVMDisposeMessage(data_layout);
+
+        // Add desired passes to pass manager here
+//        LLVMAddInstructionCombiningPass(fn_pass_manager);
+
+        LLVMInitializeFunctionPassManager(fn_pass_manager);
 
         Context {
             context: context,
             module: module,
             builder: builder,
             execution_engine: execution_engine,
+            fn_pass_manager: fn_pass_manager,
             named_values: named_values,
         }
     }
@@ -90,7 +106,8 @@ impl Context {
 impl Drop for Context {
     fn drop(&mut self) {
         unsafe {
-            LLVMDisposeExecutionEngine(self.execution_engine);
+            LLVMDisposePassManager(self.fn_pass_manager);
+//            LLVMDisposeExecutionEngine(self.execution_engine); // signal 4s for some reason
             LLVMDisposeBuilder(self.builder);
             LLVMDisposeModule(self.module);
             LLVMContextDispose(self.context);
