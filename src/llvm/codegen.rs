@@ -191,7 +191,7 @@ impl CodeGen for Expr {
                         let struct_fields = vec![LLVMGetUndef(i8_ptr_type), len];
                         let const_struct = LLVMConstStructInContext(context.get_context(), struct_fields.as_ptr() as *mut _, 2, 0);
 
-                        Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 0, c_str_ptr("i")))
+                        Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 0, c_str_ptr("i"))) // Problem
                     },
                     &Literals::I32Num(ref val) => {
                         let ty = LLVMInt32TypeInContext(context.get_context());
