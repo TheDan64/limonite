@@ -111,11 +111,12 @@ unsafe fn generate_types(context: &mut Context) {
 
     let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),
                   LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0)];
+    let string_type = LLVMStructType(string_type_fields.as_ptr() as *mut _, 2, 0);
 
 //    let struct_type = LLVMStructType(string_type_fields.as_ptr() as *mut _, 2, 0);
 //    let const_str_var = LLVMAddGlobal(context.get_module(), struct_type, c_str_ptr("struct.String"));
 
-    let string_struct_type = LLVMStructCreateNamed(LLVMGetGlobalContext(), c_str_ptr("string"));
-    LLVMStructSetBody(string_struct_type, string_type_fields.as_ptr() as *mut _, 2, 0);
+    // let string_struct_type = LLVMStructCreateNamed(LLVMGetGlobalContext(), c_str_ptr("string"));
+    LLVMStructSetBody(string_type, string_type as *mut _, 2, 0);
 //    let string_struct = LLVMStructType(struct_type, 2, 0);
 }
