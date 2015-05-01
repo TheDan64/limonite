@@ -15,11 +15,11 @@ use std::path::Path;
 use docopt::Docopt;
 use syntax::lexer::Lexer;
 use syntax::parser::Parser;
-use llvm::codegen::{CodeGen, Context};
-use llvm::builtins::generate_builtins;
+use codegen::codegen::{CodeGen, Context};
+use codegen::builtins::generate_builtins;
 
 pub mod syntax;
-pub mod llvm;
+pub mod codegen;
 
 static USAGE: &'static str = "\
 Usage: limonite <file>
