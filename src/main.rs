@@ -85,6 +85,7 @@ fn main() {
     // Parse & Build an AST
     let mut parser = Parser::new(lexer);
 
+    // Could just unwrap this?:
     let ast_root = match parser.parse() {
         Some(ast) => ast,
         None => return,
