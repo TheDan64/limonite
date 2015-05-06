@@ -188,10 +188,13 @@ impl CodeGen for Expr {
                         LLVMBuildStore(context.get_builder(), element_ptr, allocated_str_ptr);
 
                         let loaded_ptr = LLVMBuildLoad(context.get_builder(), allocated_str_ptr, c_str_ptr("l"));
-                        let struct_fields = vec![LLVMGetUndef(i8_ptr_type), len];
-                        let const_struct = LLVMConstStructInContext(context.get_context(), struct_fields.as_ptr() as *mut _, 2, 0);
+                        // String type generated here should eventually be preloaded type
+                        let string_type_fields = vec![LLVMPointerType(i8_type, 0), i64_type];
+                        let string_type = LLVMStructTypeInContext(context.get_context(), string_type_fields.as_ptr() as *mut _, 2, 0);
+                        let undef = LLVMGetUndef(string_type);
 
-                        Some(LLVMBuildInsertValue(context.get_builder(), const_struct, loaded_ptr, 0, c_str_ptr("i"))) // Problem
+                        let i = LLVMBuildInsertValue(context.get_builder(), undef, loaded_ptr, 0, c_str_ptr("i"));
+                        Some(LLVMBuildInsertValue(context.get_builder(), i, len, 1, c_str_ptr("i")))
                     },
                     &Literals::I32Num(ref val) => {
                         let ty = LLVMInt32TypeInContext(context.get_context());
