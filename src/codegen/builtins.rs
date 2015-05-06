@@ -99,7 +99,7 @@ unsafe fn generate_print(context: &mut Context) {
 
     // End
     LLVMPositionBuilderAtEnd(context.get_builder(), end_block);
-    let newline = LLVMConstInt(i32_type, '\n' as u64, 0);;
+    let newline = LLVMConstInt(i32_type, '\n' as u64, 0);
     LLVMBuildCall(context.get_builder(), putchar_fn, vec![newline].as_ptr() as *mut _, 1, c_str_ptr(""));    
     LLVMBuildRetVoid(context.get_builder());
 }
