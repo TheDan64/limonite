@@ -15,11 +15,11 @@ use std::path::Path;
 use docopt::Docopt;
 use syntax::lexer::Lexer;
 use syntax::parser::Parser;
-use llvm::codegen::{CodeGen, Context};
-use llvm::builtins::generate_builtins;
+use codegen::codegen::{CodeGen, Context};
+use codegen::builtins::generate_builtins;
 
 pub mod syntax;
-pub mod llvm;
+pub mod codegen;
 
 static USAGE: &'static str = "\
 Usage: limonite <file>
@@ -85,6 +85,7 @@ fn main() {
     // Parse & Build an AST
     let mut parser = Parser::new(lexer);
 
+    // Could just unwrap this?:
     let ast_root = match parser.parse() {
         Some(ast) => ast,
         None => return,
@@ -104,6 +105,6 @@ fn main() {
         // Compiles the IR and displays errors
         context.verify();
 
-        // context.run();
+        context.run();
     }
 }
