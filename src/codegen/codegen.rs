@@ -270,6 +270,34 @@ impl CodeGen for Expr {
 
                 Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, ret_var))
             },
+            Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
+                let (lhs_val, rhs_val) = (lhs_exprwrapper.gen_code(context), rhs_exprwrapper.gen_code(context));
+
+                match *op {
+                    InfixOp::Add => match (lhs_val, rhs_val) {
+                        _ => panic!("Unimplemented infix operator add")
+                    },
+                    InfixOp::Sub => match (lhs_val, rhs_val) {
+                        _ => panic!("Unimplemented infix operator sub")
+                    },
+                    InfixOp::Div => match (lhs_val, rhs_val) {
+                        _ => panic!("Unimplemented infix operator div")
+                    },
+                    InfixOp::Mul => match (lhs_val, rhs_val) {
+                        _ => panic!("Unimplemented infix operator mul")
+                    },
+                    InfixOp::Mod => match (lhs_val, rhs_val) {
+                        _ => panic!("Unimplemented infix operator mod")
+                    },
+                    InfixOp::Pow => match (lhs_val, rhs_val) {
+                        _ => panic!("Unimplemented infix operator pow")
+                    },
+                    InfixOp::Equ => match (lhs_val, rhs_val) {
+                        _ => panic!("Unimplemented infix operator equ")
+
+                    },
+                }
+            },
             Expr::UnaryOp(ref op, ref expr) => {
                 match *op {
                     // I think Negate would be easier to handle by replacing it with multiply * -1 in the parser
