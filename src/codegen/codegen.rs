@@ -271,20 +271,26 @@ impl CodeGen for Expr {
                 Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, ret_var))
             },
             Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
-                let (lhs_val, rhs_val) = (lhs_exprwrapper.gen_code(context), rhs_exprwrapper.gen_code(context));
+                let (lhs_val, rhs_val) =  match (lhs_exprwrapper.gen_code(context), rhs_exprwrapper.gen_code(context)) {
+                    (Some(val1), Some(val2)) => (val1, val2),
+                    (Some(_), None) => unreachable!("CodeGen Error: InfixOp only LHS contains value"),
+                    (None, Some(_)) => unreachable!("CodeGen Error: InfixOp only RHS contains value"),
+                    (None, None) => unreachable!("CodeGen Error: InfixOp has no values")
+                };
 
-                match *op {
+                match *op { // Needs testing, what happens when adding diff types? LLVM error? Is that SA's job?
                     InfixOp::Add => match (lhs_val, rhs_val) {
-                        _ => panic!("Unimplemented infix operator add")
+                        _ => Some(LLVMBuildAdd(context.get_builder(), lhs_val, rhs_val, c_str_ptr("add")))
                     },
                     InfixOp::Sub => match (lhs_val, rhs_val) {
-                        _ => panic!("Unimplemented infix operator sub")
+                        _ => Some(LLVMBuildSub(context.get_builder(), lhs_val, rhs_val, c_str_ptr("sub")))
                     },
                     InfixOp::Div => match (lhs_val, rhs_val) {
+                        // LLVMBuildFDiv, LLVMBuildSDiv, LLVMBuildUDiv
                         _ => panic!("Unimplemented infix operator div")
                     },
                     InfixOp::Mul => match (lhs_val, rhs_val) {
-                        _ => panic!("Unimplemented infix operator mul")
+                        _ => Some(LLVMBuildMul(context.get_builder(), lhs_val, rhs_val, c_str_ptr("mul")))
                     },
                     InfixOp::Mod => match (lhs_val, rhs_val) {
                         _ => panic!("Unimplemented infix operator mod")
@@ -293,17 +299,20 @@ impl CodeGen for Expr {
                         _ => panic!("Unimplemented infix operator pow")
                     },
                     InfixOp::Equ => match (lhs_val, rhs_val) {
+                        // LLVMBuildICmp, LLVMBuildFCmp?
                         _ => panic!("Unimplemented infix operator equ")
 
                     },
                 }
             },
-            Expr::UnaryOp(ref op, ref expr) => {
+            Expr::UnaryOp(ref op, ref expr) => { // Needs further testing
                 match *op {
-                    // I think Negate would be easier to handle by replacing it with multiply * -1 in the parser
-                    UnaryOp::Negate => panic!("Codegen error: Negation not supported in codegen."),
+                    UnaryOp::Negate => match expr.gen_code(context) {
+                        Some(val) => Some(LLVMBuildNeg(context.get_builder(), val, c_str_ptr("neg"))),
+                        None => None
+                    },
                     UnaryOp::Not => match expr.gen_code(context) {
-                        Some(val) => Some(LLVMBuildNot(context.get_builder(), val, c_str_ptr("nottmp"))),
+                        Some(val) => Some(LLVMBuildNot(context.get_builder(), val, c_str_ptr("not"))),
                         None => None
                     }
                 }
