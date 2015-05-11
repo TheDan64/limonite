@@ -6,12 +6,14 @@ before_install:
     - sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test/
     - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
     - sudo apt-get update -qq
+    - sudo apt-get purge -qq llvm-2.9 llvm-2.9-dev llvm-2.9-runtime libllvm2.9 libllvm3.0
+    - sudo rm -r /usr/local/clang-3.4
 
 install:
     - sudo apt-get install -qq clang-3.6 libclang-common-3.6-dev libclang-3.6-dev libclang1-3.6 libllvm3.6 llvm-3.6 llvm-3.6-dev llvm-3.6-runtime lib32z1-dev libedit-dev
     - sudo mkdir -p /usr/lib/llvm-3.6/share/llvm
     - sudo ln -s /usr/share/llvm-3.6/cmake/ /usr/lib/llvm-3.6/share/llvm
-    - sudo ln -s /usr/lib/llvm-3.6/bin/llvm-config /usr/bin/llvm-config
+    - sudo ln -s /usr/bin/llvm-config-3.6 /usr/bin/llvm-config
 
 notifications:
-  email: false
+    email: false
