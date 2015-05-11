@@ -243,7 +243,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
         self.next_token();
 
         if let Some(rvalue) = self.parse_expression(0) {
-            let ident = ExprWrapper::default(Expr::Ident(ident));
+            let ident = ExprWrapper::default(Expr::Var(ident));
             return Some(ExprWrapper::default(Expr::Assign(ident, rvalue)));
         } else {
             self.write_expect_error("", "An expression", "None");
@@ -560,7 +560,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                     return self.parse_fn_call(ident);
                 }
 
-                Some(ExprWrapper::default(Expr::Ident(ident)))
+                Some(ExprWrapper::default(Expr::Var(ident)))
             },
             Numeric(string, _type) => Some(self.parse_number(string, _type)),
 
