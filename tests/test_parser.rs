@@ -99,9 +99,9 @@ fn test_print() {
             Expr::FnCall(
                 "print".to_string(),
                 vec![
-                    ExprWrapper::default(Expr::Ident("meow".to_string())),
+                    ExprWrapper::default(Expr::Var("meow".to_string())),
                     ExprWrapper::default(Expr::Literal(Literals::UTF8String("meow".to_string()))),
-                    ExprWrapper::default(Expr::Ident("meow".to_string())),
+                    ExprWrapper::default(Expr::Var("meow".to_string())),
                 ],
             ))];
 
@@ -201,8 +201,8 @@ fn test_expression() {
 
     let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Equ,
                     ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
-                    ExprWrapper::default(Expr::Ident("foo".to_string())),
-                    ExprWrapper::default(Expr::Ident("bar".to_string())))),
+                    ExprWrapper::default(Expr::Var("foo".to_string())),
+                    ExprWrapper::default(Expr::Var("bar".to_string())))),
                     ExprWrapper::default(Expr::Literal(Literals::UTF8String("foobar".to_string())))));
     let desired_ast = vec![
         ExprWrapper::default(
@@ -228,12 +228,12 @@ fn test_expression_precedence_add_mult() {
     ];
 
     let mult = ExprWrapper::default(Expr::InfixOp(InfixOp::Mul,
-               ExprWrapper::default(Expr::Ident("b".to_string())),
-               ExprWrapper::default(Expr::Ident("c".to_string()))));
+               ExprWrapper::default(Expr::Var("b".to_string())),
+               ExprWrapper::default(Expr::Var("c".to_string()))));
     let left_add = ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
-                   ExprWrapper::default(Expr::Ident("a".to_string())), mult));
+                   ExprWrapper::default(Expr::Var("a".to_string())), mult));
     let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Add, left_add,
-                    ExprWrapper::default(Expr::Ident("d".to_string()))));
+                    ExprWrapper::default(Expr::Var("d".to_string()))));
 
     let desired_ast = vec![
         ExprWrapper::default(
@@ -257,10 +257,10 @@ fn test_expression_precedence_pow() {
     ];
 
     let right_pow = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
-                    ExprWrapper::default(Expr::Ident("b".to_string())),
-                    ExprWrapper::default(Expr::Ident("c".to_string()))));
+                    ExprWrapper::default(Expr::Var("b".to_string())),
+                    ExprWrapper::default(Expr::Var("c".to_string()))));
     let condition = ExprWrapper::default(Expr::InfixOp(InfixOp::Pow,
-                    ExprWrapper::default(Expr::Ident("a".to_string())), right_pow));
+                    ExprWrapper::default(Expr::Var("a".to_string())), right_pow));
 
     let desired_ast = vec![
         ExprWrapper::default(
@@ -373,7 +373,7 @@ fn test_assign() {
     ];
     let desired_ast = vec![
         ExprWrapper::default(Expr::Assign(
-            ExprWrapper::default(Expr::Ident("b".to_string())),
+            ExprWrapper::default(Expr::Var("b".to_string())),
             ExprWrapper::default(
                 Expr::Literal(Literals::U32Num(123)),
             )
@@ -399,12 +399,12 @@ fn test_while_loop() {
         ExprWrapper::default(Expr::WhileLoop(
             ExprWrapper::default(Expr::InfixOp(
                 InfixOp::Add,
-                ExprWrapper::default(Expr::Ident("a".to_string())),
-                ExprWrapper::default(Expr::Ident("b".to_string())),
+                ExprWrapper::default(Expr::Var("a".to_string())),
+                ExprWrapper::default(Expr::Var("b".to_string())),
             )),
             ExprWrapper::default(Expr::Block(vec![
                 ExprWrapper::default(Expr::Assign(
-                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(Expr::Var("b".to_string())),
                     ExprWrapper::default(
                         Expr::Literal(Literals::U32Num(123)),
                     )
@@ -440,19 +440,19 @@ fn test_indentation() {
             ExprWrapper::default(Expr::WhileLoop(
                 ExprWrapper::default(Expr::InfixOp(
                     InfixOp::Add,
-                    ExprWrapper::default(Expr::Ident("a".to_string())),
-                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(Expr::Var("a".to_string())),
+                    ExprWrapper::default(Expr::Var("b".to_string())),
                 )),
                 ExprWrapper::default(Expr::Block(vec![
                     ExprWrapper::default(Expr::WhileLoop(
                         ExprWrapper::default(Expr::InfixOp(
                             InfixOp::Add,
-                            ExprWrapper::default(Expr::Ident("a".to_string())),
-                            ExprWrapper::default(Expr::Ident("b".to_string())),
+                            ExprWrapper::default(Expr::Var("a".to_string())),
+                            ExprWrapper::default(Expr::Var("b".to_string())),
                         )),
                         ExprWrapper::default(Expr::Block(vec![
                             ExprWrapper::default(Expr::Assign(
-                                ExprWrapper::default(Expr::Ident("b".to_string())),
+                                ExprWrapper::default(Expr::Var("b".to_string())),
                                 ExprWrapper::default(
                                     Expr::Literal(Literals::U32Num(123)),
                                 )
@@ -491,18 +491,18 @@ fn test_multiple_statements() {
         ExprWrapper::default(Expr::WhileLoop(
             ExprWrapper::default(Expr::InfixOp(
                 InfixOp::Add,
-                ExprWrapper::default(Expr::Ident("a".to_string())),
-                ExprWrapper::default(Expr::Ident("b".to_string())),
+                ExprWrapper::default(Expr::Var("a".to_string())),
+                ExprWrapper::default(Expr::Var("b".to_string())),
             )),
             ExprWrapper::default(Expr::Block(vec![
                 ExprWrapper::default(Expr::Assign(
-                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(Expr::Var("b".to_string())),
                     ExprWrapper::default(
                         Expr::Literal(Literals::U32Num(123)),
                     )
                 )),
                 ExprWrapper::default(Expr::Assign(
-                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(Expr::Var("b".to_string())),
                     ExprWrapper::default(
                         Expr::Literal(Literals::U32Num(123)),
                     )
@@ -531,13 +531,13 @@ fn test_statements_on_one_indent_level() {
         ExprWrapper::default(Expr::FnCall(
             "print".to_string(),
             vec![
-                ExprWrapper::default(Expr::Ident("meow".to_string())),
+                ExprWrapper::default(Expr::Var("meow".to_string())),
             ],
         )),
         ExprWrapper::default(Expr::FnCall(
             "print".to_string(),
             vec![
-                ExprWrapper::default(Expr::Ident("meow".to_string())),
+                ExprWrapper::default(Expr::Var("meow".to_string())),
             ],
         )),
     ];
@@ -566,12 +566,12 @@ fn test_indent_then_dedent() {
         ExprWrapper::default(Expr::WhileLoop(
             ExprWrapper::default(Expr::InfixOp(
                 InfixOp::Add,
-                ExprWrapper::default(Expr::Ident("a".to_string())),
-                ExprWrapper::default(Expr::Ident("b".to_string())),
+                ExprWrapper::default(Expr::Var("a".to_string())),
+                ExprWrapper::default(Expr::Var("b".to_string())),
             )),
             ExprWrapper::default(Expr::Block(vec![
                 ExprWrapper::default(Expr::Assign(
-                    ExprWrapper::default(Expr::Ident("b".to_string())),
+                    ExprWrapper::default(Expr::Var("b".to_string())),
                     ExprWrapper::default(
                         Expr::Literal(Literals::U32Num(123)),
                     )
@@ -581,7 +581,7 @@ fn test_indent_then_dedent() {
         ExprWrapper::default(Expr::FnCall(
             "print".to_string(),
             vec![
-                ExprWrapper::default(Expr::Ident("meow".to_string())),
+                ExprWrapper::default(Expr::Var("meow".to_string())),
             ],
         ))
     ];
@@ -623,31 +623,31 @@ fn test_nested_indent_then_dedent() {
     ];
     let desired_ast = vec![
         ExprWrapper::default(Expr::WhileLoop(
-            ExprWrapper::default(Expr::Ident("a".to_string())),
+            ExprWrapper::default(Expr::Var("a".to_string())),
             ExprWrapper::default(Expr::Block(vec![
                 ExprWrapper::default(Expr::WhileLoop(
-                    ExprWrapper::default(Expr::Ident("a".to_string())),
+                    ExprWrapper::default(Expr::Var("a".to_string())),
                     ExprWrapper::default(Expr::Block(vec![
                         ExprWrapper::default(Expr::WhileLoop(
-                            ExprWrapper::default(Expr::Ident("a".to_string())),
+                            ExprWrapper::default(Expr::Var("a".to_string())),
                             ExprWrapper::default(Expr::Block(vec![
                                 ExprWrapper::default(Expr::Assign(
-                                    ExprWrapper::default(Expr::Ident("b".to_string())),
-                                    ExprWrapper::default(Expr::Ident("c".to_string())),
+                                    ExprWrapper::default(Expr::Var("b".to_string())),
+                                    ExprWrapper::default(Expr::Var("c".to_string())),
                                 )),
                             ])),
                         )),
                         ExprWrapper::default(Expr::Assign(
-                            ExprWrapper::default(Expr::Ident("d".to_string())),
-                            ExprWrapper::default(Expr::Ident("e".to_string())),
+                            ExprWrapper::default(Expr::Var("d".to_string())),
+                            ExprWrapper::default(Expr::Var("e".to_string())),
                         )),
                     ])),
                 )),
             ])),
         )),
         ExprWrapper::default(Expr::Assign(
-            ExprWrapper::default(Expr::Ident("f".to_string())),
-            ExprWrapper::default(Expr::Ident("g".to_string())),
+            ExprWrapper::default(Expr::Var("f".to_string())),
+            ExprWrapper::default(Expr::Var("g".to_string())),
         )),
     ];
     expect_test(tokens, desired_ast);
