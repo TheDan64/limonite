@@ -5,7 +5,6 @@ use syntax::core::keywords::Keywords;
 use syntax::core::symbols::Symbols;
 
 pub trait Tokenizer {
-    fn get_tok(&mut self) -> Tokens;
     fn get_error_pos(&self) -> (usize, usize, usize, usize);
 }
 
@@ -21,11 +20,13 @@ pub struct Lexer<'a> {
     lines: Vec<&'a str>
 }
 
-impl<'a> Tokenizer for Lexer<'a> {
+impl<'a> Iterator for Lexer<'a> {
+    type Item = Tokens;
+
     // Parse the file where it left off and return the next token
-    fn get_tok(&mut self) -> Tokens {
+    fn next(&mut self) -> Option<Tokens> {
         if self.eof() {
-            return EOF;
+            return None;
         }
 
         self.consume_whitespace();
@@ -132,9 +133,14 @@ impl<'a> Tokenizer for Lexer<'a> {
 
         self.error_end = (self.line_number, self.column_number);
 
-        tok
+        if tok.expect(EOF) {
+            return None;
+        }
+        Some(tok)
     }
+}
 
+impl<'a> Tokenizer for Lexer<'a> {
     fn get_error_pos(&self) -> (usize, usize, usize, usize) {
         let (start_line, start_column) = self.error_start;
         let (end_line, end_column) = self.error_end;

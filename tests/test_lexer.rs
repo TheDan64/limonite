@@ -5,23 +5,24 @@ use limonite::syntax::core::symbols::Symbols::{Comma, Equals, ParenClose, ParenO
 use limonite::syntax::core::tokens::Tokens;
 use limonite::syntax::core::tokens::Tokens::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Symbol, StrLiteral};
 use limonite::syntax::core::types::Types::{Float32Bit, Float64Bit, Int32Bit, Int64Bit, UInt32Bit, UInt64Bit};
-use limonite::syntax::lexer::{Lexer, Tokenizer};
+use limonite::syntax::lexer::{Lexer};
 
 fn cmp_tokens(mut lexer: Lexer, vec: Vec<Tokens>) {
-    let mut tok: Tokens;
-
     for desired_tok in vec.iter() {
-        tok = lexer.get_tok();
- 
-        if tok == *desired_tok { continue; }
-
-        panic!(format!("Unexpected token `{0:?}` found. Expected `{1:?}`.", tok, desired_tok));
+        let tok = lexer.next();
+        if let Some(tok) = tok {
+            if tok == *desired_tok {
+                continue;
+            }
+            panic!(format!("Unexpected token `{0:?}` found. Expected `{1:?}`.", tok, desired_tok));
+        }
     }
 
-    tok = lexer.get_tok();
-
-    if tok != EOF {
-        panic!(format!("Unexpected token `{:?}` found. Expected `EOF`", tok));
+    let tok = lexer.next();
+    if let Some(tok) = tok {
+        if !tok.expect(EOF) {
+            panic!(format!("Unexpected token `{:?}` found. Expected `EOF`", tok));
+        }
     }
 }
 
@@ -188,7 +189,7 @@ fn basic_func() -> str
                               Keyword(Var), Identifier("string".to_string()), Symbol(Equals), StrLiteral("strin".to_string()), Indent(0),
                               Indent(1),
                               Keyword(If), Identifier("ch".to_string()), Keyword(Is), CharLiteral('g'), Symbol(Comma), Indent(2),
-                              Identifier("string".to_string()), Symbol(PlusEquals), Identifier("ch".to_string()), Indent(0), 
+                              Identifier("string".to_string()), Symbol(PlusEquals), Identifier("ch".to_string()), Indent(0),
                               Indent(1),
                               Keyword(Return), Identifier("string".to_string()), EOF];
 

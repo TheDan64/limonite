@@ -34,7 +34,7 @@ fn debunt(val: u64) -> String {
     return a;
 }
 
-impl<TokType: Tokenizer> Parser<TokType> {
+impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
     pub fn new(tokenizer: TokType) -> Parser<TokType> {
         Parser {
             lexer: tokenizer,
@@ -57,8 +57,12 @@ impl<TokType: Tokenizer> Parser<TokType> {
         loop {
             let result = match self.preview_token.take() {
                 Some(tok) => tok,
-                None => self.lexer.get_tok(),
+                None => match self.lexer.next() {
+                    Some(t) => t,
+                    None => Tokens::EOF,
+                },
             };
+
             match result {
                 Indent(depth) => {
                     match self.block_status {
@@ -742,7 +746,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
                         self.last_depth = Some(this_depth);
                         self.next_token_any();
                     },
-                    Error(_) | EOF => {
+                    Error(_) | Tokens::EOF => {
                         outer_break = true;
                         break;
                     },
