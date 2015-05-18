@@ -315,6 +315,8 @@ impl CodeGen for Expr {
                 }
             },
             Expr::VarDecl(ref _const, ref _type, ref name, ref expr) => {
+                println!("Made it to var decl codegen!");
+
                 match _type.parse::<Types>() {
                     // Assign to a literal
                     Ok(Types::Bool) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),

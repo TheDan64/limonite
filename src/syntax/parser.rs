@@ -131,7 +131,9 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         self.valid_ast = false;
 
-        debug!("filename:{}:{} {}", start_line, start_column, msg);
+        println!("filename:{}:{} {}", start_line, start_column, msg);
+
+        // This token seems to always be unused:
         Tokens::Error(format!("filename:{}:{} {}", start_line, start_column, msg))
     }
 
@@ -378,14 +380,22 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let def_decl = keyword.expect(Keyword(Keywords::Def));
 
         let token = self.next_token();
+
         if let Identifier(ident) = token {
             let token = self.next_token();
-            if !token.expect(Symbol(Symbols::Colon)) {
-                self.write_expect_error("", "a colon", &format!("{:?}", token));
-                return None
+            let mut val_type:Option<String> = None;
+
+            // Find an (optional) type:
+            if token.expect(Symbol(Symbols::Colon)) {
+                match self.next_token() {
+                    Identifier(t) => val_type = Some(t),
+                    _ => {
+                        self.write_expect_error("", "a colon", &format!("{:?}", token));
+                        return None;
+                    }
+                }
             }
 
-            let token = self.next_token();
             if let Identifier(typ) = token {
                 let token = self.next_token();
                 if !token.expect(Symbol(Symbols::Equals)) {
