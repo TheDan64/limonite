@@ -37,11 +37,7 @@ impl Iterator for MockLexer {
     }
 }
 
-impl Tokenizer for MockLexer {
-    fn get_error_pos(&self) -> (usize, usize, usize, usize) {
-        (1, 1, 1, 1)
-    }
-}
+impl Tokenizer for MockLexer {}
 
 fn general_expect_test(tokens: Vec<Tokens>,
                        expected: Vec<ExprWrapper>,

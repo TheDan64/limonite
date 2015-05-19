@@ -131,7 +131,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
 
     /// Create an error from the current `Lexer`s state, with a message
     fn write_error(&mut self, msg: &str) -> Tokens {
-        let (start_line, start_column, _, _) = self.lexer.get_error_pos();
+        let (start_line, start_column, _, _) = (0, 0, 0, 0);
 
         self.valid_ast = false;
 

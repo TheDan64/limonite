@@ -1,218 +1,63 @@
+use std::iter;
+use std::str;
+
 use syntax::core::tokens::Tokens;
 use syntax::core::tokens::Tokens::*;
 use syntax::core::types::Types;
 use syntax::core::keywords::Keywords;
 use syntax::core::symbols::Symbols;
 
-pub trait Tokenizer {
-    fn get_error_pos(&self) -> (usize, usize, usize, usize);
-}
-
 // A Lexer that keeps track of the current line and column position
 // as well as the position in the char input stream.
 pub struct Lexer<'a> {
     line_number: usize,
     column_number: usize,
-    error_start: (usize, usize),
-    error_end: (usize, usize),
-    buffer_pos: usize,
-    input: &'a str,
-    lines: Vec<&'a str>
+    input: iter::Peekable<str::Chars<'a>>,
 }
 
-impl<'a> Iterator for Lexer<'a> {
-    type Item = Tokens;
-
-    // Parse the file where it left off and return the next token
-    fn next(&mut self) -> Option<Tokens> {
-        if self.eof() {
-            return None;
-        }
-
-        self.consume_whitespace();
-
-        self.error_start = (self.line_number, self.column_number);
-
-        let tok = match self.next_char() {
-            // Find Keywords and Identifiers
-            Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
-
-            // Find ints, floats, hex, and bin numeric values
-            Some(n) if n.is_digit(10) => self.consume_numeric(),
-
-            // Count tabs: \n\t*
-            Some('\n') => self.consume_tabs(),
-
-            // Error: Found tabs without preceeding newline
-            Some('\t') => {
-                self.consume_char().unwrap();
-
-                Error("Found an out of place tab.".to_string())
-            },
-
-            // Find single-char symbols
-            Some('(') | Some(')') |
-            Some('[') | Some(']') |
-            Some('{') | Some('}') |
-            Some('.') |
-            Some(',') |
-            Some(':') |
-            Some('^') |
-            Some('~') |
-            Some('=') => {
-                let punc = self.consume_char().unwrap().to_string();
-
-                self.symbols_token(&punc)
-            },
-
-            // Find multi-char(+=, -=, ..) or the single-char version
-            Some('+') |
-            Some('*') |
-            Some('/') |
-            Some('%') => {
-                let mut punc = self.consume_char().unwrap().to_string();
-
-                if let Some('=') = self.next_char() {
-                    punc.push(self.consume_char().unwrap());
-                }
-
-                self.symbols_token(&punc)
-            },
-
-            // Find -, -=, -> symbols
-            Some('-') => {
-                let mut punc = self.consume_char().unwrap().to_string();
-
-                // = and > are adjacent chars, provides a nice if let:
-                if let Some('='...'>') = self.next_char() {
-                    punc.push(self.consume_char().unwrap())
-                }
-
-                self.symbols_token(&punc)
-            },
-
-            // Find >> and >>> comments, otherwise > or >= symbols
-            Some('>') => {
-                self.consume_char();
-
-                match self.next_char() {
-                    Some('>') => self.consume_comment(),
-                    Some('=') => {
-                        self.consume_char();
-
-                        self.symbols_token(">=")
-                    },
-                    _ => self.symbols_token(">")
-                }
-            },
-
-            // Find < and <= symbols
-            Some('<') => {
-                self.consume_char();
-
-                match self.next_char() {
-                    Some('=') => {
-                        self.consume_char();
-
-                        self.symbols_token("<=")
-                    },
-                    _ => self.symbols_token("<")
-                }
-            },
-
-            // Find character literals, 'c', including ascii escape chars
-            Some('\'') => self.consume_char_literal(),
-
-            // Find string literals, "String"
-            Some('\"') => self.consume_string_literal(),
-
-            Some(ch) => Error(format!("Unknown character '{}'.", ch)),
-
-            None => EOF
-        };
-
-        self.error_end = (self.line_number, self.column_number);
-
-        if tok.expect(EOF) {
-            return None;
-        }
-        Some(tok)
-    }
-}
-
-impl<'a> Tokenizer for Lexer<'a> {
-    fn get_error_pos(&self) -> (usize, usize, usize, usize) {
-        let (start_line, start_column) = self.error_start;
-        let (end_line, end_column) = self.error_end;
-
-        (start_line, start_column, end_line, end_column)
-    }
-}
 
 impl<'a> Lexer<'a> {
     // Create a new lexer instance
-    pub fn new(slice: &'a str) -> Lexer<'a> {
+    pub fn new(input: &'a str) -> Lexer<'a> {
         Lexer {
             line_number: 1,
             column_number: 1,
-            error_start: (0, 0),
-            error_end: (0, 0),
-            buffer_pos: 0,
-            input: slice,
-            lines: slice.lines().collect()
+            input: input.chars().peekable(),
         }
-    }
-
-    // get_line takes a line number(1...self.lines.len()), not an index (0...self.lines.len()-1)
-    pub fn get_line(&mut self, line: usize) -> Option<&str> {
-        match line {
-            // Out of bounds
-            l if l == 0 => None,
-            l if l > self.lines.len() => None,
-
-            // Return the line
-            _ => Some(self.lines[line - 1])
-        }
-    }
-
-    fn current_slice(&self) -> &str {
-        &self.input[self.buffer_pos..]
     }
 
     // Gets the next char and sets the position forward in the buffer
     fn consume_char(&mut self) -> Option<char> {
-        match self.next_char() {
-            Some(ch) => {
-                self.buffer_pos += 1;
-                self.column_number += 1;
+        let next = self.input.next();
+        if let Some(ch) = next {
+            self.column_number += 1;
 
-                if ch == '\n' {
-                    self.line_number += 1;
-                    self.column_number = 1;
-                }
-
-                Some(ch)
-            },
-
-            None => None
+            if ch == '\n' {
+                self.line_number += 1;
+                self.column_number = 1;
+            }
         }
+        next
     }
 
-    // Gets the next char
-    fn next_char(&self) -> Option<char> {
-        self.input.chars().nth(self.buffer_pos)
-    }
-
-    // Determine if we hit the inevitable End of File
-    fn eof(&self) -> bool {
-        return self.buffer_pos >= self.input.len();
+    fn next_char(&mut self) -> Option<char> {
+        if let Some(chr) = self.input.peek() {
+            return Some(*chr);
+        }
+        None
     }
 
     fn consume_while<F: FnMut(char) -> bool>(&mut self, test: &mut F) -> String {
         let mut result = String::new();
 
         // Always unwrapping as the loop checks eof.
-        while !self.eof() && test(self.next_char().unwrap()) {
+        loop {
+            match self.next_char() {
+                Some(chr) => if !test(chr) {
+                    break;
+                },
+                None => break,
+            }
             match self.consume_char().unwrap() {
                 // Ignore any carriage returns
                 '\r' => continue,
@@ -313,166 +158,173 @@ impl<'a> Lexer<'a> {
         let mut number = String::new();
         let mut suffix = String::new();
 
-        if self.current_slice().starts_with("0x") {
-            // Found hexadecimal: 0x[0-9a-fA-F_]+
+        match self.next_char() {
+            Some('0') => {
+                self.consume_char();
+                match self.next_char() {
+                    Some('x') => {
+                        // Found hexadecimal: 0x[0-9a-fA-F_]+
+                        self.consume_char();
 
-            self.buffer_pos += 2;
-            number.push_str("0x");
+                        number.push_str("0x");
 
-            // Cant do += for String, and push_str looks better than
-            // number = number + self.consume...
-            number.push_str(&self.consume_while(&mut |ch| match ch {
-                '0'...'9' |
-                'a'...'f' |
-                'A'...'F' |
-                '_' => true,
-                 _  => false
-            }));
+                        // Cant do += for String, and push_str looks better than
+                        // number = number + self.consume...
+                        number.push_str(&self.consume_while(&mut |ch| match ch {
+                            '0'...'9' |
+                            'a'...'f' |
+                            'A'...'F' |
+                            '_' => true,
+                             _  => false
+                        }));
 
-            if &number[..] == "0x" {
-                return Error("No hexadecimal value was found.".to_string());
-            }
+                        if &number[..] == "0x" {
+                            return Error("No hexadecimal value was found.".to_string());
+                        }
 
-            // Attempt to find a suffix if one exists
-            match self.next_char() {
-                Some('u') |
-                Some('i') => {
-                    let ch = self.consume_char().unwrap();
+                        // Attempt to find a suffix if one exists
+                        match self.next_char() {
+                            Some('u') |
+                            Some('i') => {
+                                let ch = self.consume_char().unwrap();
 
-                    match self.consume_32_64(ch) {
-                        Ok(s)    => suffix.push_str(&s),
-                        Err(err) => return Error(err)
-                    };
-                },
+                                match self.consume_32_64(ch) {
+                                    Ok(s)    => suffix.push_str(&s),
+                                    Err(err) => return Error(err)
+                                };
+                            },
 
-                // Found some other suffix, ie 0x42o
-                Some(c) if c.is_alphanumeric() => {
-                    let ch = self.consume_char().unwrap();
-                    let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
+                            // Found some other suffix, ie 0x42o
+                            Some(c) if c.is_alphanumeric() => {
+                                let ch = self.consume_char().unwrap();
+                                let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
 
-                    return Error(err);
-                },
+                                return Error(err);
+                            },
 
-                // If eof or other just return the numeric token without a suffix
-                _ => ()
-            };
+                            // If eof or other just return the numeric token without a suffix
+                            _ => ()
+                        };
+                    },
+                    Some('b') => {
+                        // Found binary: 0b[01_]+
+                        self.consume_char();
 
-        } else if self.current_slice().starts_with("0b") {
-            // Found binary: 0b[01_]+
+                        number.push_str("0b");
 
-            self.buffer_pos += 2;
-            number.push_str("0b");
+                        // Formatting the same as the hex case above.
+                        number.push_str(&self.consume_while(&mut |ch| match ch {
+                            '0' |
+                            '1' |
+                            '_' => true,
+                             _  => false
+                        }));
 
-            // Formatting the same as the hex case above.
-            number.push_str(&self.consume_while(&mut |ch| match ch {
-                '0' |
-                '1' |
-                '_' => true,
-                 _  => false
-            }));
+                        if &number[..] == "0b" {
+                            return Error("No binary value was found.".to_string());
+                        }
 
-            if &number[..] == "0b" {
-                return Error("No binary value was found.".to_string());
-            }
+                        // Attempt to find a suffix if one exists
+                        match self.next_char() {
+                            Some('u') |
+                            Some('i') => {
+                                let ch = self.consume_char().unwrap();
 
-            // Attempt to find a suffix if one exists
-            match self.next_char() {
-                Some('u') |
-                Some('i') => {
-                    let ch = self.consume_char().unwrap();
+                                match self.consume_32_64(ch) {
+                                    Ok(s)    => suffix.push_str(&s),
+                                    Err(err) => return Error(err)
+                                };
+                            },
 
-                    match self.consume_32_64(ch) {
-                        Ok(s)    => suffix.push_str(&s),
-                        Err(err) => return Error(err)
-                    };
-                },
+                            // Found some other suffix, ie 0x42o
+                            Some(c) if c.is_alphabetic() => {
+                                let ch = self.consume_char().unwrap();
+                                let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
 
-                // Found some other suffix, ie 0x42o
-                Some(c) if c.is_alphabetic() => {
-                    let ch = self.consume_char().unwrap();
-                    let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
+                                return Error(err);
+                            },
 
-                    return Error(err);
-                },
+                            // If eof or other just return the numeric token without a suffix
+                            _ => ()
+                        };
+                    },
+                    _ => return Error(format!("Invalid number type {:?}", self.next_char())),
+                }
+            },
+            _ => {
+                // Found int: [0-9]+ or float: [0-9]+.[0-9]+
 
-                // If eof or other just return the numeric token without a suffix
-                _ => ()
-            };
+                number.push_str(&self.consume_while(&mut |ch| match ch {
+                    '0'...'9' |
+                    '_' => true,
+                     _  => false
+                }));
 
-        } else {
-            // Found int: [0-9]+ or float: [0-9]+.[0-9]+
+                match self.next_char() {
+                    // Float decimal point:
+                    Some('.') => {
+                        number.push(self.consume_char().unwrap());
 
-            number.push_str(&self.consume_while(&mut |ch| match ch {
-                '0'...'9' |
-                '_' => true,
-                 _  => false
-            }));
+                        let fractional = self.consume_while(&mut |ch| match ch {
+                            '0'...'9' |
+                            '_' => true,
+                             _  => false
+                        });
 
-            match self.next_char() {
-                // Float decimal point:
-                Some('.') => {
-                    number.push(self.consume_char().unwrap());
+                        // Check if no decimal values were found
+                        match &fractional[..] {
+                            "" => return Error("No numbers found after the decimal point.".to_string()),
+                            _  => number.push_str(&fractional)
+                        }
 
-                    let fractional = self.consume_while(&mut |ch| match ch {
-                        '0'...'9' |
-                        '_' => true,
-                         _  => false
-                    });
+                        // Find float suffixes
+                        match self.next_char() {
+                            Some('f') => {
+                                let ch = self.consume_char().unwrap();
 
-                    // Check if no decimal values were found
-                    match &fractional[..] {
-                        "" => return Error("No numbers found after the decimal point.".to_string()),
-                        _  => number.push_str(&fractional)
-                    }
+                                match self.consume_32_64(ch) {
+                                    Ok(s)    => suffix.push_str(&s),
+                                    Err(err) => return Error(err)
+                                };
+                            },
 
-                    // Find float suffixes
-                    match self.next_char() {
-                        Some('f') => {
-                            let ch = self.consume_char().unwrap();
+                            // Found some other suffix, ie 0x42o
+                            Some(c) if c.is_alphabetic() => {
+                                let ch = self.consume_char().unwrap();
+                                let err = format!("Invalid suffix {}. Did you mean f32, f64?", ch);
 
-                            match self.consume_32_64(ch) {
-                                Ok(s)    => suffix.push_str(&s),
-                                Err(err) => return Error(err)
-                            };
-                        },
+                                return Error(err);
+                            },
 
-                        // Found some other suffix, ie 0x42o
-                        Some(c) if c.is_alphabetic() => {
-                            let ch = self.consume_char().unwrap();
-                            let err = format!("Invalid suffix {}. Did you mean f32, f64?", ch);
+                            // No suffix found, can hit symbols or other
+                            _ => ()
+                        }
+                    },
 
-                            return Error(err);
-                        },
+                    // Int suffixes:
+                    Some('u') |
+                    Some('i') => {
+                        let ch = self.consume_char().unwrap();
 
-                        // No suffix found, can hit symbols or other
-                        _ => ()
-                    }
-                },
+                        match self.consume_32_64(ch) {
+                            Ok(s)    => suffix.push_str(&s),
+                            Err(err) => return Error(err)
+                        };
+                    },
 
-                // Int suffixes:
-                Some('u') |
-                Some('i') => {
-                    let ch = self.consume_char().unwrap();
+                    // Found some other suffix, ie 0x42o
+                    Some(c) if c.is_alphabetic() => {
+                        let ch = self.consume_char().unwrap();
+                        let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
 
-                    match self.consume_32_64(ch) {
-                        Ok(s)    => suffix.push_str(&s),
-                        Err(err) => return Error(err)
-                    };
-                },
+                        return Error(err);
+                    },
 
-                // Found some other suffix, ie 0x42o
-                Some(c) if c.is_alphabetic() => {
-                    let ch = self.consume_char().unwrap();
-                    let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
-
-                    return Error(err);
-                },
-
-                // Presumably any other remaining char is valid, ie symbols {,[ etc
-                _ => ()
-            };
+                    // Presumably any other remaining char is valid, ie symbols {,[ etc
+                    _ => ()
+                };
+            },
         }
-
         Numeric(number, suffix.parse::<Types>().ok())
      }
 
@@ -626,3 +478,119 @@ impl<'a> Lexer<'a> {
         return Error("Hit EOF before end of string literal.".to_string());
     }
 }
+
+impl<'a> Iterator for Lexer<'a> {
+    type Item = Tokens;
+
+    // Parse the file where it left off and return the next token
+    fn next(&mut self) -> Option<Tokens> {
+        self.consume_whitespace();
+
+        let tok = match self.next_char() {
+            // Find Keywords and Identifiers
+            Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
+
+            // Find ints, floats, hex, and bin numeric values
+            Some(n) if n.is_digit(10) => self.consume_numeric(),
+
+            // Count tabs: \n\t*
+            Some('\n') => self.consume_tabs(),
+
+            // Error: Found tabs without preceeding newline
+            Some('\t') => {
+                self.consume_char().unwrap();
+
+                Error("Found an out of place tab.".to_string())
+            },
+
+            // Find single-char symbols
+            Some('(') | Some(')') |
+            Some('[') | Some(']') |
+            Some('{') | Some('}') |
+            Some('.') |
+            Some(',') |
+            Some(':') |
+            Some('^') |
+            Some('~') |
+            Some('=') => {
+                let punc = self.consume_char().unwrap().to_string();
+
+                self.symbols_token(&punc)
+            },
+
+            // Find multi-char(+=, -=, ..) or the single-char version
+            Some('+') |
+            Some('*') |
+            Some('/') |
+            Some('%') => {
+                let mut punc = self.consume_char().unwrap().to_string();
+
+                if let Some('=') = self.next_char() {
+                    punc.push(self.consume_char().unwrap());
+                }
+
+                self.symbols_token(&punc)
+            },
+
+            // Find -, -=, -> symbols
+            Some('-') => {
+                let mut punc = self.consume_char().unwrap().to_string();
+
+                // = and > are adjacent chars, provides a nice if let:
+                if let Some('='...'>') = self.next_char() {
+                    punc.push(self.consume_char().unwrap())
+                }
+
+                self.symbols_token(&punc)
+            },
+
+            // Find >> and >>> comments, otherwise > or >= symbols
+            Some('>') => {
+                self.consume_char();
+
+                match self.next_char() {
+                    Some('>') => self.consume_comment(),
+                    Some('=') => {
+                        self.consume_char();
+
+                        self.symbols_token(">=")
+                    },
+                    _ => self.symbols_token(">")
+                }
+            },
+
+            // Find < and <= symbols
+            Some('<') => {
+                self.consume_char();
+
+                match self.next_char() {
+                    Some('=') => {
+                        self.consume_char();
+
+                        self.symbols_token("<=")
+                    },
+                    _ => self.symbols_token("<")
+                }
+            },
+
+            // Find character literals, 'c', including ascii escape chars
+            Some('\'') => self.consume_char_literal(),
+
+            // Find string literals, "String"
+            Some('\"') => self.consume_string_literal(),
+
+            Some(ch) => Error(format!("Unknown character ({}).", ch)),
+
+            None => EOF
+        };
+
+        if tok.expect(EOF) {
+            return None;
+        }
+        Some(tok)
+    }
+}
+
+pub trait Tokenizer {}
+
+impl<'a> Tokenizer for Lexer<'a> {}
