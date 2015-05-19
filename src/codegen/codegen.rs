@@ -314,13 +314,14 @@ impl CodeGen for Expr {
                     }
                 }
             },
-            Expr::VarDecl(ref _const, ref _type, ref name, ref expr) => {
+            Expr::VarDecl(ref _const, ref name, ref val_type, ref expr) => {
+                assert!(val_type.is_some(), "CodeGen Error: Variable declaration not given a type by codegen phase");
                 println!("Made it to var decl codegen!");
 
-                match _type.parse::<Types>() {
+                match val_type.as_ref().unwrap().parse::<Types>() {
                     // Assign to a literal
                     Ok(Types::Bool) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
-                    Ok(Types::Str) => (), //expr.gen_code(context),
+                    Ok(Types::Str) => panic!("CodeGen Error: Unimplemented var declaration for {}", name), //expr.gen_code(context),
                     Ok(Types::Char) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
                     Ok(Types::Int32Bit) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
                     Ok(Types::Int64Bit) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),

@@ -381,7 +381,7 @@ impl<TokType: Tokenizer> Parser<TokType> {
 
         let token = self.next_token();
 
-        if let Identifier(ident) = token {
+        if let Identifier(name) = token {
             let token = self.next_token();
             let mut val_type:Option<String> = None;
 
@@ -390,29 +390,22 @@ impl<TokType: Tokenizer> Parser<TokType> {
                 match self.next_token() {
                     Identifier(t) => val_type = Some(t),
                     _ => {
-                        self.write_expect_error("", "a colon", &format!("{:?}", token));
+                        self.write_expect_error("", "a type", &format!("{:?}", token));
                         return None;
                     }
                 }
             }
 
-            if let Identifier(typ) = token {
-                let token = self.next_token();
-                if !token.expect(Symbol(Symbols::Equals)) {
-                    self.write_expect_error("", "an Equal", &format!("{:?}", token));
-                    return None
-                }
+            if !token.expect(Symbol(Symbols::Equals)) {
+                self.write_expect_error("", "an Equal", &format!("{:?}", token));
+                return None
+            }
 
-                let expr = self.parse_expression(0);
-                if let Some(value) = expr {
-                    return Some(ExprWrapper::default(
-                        Expr::VarDecl(def_decl, ident, typ, value)));
-                } else {
-                    self.write_expect_error("No value", "an expression",
-                                            &format!("{:?}", token));
-                }
+            let expr = self.parse_expression(0);
+            if let Some(value) = expr {
+                return Some(ExprWrapper::default(Expr::VarDecl(def_decl, name, val_type, value)));
             } else {
-                self.write_expect_error("No identifier", "an identifier",
+                self.write_expect_error("No value", "an expression",
                                         &format!("{:?}", token));
             }
         } else {
