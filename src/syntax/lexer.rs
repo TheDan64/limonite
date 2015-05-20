@@ -12,7 +12,7 @@ use syntax::core::symbols::Symbols;
 pub struct Lexer<'a> {
     line_number: usize,
     column_number: usize,
-    input: iter::Peekable<str::Chars<'a>>,
+    input: iter::Peekable<str::CharIndices<'a>>,
 }
 
 
@@ -22,27 +22,29 @@ impl<'a> Lexer<'a> {
         Lexer {
             line_number: 1,
             column_number: 1,
-            input: input.chars().peekable(),
+            input: input.char_indices().peekable(),
         }
     }
 
     // Gets the next char and sets the position forward in the buffer
     fn consume_char(&mut self) -> Option<char> {
-        let next = self.input.next();
-        if let Some(ch) = next {
+        if let Some(result) = self.input.next() {
+            let (_, chr) = result;
             self.column_number += 1;
 
-            if ch == '\n' {
+            if chr == '\n' {
                 self.line_number += 1;
                 self.column_number = 1;
             }
+            return Some(chr);
         }
-        next
+        None
     }
 
     fn next_char(&mut self) -> Option<char> {
-        if let Some(chr) = self.input.peek() {
-            return Some(*chr);
+        if let Some(result) = self.input.peek() {
+            let &(_, chr) = result;
+            return Some(chr);
         }
         None
     }
@@ -51,13 +53,7 @@ impl<'a> Lexer<'a> {
         let mut result = String::new();
 
         // Always unwrapping as the loop checks eof.
-        loop {
-            match self.next_char() {
-                Some(chr) => if !test(chr) {
-                    break;
-                },
-                None => break,
-            }
+        while self.next_char().is_some() && test(self.next_char().unwrap()) {
             match self.consume_char().unwrap() {
                 // Ignore any carriage returns
                 '\r' => continue,
