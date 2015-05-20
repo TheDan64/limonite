@@ -26,19 +26,18 @@ impl MockLexer {
     }
 }
 
-impl Tokenizer for MockLexer {
-    fn get_tok(&mut self) -> Tokens {
+impl Iterator for MockLexer {
+    type Item = Tokens;
+    fn next(&mut self) -> Option<Tokens> {
         let next = self.tokens.next();
         match next {
-            Some(tok) => tok,
-            None => EOF,
+            Some(tok) => Some(tok),
+            None => None,
         }
     }
-
-    fn get_error_pos(&self) -> (usize, usize, usize, usize) {
-        (1, 1, 1, 1)
-    }
 }
+
+impl Tokenizer for MockLexer {}
 
 fn general_expect_test(tokens: Vec<Tokens>,
                        expected: Vec<ExprWrapper>,
