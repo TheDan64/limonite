@@ -349,7 +349,7 @@ fn test_variable_declaration() {
             Keyword(typ),
             Identifier("name".to_string()),
             Symbol(Symbols::Colon),
-            Identifier("int".to_string()),
+            Identifier("i32".to_string()),
             Symbol(Symbols::Equals),
             Numeric("123".to_string(), Some(Types::UInt32Bit)),
         ];
@@ -357,7 +357,7 @@ fn test_variable_declaration() {
             ExprWrapper::default(Expr::VarDecl(
                 typ == Keywords::Def,
                 "name".to_string(),
-                "int".to_string(),
+                Some("i32".to_string()),
                 ExprWrapper::default(Expr::Literal(Literals::U32Num(123))),
             ))];
         expect_test(tokens, desired_ast);
