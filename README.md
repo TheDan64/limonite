@@ -28,4 +28,5 @@ Limonite is a relatively basic programming language written in rust using LLVM a
         cargo build
 
 ## Working Features
-* Basic ascii only print statements: `print("Hello, world!")`
+* Basic variables w/o type inference: `var s: str = "Hello, world!"`
+* Basic ascii only print statements: `print(s)`

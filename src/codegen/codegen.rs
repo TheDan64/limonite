@@ -316,25 +316,24 @@ impl CodeGen for Expr {
             },
             Expr::VarDecl(ref _const, ref name, ref val_type, ref expr) => {
                 assert!(val_type.is_some(), "CodeGen Error: Variable declaration not given a type by codegen phase");
-                println!("Made it to var decl codegen!");
+                // TODO: Support constant variables
 
                 match val_type.as_ref().unwrap().parse::<Types>() {
                     // Assign to a literal
-                    Ok(Types::Bool) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
-                    Ok(Types::Str) => panic!("CodeGen Error: Unimplemented var declaration for {}", name), //expr.gen_code(context),
-                    Ok(Types::Char) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
-                    Ok(Types::Int32Bit) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
-                    Ok(Types::Int64Bit) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
-                    Ok(Types::UInt32Bit) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
-                    Ok(Types::UInt64Bit) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
-                    Ok(Types::Float32Bit) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
-                    Ok(Types::Float64Bit) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
-                    Ok(Types::NoneType) => panic!("CodeGen Error: Unimplemented var declaration for {}", name),
+                    Ok(_) => {
+                        match expr.gen_code(context) {
+                            Some(val) => {
+                                // FIXME: Couldn't figure out how to not clone this string and save memory:
+                                context.named_values.insert(name.clone(), val);
+
+                                Some(val)
+                            },
+                            None => None
+                        }
+                    },
                     // Assign from a custom type
                     Err(_) => panic!("CodeGen Error: Unimplemented var declaration for {}", name)
                 }
-
-                None
             },
             Expr::NoOp => None,
             _ => None

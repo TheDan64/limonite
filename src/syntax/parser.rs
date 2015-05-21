@@ -382,13 +382,16 @@ impl<TokType: Tokenizer> Parser<TokType> {
         let token = self.next_token();
 
         if let Identifier(name) = token {
-            let token = self.next_token();
+            let mut token = self.next_token();
             let mut val_type:Option<String> = None;
 
             // Find an (optional) type:
             if token.expect(Symbol(Symbols::Colon)) {
                 match self.next_token() {
-                    Identifier(t) => val_type = Some(t),
+                    Identifier(t) => {
+                        token = self.next_token();
+                        val_type = Some(t);
+                    },
                     _ => {
                         self.write_expect_error("", "a type", &format!("{:?}", token));
                         return None;
