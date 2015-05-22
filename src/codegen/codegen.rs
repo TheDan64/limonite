@@ -12,6 +12,7 @@ use self::llvm_sys::target::*;
 use syntax::ast::op::*;
 use syntax::ast::expr::*;
 use syntax::ast::literals::*;
+use syntax::core::types::*;
 
 // Struct to keep track of data needed to build IR
 pub struct Context {
@@ -137,19 +138,15 @@ impl CodeGen for Expr {
 
                 gen
             },
-            Expr::Ident(ref name) => {
+            Expr::Var(ref name) => {
                 match context.named_values.get(name) {
                     Some(val) => Some(*val),
-                    None => {
-                        println!("Error: Unknown variable named {}", name);
-
-                        None
-                    }
+                    None => panic!("CodeGen Error: Unknown variable named {}", name)
                 }
             },
             Expr::Literal(ref literal_type) => {
-                match literal_type {
-                    &Literals::UTF8String(ref val) => {
+                match *literal_type {
+                    Literals::UTF8String(ref val) => {
                         // Types
                         let array_type1 = LLVMArrayType(LLVMInt8TypeInContext(context.get_context()), val.len() as u32);
                         // let string_struct_type = LLVMGetNamedGlobal(context.get_module(), c_str_ptr("struct.string"));
@@ -188,6 +185,7 @@ impl CodeGen for Expr {
                         LLVMBuildStore(context.get_builder(), element_ptr, allocated_str_ptr);
 
                         let loaded_ptr = LLVMBuildLoad(context.get_builder(), allocated_str_ptr, c_str_ptr("l"));
+
                         // String type generated here should eventually be preloaded type
                         let string_type_fields = vec![LLVMPointerType(i8_type, 0), i64_type];
                         let string_type = LLVMStructTypeInContext(context.get_context(), string_type_fields.as_ptr() as *mut _, 2, 0);
@@ -196,36 +194,36 @@ impl CodeGen for Expr {
                         let i = LLVMBuildInsertValue(context.get_builder(), undef, loaded_ptr, 0, c_str_ptr("i"));
                         Some(LLVMBuildInsertValue(context.get_builder(), i, len, 1, c_str_ptr("i")))
                     },
-                    &Literals::I32Num(ref val) => {
+                    Literals::I32Num(ref val) => {
                         let ty = LLVMInt32TypeInContext(context.get_context());
                         Some(LLVMConstInt(ty, *val as u64, 1))
                     },
-                    &Literals::I64Num(ref val) => {
+                    Literals::I64Num(ref val) => {
                         let ty = LLVMInt64TypeInContext(context.get_context());
                         Some(LLVMConstInt(ty, *val as u64, 1))
                     },
-                    &Literals::U32Num(ref val) => {
+                    Literals::U32Num(ref val) => {
                         let ty = LLVMInt32TypeInContext(context.get_context());
                         Some(LLVMConstInt(ty, *val as u64, 0))
                     },
-                    &Literals::U64Num(ref val) => {
+                    Literals::U64Num(ref val) => {
                         let ty = LLVMInt64TypeInContext(context.get_context());
                         Some(LLVMConstInt(ty, *val, 0))
                     },
-                    &Literals::F32Num(ref val) => {
+                    Literals::F32Num(ref val) => {
                         let ty = LLVMFloatTypeInContext(context.get_context());
                         Some(LLVMConstReal(ty, *val as f64))
                     },
-                    &Literals::F64Num(ref val) => {
+                    Literals::F64Num(ref val) => {
                         let ty = LLVMDoubleTypeInContext(context.get_context());
                         Some(LLVMConstReal(ty, *val))
                     },
-                    &Literals::Bool(ref val) => {
+                    Literals::Bool(ref val) => {
                         let ty = LLVMInt1TypeInContext(context.get_context());
                         Some(LLVMConstInt(ty, *val as u64, 0))
                     },
                     _ => {
-                        println!("Error: Codegen unimplemented for {:?}", literal_type);
+                        println!("CodeGen Error: Unimplemented for {:?}", literal_type);
                         None
                     }
                 }
@@ -242,7 +240,7 @@ impl CodeGen for Expr {
                 let arg_count = LLVMCountParams(function) as usize;
 
                 if arg_count != args.len() {
-                    println!("Error: Function {} requires {} argument(s), {} given.", name, arg_count, args.len());
+                    println!("CodeGen Error: Function {} requires {} argument(s), {} given.", name, arg_count, args.len());
                     return None;
                 }
 
@@ -252,7 +250,7 @@ impl CodeGen for Expr {
                     match arg.gen_code(context) {
                         Some(value) => arg_values.push(value),
                         None => {
-                            println!("Fatal Error: Argument {:?} codegen failed!", arg);
+                            println!("Fatal CodeGen Error: Argument {:?} codegen failed!", arg);
                             return None
                         }
                     }
@@ -270,14 +268,71 @@ impl CodeGen for Expr {
 
                 Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, ret_var))
             },
-            Expr::UnaryOp(ref op, ref expr) => {
+            Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
+                let (lhs_val, rhs_val) =  match (lhs_exprwrapper.gen_code(context), rhs_exprwrapper.gen_code(context)) {
+                    (Some(val1), Some(val2)) => (val1, val2),
+                    (Some(_), None) => unreachable!("CodeGen Error: InfixOp only LHS contains value"),
+                    (None, Some(_)) => unreachable!("CodeGen Error: InfixOp only RHS contains value"),
+                    (None, None) => unreachable!("CodeGen Error: InfixOp has no values")
+                };
+
+                match *op { // Needs testing, what happens when adding diff types? LLVM error? Is that SA's job?
+                    InfixOp::Add => match (lhs_val, rhs_val) {
+                        _ => Some(LLVMBuildAdd(context.get_builder(), lhs_val, rhs_val, c_str_ptr("add")))
+                    },
+                    InfixOp::Sub => match (lhs_val, rhs_val) {
+                        _ => Some(LLVMBuildSub(context.get_builder(), lhs_val, rhs_val, c_str_ptr("sub")))
+                    },
+                    InfixOp::Div => match (lhs_val, rhs_val) {
+                        // LLVMBuildFDiv, LLVMBuildSDiv, LLVMBuildUDiv
+                        _ => panic!("CodeGen Error: Unimplemented infix operator div")
+                    },
+                    InfixOp::Mul => match (lhs_val, rhs_val) {
+                        _ => Some(LLVMBuildMul(context.get_builder(), lhs_val, rhs_val, c_str_ptr("mul")))
+                    },
+                    InfixOp::Mod => match (lhs_val, rhs_val) {
+                        _ => panic!("CodeGen Error: Unimplemented infix operator mod")
+                    },
+                    InfixOp::Pow => match (lhs_val, rhs_val) {
+                        _ => panic!("CodeGen Error: Unimplemented infix operator pow")
+                    },
+                    InfixOp::Equ => match (lhs_val, rhs_val) {
+                        // LLVMBuildICmp, LLVMBuildFCmp?
+                        _ => panic!("CodeGen Error: Unimplemented infix operator equ")
+                    },
+                }
+            },
+            Expr::UnaryOp(ref op, ref expr) => { // Needs further testing
                 match *op {
-                    // I think Negate would be easier to handle by replacing it with multiply * -1 in the parser
-                    UnaryOp::Negate => panic!("Codegen error: Negation not supported in codegen."),
+                    UnaryOp::Negate => match expr.gen_code(context) {
+                        Some(val) => Some(LLVMBuildNeg(context.get_builder(), val, c_str_ptr("neg"))),
+                        None => None
+                    },
                     UnaryOp::Not => match expr.gen_code(context) {
-                        Some(val) => Some(LLVMBuildNot(context.get_builder(), val, c_str_ptr("nottmp"))),
+                        Some(val) => Some(LLVMBuildNot(context.get_builder(), val, c_str_ptr("not"))),
                         None => None
                     }
+                }
+            },
+            Expr::VarDecl(ref _const, ref name, ref val_type, ref expr) => {
+                assert!(val_type.is_some(), "CodeGen Error: Variable declaration not given a type by codegen phase");
+                // TODO: Support constant variables
+
+                match val_type.as_ref().unwrap().parse::<Types>() {
+                    // Assign to a literal
+                    Ok(_) => {
+                        match expr.gen_code(context) {
+                            Some(val) => {
+                                // FIXME: Couldn't figure out how to not clone this string and save memory:
+                                context.named_values.insert(name.clone(), val);
+
+                                Some(val)
+                            },
+                            None => None
+                        }
+                    },
+                    // Assign from a custom type
+                    Err(_) => panic!("CodeGen Error: Unimplemented var declaration for {}", name)
                 }
             },
             Expr::NoOp => None,

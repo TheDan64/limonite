@@ -66,10 +66,10 @@ pub enum Expr {
     FnDecl(String, Vec<(String, Tokens)>, Tokens, ExprWrapper),
     // Run consecutive expressions
     Block(Vec<ExprWrapper>),
-    // Const declaration?, type, variable name and expression
-    VarDecl(bool, String, String, ExprWrapper),
-    // Reference to a value in an identifier
-    Ident(String),
+    // Const declaration?, variable name, type(optional in parser but not SA), and expression
+    VarDecl(bool, String, Option<String>, ExprWrapper),
+    // Reference to a value in a variable
+    Var(String),
     // Return an expression from a function
     Return(Option<ExprWrapper>),
     // Does nothing

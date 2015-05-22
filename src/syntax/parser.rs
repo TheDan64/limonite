@@ -135,7 +135,9 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
 
         self.valid_ast = false;
 
-        debug!("filename:{}:{} {}", start_line, start_column, msg);
+        println!("filename:{}:{} {}", start_line, start_column, msg);
+
+        // This token seems to always be unused:
         Tokens::Error(format!("filename:{}:{} {}", start_line, start_column, msg))
     }
 
@@ -247,7 +249,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
         self.next_token();
 
         if let Some(rvalue) = self.parse_expression(0) {
-            let ident = ExprWrapper::default(Expr::Ident(ident));
+            let ident = ExprWrapper::default(Expr::Var(ident));
             return Some(ExprWrapper::default(Expr::Assign(ident, rvalue)));
         } else {
             self.write_expect_error("", "An expression", "None");
@@ -382,31 +384,35 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
         let def_decl = keyword.expect(Keyword(Keywords::Def));
 
         let token = self.next_token();
-        if let Identifier(ident) = token {
-            let token = self.next_token();
-            if !token.expect(Symbol(Symbols::Colon)) {
-                self.write_expect_error("", "a colon", &format!("{:?}", token));
+
+        if let Identifier(name) = token {
+            let mut token = self.next_token();
+            let mut val_type:Option<String> = None;
+
+            // Find an (optional) type:
+            if token.expect(Symbol(Symbols::Colon)) {
+                match self.next_token() {
+                    Identifier(t) => {
+                        token = self.next_token();
+                        val_type = Some(t);
+                    },
+                    _ => {
+                        self.write_expect_error("", "a type", &format!("{:?}", token));
+                        return None;
+                    }
+                }
+            }
+
+            if !token.expect(Symbol(Symbols::Equals)) {
+                self.write_expect_error("", "an Equal", &format!("{:?}", token));
                 return None
             }
 
-            let token = self.next_token();
-            if let Identifier(typ) = token {
-                let token = self.next_token();
-                if !token.expect(Symbol(Symbols::Equals)) {
-                    self.write_expect_error("", "an Equal", &format!("{:?}", token));
-                    return None
-                }
-
-                let expr = self.parse_expression(0);
-                if let Some(value) = expr {
-                    return Some(ExprWrapper::default(
-                        Expr::VarDecl(def_decl, ident, typ, value)));
-                } else {
-                    self.write_expect_error("No value", "an expression",
-                                            &format!("{:?}", token));
-                }
+            let expr = self.parse_expression(0);
+            if let Some(value) = expr {
+                return Some(ExprWrapper::default(Expr::VarDecl(def_decl, name, val_type, value)));
             } else {
-                self.write_expect_error("No identifier", "an identifier",
+                self.write_expect_error("No value", "an expression",
                                         &format!("{:?}", token));
             }
         } else {
@@ -564,7 +570,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
                     return self.parse_fn_call(ident);
                 }
 
-                Some(ExprWrapper::default(Expr::Ident(ident)))
+                Some(ExprWrapper::default(Expr::Var(ident)))
             },
             Numeric(string, _type) => Some(self.parse_number(string, _type)),
 

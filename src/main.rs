@@ -92,7 +92,7 @@ fn main() {
     };
 
     // TODO: Semantic Analysis
- 
+
     // Run Code Gen
     unsafe {
         let mut context = Context::new("module1");
@@ -101,7 +101,7 @@ fn main() {
         ast_root.gen_code(&mut context);
 
         // TODO: Add a flag for dumping ir to stdout and verifying
-        // context.dump();
+        context.dump();
         // Compiles the IR and displays errors
         context.verify();
 
