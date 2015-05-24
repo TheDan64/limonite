@@ -19,5 +19,5 @@ pub enum Literals {
 	// Bool: True or False
 	Bool(bool),
 	// None
-	None_
+	_None
 }

@@ -146,6 +146,11 @@ impl CodeGen for Expr {
             },
             Expr::Literal(ref literal_type) => {
                 match *literal_type {
+                    Literals::UTF8Char(ref val) => {
+                        let i32_type = LLVMInt32TypeInContext(context.get_context());
+                        Some(LLVMConstInt(i32_type, *val as u64, 0))
+                    },
+                    // TODO: Change i8* strings to i32* for UTF8 support
                     Literals::UTF8String(ref val) => {
                         // Types
                         let array_type1 = LLVMArrayType(LLVMInt8TypeInContext(context.get_context()), val.len() as u32);
@@ -222,10 +227,7 @@ impl CodeGen for Expr {
                         let ty = LLVMInt1TypeInContext(context.get_context());
                         Some(LLVMConstInt(ty, *val as u64, 0))
                     },
-                    _ => {
-                        println!("CodeGen Error: Unimplemented for {:?}", literal_type);
-                        None
-                    }
+                    Literals::_None => panic!("CodeGen Error: Unimplemented for {:?}", literal_type)
                 }
             },
             Expr::FnCall(ref name, ref args) => {
@@ -276,7 +278,8 @@ impl CodeGen for Expr {
                     (None, None) => unreachable!("CodeGen Error: InfixOp has no values")
                 };
 
-                match *op { // Needs testing, what happens when adding diff types? LLVM error? Is that SA's job?
+                // Needs testing, what happens when adding diff types? LLVM error? Is that SA's job?
+                match *op {
                     InfixOp::Add => match (lhs_val, rhs_val) {
                         _ => Some(LLVMBuildAdd(context.get_builder(), lhs_val, rhs_val, c_str_ptr("add")))
                     },
@@ -302,7 +305,8 @@ impl CodeGen for Expr {
                     },
                 }
             },
-            Expr::UnaryOp(ref op, ref expr) => { // Needs further testing
+            // Needs further testing
+            Expr::UnaryOp(ref op, ref expr) => {
                 match *op {
                     UnaryOp::Negate => match expr.gen_code(context) {
                         Some(val) => Some(LLVMBuildNeg(context.get_builder(), val, c_str_ptr("neg"))),
@@ -314,12 +318,12 @@ impl CodeGen for Expr {
                     }
                 }
             },
+            // TODO: Support constant variables - is that just a SA check?
             Expr::VarDecl(ref _const, ref name, ref val_type, ref expr) => {
                 assert!(val_type.is_some(), "CodeGen Error: Variable declaration not given a type by codegen phase");
-                // TODO: Support constant variables
 
+                // Assign to a literal
                 match val_type.as_ref().unwrap().parse::<Types>() {
-                    // Assign to a literal
                     Ok(_) => {
                         match expr.gen_code(context) {
                             Some(val) => {
