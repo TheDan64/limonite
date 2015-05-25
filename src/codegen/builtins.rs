@@ -111,8 +111,8 @@ unsafe fn generate_types(context: &mut Context) {
     //     len: i64
     // }
 
-    let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),
-                  LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0)];
+    let string_type_fields = vec![LLVMInt64TypeInContext(context.get_context()),
+                                LLVMPointerType(LLVMInt32TypeInContext(context.get_context()), 0)];
     let string_type = LLVMStructType(string_type_fields.as_ptr() as *mut _, 2, 0);
 
 //    let struct_type = LLVMStructType(string_type_fields.as_ptr() as *mut _, 2, 0);

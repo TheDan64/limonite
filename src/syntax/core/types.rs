@@ -2,34 +2,15 @@ use std::str::FromStr;
 
 #[derive(Copy, Debug, PartialEq, Clone)]
 pub enum Types {
-    // bool
     Bool,
-
-    // str
     Str,
-
-    // char
     Char,
-
-    // i32
     Int32Bit,
-
-    // i64
     Int64Bit,
-
-    // u32
     UInt32Bit,
-
-    // u64
     UInt64Bit,
-
-    // f32
     Float32Bit,
-
-    // f64
     Float64Bit,
-
-    // None
     NoneType
 }
 

@@ -150,7 +150,6 @@ impl CodeGen for Expr {
                         let i32_type = LLVMInt32TypeInContext(context.get_context());
                         Some(LLVMConstInt(i32_type, *val as u64, 0))
                     },
-                    // TODO: Change i8* strings to i32* for UTF8 support
                     Literals::UTF8String(ref val) => {
                         // Types
                         let array_type1 = LLVMArrayType(LLVMInt8TypeInContext(context.get_context()), val.len() as u32);
