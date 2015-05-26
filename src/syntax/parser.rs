@@ -555,10 +555,11 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
     }
 
     fn parse_expression_subroutine(&mut self) -> Option<ExprWrapper> {
-        // TODO: Add support for Bools
-
         match self.next_token() {
             // Terminals
+            BoolLiteral(val) => {
+                Some(ExprWrapper::default(Expr::Literal(Literals::Bool(val))))
+            },
             StrLiteral(string) => {
                 Some(ExprWrapper::default(Expr::Literal(Literals::UTF8String(string))))
             },
@@ -618,12 +619,18 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
     fn parse_number(&mut self, num: String, type_: Option<Types>) -> ExprWrapper {
         let has_decimal_point = num.contains('.');
 
-        let base:u32 = match &num[..2] {
-            "0x" => 16,
-            "0b" => 2,
-            _    => 10
+        // There might be a better way to write this:
+        let base:u32 = if num.len() == 1 {
+            10
+        } else {
+            match &num[..2] {
+                "0x" => 16,
+                "0b" => 2,
+                _    => 10
+            }
         };
 
+        // May leave a leading 0 for hex and bin but won't change math:
         let chars = num.chars().filter(|chr| match *chr {
             '_' | 'x' | 'b' => false,
             _ => true

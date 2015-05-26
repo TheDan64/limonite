@@ -338,6 +338,9 @@ impl CodeGen for Expr {
                     Err(_) => panic!("CodeGen Error: Unimplemented var declaration for {}", name)
                 }
             },
+            Expr::If(ref cond, ref body, ref elif) => {
+                panic!("Made it to if codegen")
+            },
             Expr::NoOp => None,
             _ => None
         }
