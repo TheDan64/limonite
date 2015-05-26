@@ -326,7 +326,7 @@ impl CodeGen for Expr {
                     Ok(_) => {
                         match expr.gen_code(context) {
                             Some(val) => {
-                                // FIXME: Couldn't figure out how to not clone this string and save memory:
+                                // Couldn't figure out how to not clone this string
                                 context.named_values.insert(name.clone(), val);
 
                                 Some(val)
@@ -338,8 +338,23 @@ impl CodeGen for Expr {
                     Err(_) => panic!("CodeGen Error: Unimplemented var declaration for {}", name)
                 }
             },
-            Expr::If(ref cond, ref body, ref elif) => {
-                panic!("Made it to if codegen")
+            Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
+                // Need to know value type (float or int?)
+
+                let cond_val = cond_expr.gen_code(context);
+                let body_val = body_expr.gen_code(context);
+                let opt_else_val = match opt_else_expr {
+                    &Some(ref expr) => Some(expr.gen_code(context)),
+                    &None => None
+                };
+
+                let block = LLVMGetInsertBlock(context.get_builder());
+                let parent_block = LLVMGetBasicBlockParent(block);
+
+                LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("body"));
+                LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("else"));
+
+                None
             },
             Expr::NoOp => None,
             _ => None
