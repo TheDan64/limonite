@@ -3,6 +3,7 @@ extern crate llvm_sys;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::str;
+use self::llvm_sys::*;
 use self::llvm_sys::core::*;
 use self::llvm_sys::analysis::*;
 use self::llvm_sys::execution_engine::*;
@@ -341,11 +342,32 @@ impl CodeGen for Expr {
             Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
                 // Need to know value type (float or int?)
 
-                let cond_val = cond_expr.gen_code(context);
-                let body_val = body_expr.gen_code(context);
+                let cond_val = match cond_expr.gen_code(context) {
+                    Some(val) => val,
+                    None => return None
+                };
+                let body_val = match body_expr.gen_code(context) {
+                    Some(val) => val,
+                    None => return None
+                };
+                // Optional, doesn't need to return on None
                 let opt_else_val = match opt_else_expr {
                     &Some(ref expr) => Some(expr.gen_code(context)),
                     &None => None
+                };
+
+                let _type = 1; // tmp
+                // Stack overflows:
+                let cmp = match _type {
+                    1 => {
+                        let t = LLVMDoubleTypeInContext(context.get_context());
+                        let zero = LLVMConstReal(t, 0.0);
+                        // let op = LLVMRealPredicate::LLVMRealONE; // Seems to cause stack overflow in cmp fn
+                        let op = LLVMRealPredicate::LLVMRealPredicateFalse;
+                        LLVMBuildFCmp(context.get_builder(), op, cond_val, zero, c_str_ptr("ifcond"));
+                        println!("No more overflow!")
+                    },
+                    _ => panic!("Unfinished type comparison")
                 };
 
                 let block = LLVMGetInsertBlock(context.get_builder());
