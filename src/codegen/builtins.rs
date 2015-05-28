@@ -17,7 +17,8 @@ pub unsafe fn generate_builtins(context: &mut Context) {
     let bb = LLVMAppendBasicBlockInContext(context.get_context(), main, c_str_ptr("entry"));
 
     // Goes to the end of the block
-    LLVMPositionBuilderAtEnd(context.get_builder(), bb);
+    let end = LLVMAppendBasicBlockInContext(context.get_context(), main, c_str_ptr("end"));
+    LLVMPositionBuilderAtEnd(context.get_builder(), end);
 
     // Adds a return statement
     LLVMBuildRet(context.get_builder(), LLVMConstInt(i32_type, 1, 1));

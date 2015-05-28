@@ -346,37 +346,65 @@ impl CodeGen for Expr {
                     Some(val) => val,
                     None => return None
                 };
-                let body_val = match body_expr.gen_code(context) {
-                    Some(val) => val,
-                    None => return None
-                };
-                // Optional, doesn't need to return on None
-                let opt_else_val = match opt_else_expr {
-                    &Some(ref expr) => Some(expr.gen_code(context)),
-                    &None => None
-                };
 
                 let _type = 1; // tmp
-                // Stack overflows:
-                let cmp = match _type {
+                let t = match _type {
+                    1 => LLVMDoubleTypeInContext(context.get_context()),
+                    _ => panic!("Unfinished")
+                };
+
+                let cond_cmp = match _type {
                     1 => {
-                        let t = LLVMDoubleTypeInContext(context.get_context());
                         let zero = LLVMConstReal(t, 0.0);
                         // let op = LLVMRealPredicate::LLVMRealONE; // Seems to cause stack overflow in cmp fn
                         let op = LLVMRealPredicate::LLVMRealPredicateFalse;
-                        LLVMBuildFCmp(context.get_builder(), op, cond_val, zero, c_str_ptr("ifcond"));
-                        println!("No more overflow!")
+                        LLVMBuildFCmp(context.get_builder(), op, cond_val, zero, c_str_ptr("ifcond"))
                     },
                     _ => panic!("Unfinished type comparison")
                 };
 
                 let block = LLVMGetInsertBlock(context.get_builder());
                 let parent_block = LLVMGetBasicBlockParent(block);
+                let last_block = LLVMGetLastBasicBlock(parent_block);
 
-                LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("body"));
-                LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("else"));
+                let body_block = LLVMInsertBasicBlock(last_block, c_str_ptr("ifcond"));
+                let else_block = LLVMInsertBasicBlock(last_block, c_str_ptr("else"));
+                let merge_block = LLVMInsertBasicBlock(last_block, c_str_ptr("merge"));
 
-                None
+                // If the condition is true:
+                LLVMBuildCondBr(context.get_builder(), cond_cmp, body_block, else_block);
+
+                LLVMPositionBuilderAtEnd(context.get_builder(), body_block);
+                let mut body_val = match body_expr.gen_code(context) {
+                    Some(val) => val,
+                    None => return None
+                };
+
+                // Merge into the above layer when done
+                LLVMBuildBr(context.get_builder(), merge_block);
+
+                // Call else codegen if it exists
+                let mut body_end_block = LLVMGetInsertBlock(context.get_builder());
+                LLVMPositionBuilderAtEnd(context.get_builder(), else_block);
+
+                // Optional, doesn't need to return on None
+                // TODO: Remove unwrap and handle case with no explicit else given:
+                let opt_else_val = match opt_else_expr {
+                    &Some(ref expr) => Some(expr.gen_code(context)),
+                    &None => None
+                }.unwrap();
+
+                LLVMBuildBr(context.get_builder(), merge_block);
+                let mut else_end_block = LLVMGetInsertBlock(context.get_builder());
+
+                // Finish up
+                LLVMPositionBuilderAtEnd(context.get_builder(), merge_block);
+                let phi = LLVMBuildPhi(context.get_builder(), t, c_str_ptr("phi"));
+
+                LLVMAddIncoming(phi, &mut body_val as *mut _, &mut body_end_block as *mut _, 1);
+                LLVMAddIncoming(phi, opt_else_val.unwrap() as *mut _, &mut else_end_block as *mut _, 1);
+
+                Some(phi)
             },
             Expr::NoOp => None,
             _ => None
