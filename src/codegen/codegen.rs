@@ -367,9 +367,9 @@ impl CodeGen for Expr {
                 let parent_block = LLVMGetBasicBlockParent(block);
                 let last_block = LLVMGetLastBasicBlock(parent_block);
 
-                let body_block = LLVMInsertBasicBlock(last_block, c_str_ptr("ifcond"));
-                let else_block = LLVMInsertBasicBlock(last_block, c_str_ptr("else"));
-                let merge_block = LLVMInsertBasicBlock(last_block, c_str_ptr("merge"));
+                let body_block = LLVMInsertBasicBlockInContext(context.get_context(), last_block, c_str_ptr("ifcond"));
+                let else_block = LLVMInsertBasicBlockInContext(context.get_context(), last_block, c_str_ptr("else"));
+                let merge_block = LLVMInsertBasicBlockInContext(context.get_context(), last_block, c_str_ptr("merge"));
 
                 // If the condition is true:
                 LLVMBuildCondBr(context.get_builder(), cond_cmp, body_block, else_block);
@@ -388,21 +388,20 @@ impl CodeGen for Expr {
                 LLVMPositionBuilderAtEnd(context.get_builder(), else_block);
 
                 // Optional, doesn't need to return on None
-                // TODO: Remove unwrap and handle case with no explicit else given:
                 let opt_else_val = match opt_else_expr {
-                    &Some(ref expr) => Some(expr.gen_code(context)),
+                    &Some(ref expr) => expr.gen_code(context),
                     &None => None
-                }.unwrap();
+                };
 
-                LLVMBuildBr(context.get_builder(), merge_block);
+                let else_br = LLVMBuildBr(context.get_builder(), merge_block);
                 let mut else_end_block = LLVMGetInsertBlock(context.get_builder());
 
                 // Finish up
                 LLVMPositionBuilderAtEnd(context.get_builder(), merge_block);
                 let phi = LLVMBuildPhi(context.get_builder(), t, c_str_ptr("phi"));
 
-                LLVMAddIncoming(phi, &mut body_val as *mut _, &mut body_end_block as *mut _, 1);
-                LLVMAddIncoming(phi, opt_else_val.unwrap() as *mut _, &mut else_end_block as *mut _, 1);
+                LLVMAddIncoming(phi, &mut body_val, &mut body_end_block, 1);
+                LLVMAddIncoming(phi, &mut opt_else_val.unwrap_or(else_br) as *mut _, &mut else_end_block, 1);
 
                 Some(phi)
             },
