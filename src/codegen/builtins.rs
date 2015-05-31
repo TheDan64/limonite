@@ -1,30 +1,24 @@
 extern crate llvm_sys;
 
 use std::ptr;
+use self::llvm_sys::prelude::*;
 use self::llvm_sys::core::*;
 use self::llvm_sys::*;
 use codegen::codegen::{Context, c_str_ptr};
 
 // Generate LLVM IR for functions built into the language
-pub unsafe fn generate_builtins(context: &mut Context) {
+pub unsafe fn generate_builtins(context: &mut Context) -> LLVMValueRef {
     generate_types(context);
     generate_print(context);
 
     // Generate a `main` function for the script to be housed
-    let i32_type= LLVMInt32TypeInContext(context.get_context());
+    let i32_type = LLVMInt32TypeInContext(context.get_context());
     let fn_type = LLVMFunctionType(i32_type, ptr::null_mut(), 0, 0);
     let main = LLVMAddFunction(context.get_module(), c_str_ptr("main"), fn_type);
     let bb = LLVMAppendBasicBlockInContext(context.get_context(), main, c_str_ptr("entry"));
+    LLVMPositionBuilderAtEnd(context.get_builder(), bb);
 
-    // Goes to the end of the block
-    let end = LLVMAppendBasicBlockInContext(context.get_context(), main, c_str_ptr("end"));
-    LLVMPositionBuilderAtEnd(context.get_builder(), end);
-
-    // Adds a return statement
-    LLVMBuildRet(context.get_builder(), LLVMConstInt(i32_type, 1, 1));
-
-    // Reposition to the start of the block
-    LLVMPositionBuilder(context.get_builder(), bb, LLVMGetFirstInstruction(bb));
+    main
 }
 
 unsafe fn generate_print(context: &mut Context) {

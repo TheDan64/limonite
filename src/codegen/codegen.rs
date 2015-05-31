@@ -10,6 +10,7 @@ use self::llvm_sys::execution_engine::*;
 use self::llvm_sys::prelude::*;
 use self::llvm_sys::target::*;
 //use self::llvm_sys::transforms::scalar::*;
+use codegen::builtins::generate_builtins;
 use syntax::ast::op::*;
 use syntax::ast::expr::*;
 use syntax::ast::literals::*;
@@ -365,11 +366,10 @@ impl CodeGen for Expr {
 
                 let block = LLVMGetInsertBlock(context.get_builder());
                 let parent_block = LLVMGetBasicBlockParent(block);
-                let last_block = LLVMGetLastBasicBlock(parent_block);
 
-                let body_block = LLVMInsertBasicBlockInContext(context.get_context(), last_block, c_str_ptr("ifcond"));
-                let else_block = LLVMInsertBasicBlockInContext(context.get_context(), last_block, c_str_ptr("else"));
-                let merge_block = LLVMInsertBasicBlockInContext(context.get_context(), last_block, c_str_ptr("merge"));
+                let body_block = LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("ifcond"));
+                let else_block = LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("else"));
+                let merge_block = LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("merge"));
 
                 // If the condition is true:
                 LLVMBuildCondBr(context.get_builder(), cond_cmp, body_block, else_block);
@@ -401,7 +401,7 @@ impl CodeGen for Expr {
                 let phi = LLVMBuildPhi(context.get_builder(), t, c_str_ptr("phi"));
 
                 LLVMAddIncoming(phi, &mut body_val, &mut body_end_block, 1);
-                LLVMAddIncoming(phi, &mut opt_else_val.unwrap_or(else_br) as *mut _, &mut else_end_block, 1);
+                LLVMAddIncoming(phi, &mut opt_else_val.unwrap_or(else_br), &mut else_end_block, 1);
 
                 Some(phi)
             },
@@ -409,6 +409,29 @@ impl CodeGen for Expr {
             _ => None
         }
     }
+}
+
+pub unsafe fn codegen(module_name: &str, ast_root: ExprWrapper) {
+    let mut context = Context::new(module_name);
+    let i32_type = LLVMInt32TypeInContext(context.get_context());
+    let main = generate_builtins(&mut context);
+
+    ast_root.gen_code(&mut context);
+
+    // Add a return 1 statement to the end of main
+    let last_block = LLVMGetLastBasicBlock(main);
+    LLVMPositionBuilderAtEnd(context.get_builder(), last_block);
+
+    // Adds a return statement
+    LLVMBuildRet(context.get_builder(), LLVMConstInt(i32_type, 1, 1));
+
+    // TODO: Add a flag for dumping ir to stdout and verifying
+    context.dump();
+    // Compiles the IR and displays errors
+    context.verify();
+
+    context.run();
+
 }
 
 // Helper function
