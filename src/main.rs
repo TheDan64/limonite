@@ -94,6 +94,6 @@ fn main() {
 
     // Run Code Gen
     unsafe {
-        codegen("module1", ast_root);
+        codegen("module1", ast_root, true);
     }
 }

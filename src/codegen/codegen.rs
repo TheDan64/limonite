@@ -27,7 +27,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub unsafe fn new(module_name: &str) -> Context {
+    unsafe fn new(module_name: &str) -> Context {
         LLVM_InitializeNativeTarget();
         LLVM_InitializeNativeAsmPrinter();
         LLVM_InitializeNativeAsmParser();
@@ -67,13 +67,13 @@ impl Context {
     }
 
     // Dump the IR to stdout
-    pub unsafe fn dump(&self) {
+    unsafe fn dump(&self) {
         LLVMDumpModule(self.module);
     }
 
     // Verifies that the llvm code is valid. Optionally prints
     // the error message, else abort.
-    pub unsafe fn verify(&self) {
+    unsafe fn verify(&self) {
         let action = LLVMVerifierFailureAction::LLVMPrintMessageAction;
         let msg = vec![c_str_ptr("")];
 
@@ -81,7 +81,7 @@ impl Context {
         LLVMDisposeMessage(msg[0] as *mut _);
     }
 
-    pub unsafe fn run(&self) -> u64 {
+    unsafe fn run(&self) -> u64 {
         let main = LLVMGetNamedFunction(self.module, c_str_ptr("main"));
         let result = LLVMRunFunction(self.execution_engine, main, 0, 0 as *mut LLVMGenericValueRef);
 
@@ -119,23 +119,23 @@ impl Drop for Context {
 }
 
 pub trait CodeGen {
-    unsafe fn gen_code(&self, context: &mut Context) -> Option<LLVMValueRef>;
+    unsafe fn codegen(&self, context: &mut Context) -> Option<LLVMValueRef>;
 }
 
 impl CodeGen for ExprWrapper {
-    unsafe fn gen_code(&self, context: &mut Context) -> Option<LLVMValueRef> {
-        self.get_expr().gen_code(context)
+    unsafe fn codegen(&self, context: &mut Context) -> Option<LLVMValueRef> {
+        self.get_expr().codegen(context)
     }
 }
 
 impl CodeGen for Expr {
-    unsafe fn gen_code(&self, context: &mut Context) -> Option<LLVMValueRef> {
+    unsafe fn codegen(&self, context: &mut Context) -> Option<LLVMValueRef> {
         match *self {
             Expr::Block(ref vec) => {
                 let mut gen = None;
 
                 for expr in vec {
-                    gen = expr.gen_code(context);
+                    gen = expr.codegen(context);
                 }
 
                 gen
@@ -250,7 +250,7 @@ impl CodeGen for Expr {
                 let mut arg_values = Vec::new();
 
                 for arg in args {
-                    match arg.gen_code(context) {
+                    match arg.codegen(context) {
                         Some(value) => arg_values.push(value),
                         None => {
                             println!("Fatal CodeGen Error: Argument {:?} codegen failed!", arg);
@@ -272,7 +272,7 @@ impl CodeGen for Expr {
                 Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, ret_var))
             },
             Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
-                let (lhs_val, rhs_val) =  match (lhs_exprwrapper.gen_code(context), rhs_exprwrapper.gen_code(context)) {
+                let (lhs_val, rhs_val) =  match (lhs_exprwrapper.codegen(context), rhs_exprwrapper.codegen(context)) {
                     (Some(val1), Some(val2)) => (val1, val2),
                     (Some(_), None) => unreachable!("CodeGen Error: InfixOp only LHS contains value"),
                     (None, Some(_)) => unreachable!("CodeGen Error: InfixOp only RHS contains value"),
@@ -309,11 +309,11 @@ impl CodeGen for Expr {
             // Needs further testing
             Expr::UnaryOp(ref op, ref expr) => {
                 match *op {
-                    UnaryOp::Negate => match expr.gen_code(context) {
+                    UnaryOp::Negate => match expr.codegen(context) {
                         Some(val) => Some(LLVMBuildNeg(context.get_builder(), val, c_str_ptr("neg"))),
                         None => None
                     },
-                    UnaryOp::Not => match expr.gen_code(context) {
+                    UnaryOp::Not => match expr.codegen(context) {
                         Some(val) => Some(LLVMBuildNot(context.get_builder(), val, c_str_ptr("not"))),
                         None => None
                     }
@@ -326,7 +326,7 @@ impl CodeGen for Expr {
                 // Assign to a literal
                 match val_type.as_ref().unwrap().parse::<Types>() {
                     Ok(_) => {
-                        match expr.gen_code(context) {
+                        match expr.codegen(context) {
                             Some(val) => {
                                 // Couldn't figure out how to not clone this string
                                 context.named_values.insert(name.clone(), val);
@@ -343,7 +343,7 @@ impl CodeGen for Expr {
             Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
                 // Need to know value type (float or int?)
 
-                let cond_val = match cond_expr.gen_code(context) {
+                let cond_val = match cond_expr.codegen(context) {
                     Some(val) => val,
                     None => return None
                 };
@@ -375,7 +375,7 @@ impl CodeGen for Expr {
                 LLVMBuildCondBr(context.get_builder(), cond_cmp, body_block, else_block);
 
                 LLVMPositionBuilderAtEnd(context.get_builder(), body_block);
-                let mut body_val = match body_expr.gen_code(context) {
+                let mut body_val = match body_expr.codegen(context) {
                     Some(val) => val,
                     None => return None
                 };
@@ -389,7 +389,7 @@ impl CodeGen for Expr {
 
                 // Optional, doesn't need to return on None
                 let opt_else_val = match opt_else_expr {
-                    &Some(ref expr) => expr.gen_code(context),
+                    &Some(ref expr) => expr.codegen(context),
                     &None => None
                 };
 
@@ -411,12 +411,12 @@ impl CodeGen for Expr {
     }
 }
 
-pub unsafe fn codegen(module_name: &str, ast_root: ExprWrapper) {
+pub unsafe fn codegen(module_name: &str, ast_root: ExprWrapper, dump_ir: bool) {
     let mut context = Context::new(module_name);
     let i32_type = LLVMInt32TypeInContext(context.get_context());
     let main = generate_builtins(&mut context);
 
-    ast_root.gen_code(&mut context);
+    ast_root.codegen(&mut context);
 
     // Add a return 1 statement to the end of main
     let last_block = LLVMGetLastBasicBlock(main);
@@ -425,8 +425,10 @@ pub unsafe fn codegen(module_name: &str, ast_root: ExprWrapper) {
     // Adds a return statement
     LLVMBuildRet(context.get_builder(), LLVMConstInt(i32_type, 1, 1));
 
-    // TODO: Add a flag for dumping ir to stdout and verifying
-    context.dump();
+    if dump_ir {
+        context.dump();
+    }
+
     // Compiles the IR and displays errors
     context.verify();
 
