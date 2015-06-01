@@ -319,8 +319,7 @@ impl CodeGen for Expr {
                     }
                 }
             },
-            // TODO: Support constant variables - is that just a SA check?
-            Expr::VarDecl(ref _const, ref name, ref val_type, ref expr) => {
+            Expr::VarDecl(_, ref name, ref val_type, ref expr) => {
                 assert!(val_type.is_some(), "CodeGen Error: Variable declaration not given a type by codegen phase");
 
                 // Assign to a literal
