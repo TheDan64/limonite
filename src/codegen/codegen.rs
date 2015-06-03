@@ -404,8 +404,11 @@ impl CodeGen for Expr {
 
                 Some(phi)
             },
-            Expr::NoOp => None,
-            _ => None
+            Expr::WhileLoop(_, _) => None,
+            Expr::Assign(_, _) => None,
+            Expr::FnDecl(_, _, _, _) => None,
+            Expr::Return(_) => None,
+            Expr::NoOp => None
         }
     }
 }
