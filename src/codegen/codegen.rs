@@ -407,7 +407,17 @@ impl CodeGen for Expr {
             Expr::WhileLoop(_, _) => None,
             Expr::Assign(_, _) => None,
             Expr::FnDecl(_, _, _, _) => None,
-            Expr::Return(_) => None,
+            Expr::Return(ref opt_expr_val) => {
+                match *opt_expr_val {
+                    Some(ref expr_val) => match expr_val.codegen(context) {
+                        Some(val) => Some(LLVMBuildRet(context.get_builder(), val)),
+                        None => unreachable!("No LLVM return value found")
+                    },
+                    // LLVMBuildRetVoid(context.get_builder()); ?
+                    // Not sure if this is how we want NoneType to work
+                    None => panic!("No return type not supported yet!")
+                }
+            },
             Expr::NoOp => None
         }
     }
