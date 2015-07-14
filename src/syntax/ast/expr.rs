@@ -58,7 +58,7 @@ pub enum Expr {
     WhileLoop(ExprWrapper, ExprWrapper),
     // If condition true, run expression, optional elif, else
     If(ExprWrapper, ExprWrapper, Option<ExprWrapper>),
-    // Assign a value to an expression
+    // Assign an expression to an existing variable
     Assign(ExprWrapper, ExprWrapper),
     // Fn call with name and args.
     FnCall(String, Vec<ExprWrapper>),

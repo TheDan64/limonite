@@ -3,4 +3,4 @@ target
 *.sublime-workspace
 *.sublime-project
 src/*.o
-testinput
+testinput*

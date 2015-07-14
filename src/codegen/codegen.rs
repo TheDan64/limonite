@@ -3,12 +3,14 @@ extern crate llvm_sys;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::str;
+use self::llvm_sys::*;
 use self::llvm_sys::core::*;
 use self::llvm_sys::analysis::*;
 use self::llvm_sys::execution_engine::*;
 use self::llvm_sys::prelude::*;
 use self::llvm_sys::target::*;
 //use self::llvm_sys::transforms::scalar::*;
+use codegen::builtins::generate_builtins;
 use syntax::ast::op::*;
 use syntax::ast::expr::*;
 use syntax::ast::literals::*;
@@ -25,7 +27,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub unsafe fn new(module_name: &str) -> Context {
+    unsafe fn new(module_name: &str) -> Context {
         LLVM_InitializeNativeTarget();
         LLVM_InitializeNativeAsmPrinter();
         LLVM_InitializeNativeAsmParser();
@@ -65,13 +67,13 @@ impl Context {
     }
 
     // Dump the IR to stdout
-    pub unsafe fn dump(&self) {
+    unsafe fn dump(&self) {
         LLVMDumpModule(self.module);
     }
 
     // Verifies that the llvm code is valid. Optionally prints
     // the error message, else abort.
-    pub unsafe fn verify(&self) {
+    unsafe fn verify(&self) {
         let action = LLVMVerifierFailureAction::LLVMPrintMessageAction;
         let msg = vec![c_str_ptr("")];
 
@@ -79,7 +81,7 @@ impl Context {
         LLVMDisposeMessage(msg[0] as *mut _);
     }
 
-    pub unsafe fn run(&self) -> u64 {
+    unsafe fn run(&self) -> u64 {
         let main = LLVMGetNamedFunction(self.module, c_str_ptr("main"));
         let result = LLVMRunFunction(self.execution_engine, main, 0, 0 as *mut LLVMGenericValueRef);
 
@@ -117,23 +119,23 @@ impl Drop for Context {
 }
 
 pub trait CodeGen {
-    unsafe fn gen_code(&self, context: &mut Context) -> Option<LLVMValueRef>;
+    unsafe fn codegen(&self, context: &mut Context) -> Option<LLVMValueRef>;
 }
 
 impl CodeGen for ExprWrapper {
-    unsafe fn gen_code(&self, context: &mut Context) -> Option<LLVMValueRef> {
-        self.get_expr().gen_code(context)
+    unsafe fn codegen(&self, context: &mut Context) -> Option<LLVMValueRef> {
+        self.get_expr().codegen(context)
     }
 }
 
 impl CodeGen for Expr {
-    unsafe fn gen_code(&self, context: &mut Context) -> Option<LLVMValueRef> {
+    unsafe fn codegen(&self, context: &mut Context) -> Option<LLVMValueRef> {
         match *self {
             Expr::Block(ref vec) => {
                 let mut gen = None;
 
                 for expr in vec {
-                    gen = expr.gen_code(context);
+                    gen = expr.codegen(context);
                 }
 
                 gen
@@ -146,6 +148,10 @@ impl CodeGen for Expr {
             },
             Expr::Literal(ref literal_type) => {
                 match *literal_type {
+                    Literals::UTF8Char(ref val) => {
+                        let i32_type = LLVMInt32TypeInContext(context.get_context());
+                        Some(LLVMConstInt(i32_type, *val as u64, 0))
+                    },
                     Literals::UTF8String(ref val) => {
                         // Types
                         let array_type1 = LLVMArrayType(LLVMInt8TypeInContext(context.get_context()), val.len() as u32);
@@ -222,10 +228,7 @@ impl CodeGen for Expr {
                         let ty = LLVMInt1TypeInContext(context.get_context());
                         Some(LLVMConstInt(ty, *val as u64, 0))
                     },
-                    _ => {
-                        println!("CodeGen Error: Unimplemented for {:?}", literal_type);
-                        None
-                    }
+                    Literals::_None => panic!("CodeGen Error: Unimplemented for {:?}", literal_type)
                 }
             },
             Expr::FnCall(ref name, ref args) => {
@@ -247,7 +250,7 @@ impl CodeGen for Expr {
                 let mut arg_values = Vec::new();
 
                 for arg in args {
-                    match arg.gen_code(context) {
+                    match arg.codegen(context) {
                         Some(value) => arg_values.push(value),
                         None => {
                             println!("Fatal CodeGen Error: Argument {:?} codegen failed!", arg);
@@ -269,14 +272,15 @@ impl CodeGen for Expr {
                 Some(LLVMBuildCall(context.builder, function, arg_values.as_ptr() as *mut _, arg_values.len() as u32, ret_var))
             },
             Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
-                let (lhs_val, rhs_val) =  match (lhs_exprwrapper.gen_code(context), rhs_exprwrapper.gen_code(context)) {
+                let (lhs_val, rhs_val) =  match (lhs_exprwrapper.codegen(context), rhs_exprwrapper.codegen(context)) {
                     (Some(val1), Some(val2)) => (val1, val2),
                     (Some(_), None) => unreachable!("CodeGen Error: InfixOp only LHS contains value"),
                     (None, Some(_)) => unreachable!("CodeGen Error: InfixOp only RHS contains value"),
                     (None, None) => unreachable!("CodeGen Error: InfixOp has no values")
                 };
 
-                match *op { // Needs testing, what happens when adding diff types? LLVM error? Is that SA's job?
+                // Needs testing, what happens when adding diff types? LLVM error? Is that SA's job?
+                match *op {
                     InfixOp::Add => match (lhs_val, rhs_val) {
                         _ => Some(LLVMBuildAdd(context.get_builder(), lhs_val, rhs_val, c_str_ptr("add")))
                     },
@@ -302,28 +306,28 @@ impl CodeGen for Expr {
                     },
                 }
             },
-            Expr::UnaryOp(ref op, ref expr) => { // Needs further testing
+            // Needs further testing
+            Expr::UnaryOp(ref op, ref expr) => {
                 match *op {
-                    UnaryOp::Negate => match expr.gen_code(context) {
+                    UnaryOp::Negate => match expr.codegen(context) {
                         Some(val) => Some(LLVMBuildNeg(context.get_builder(), val, c_str_ptr("neg"))),
                         None => None
                     },
-                    UnaryOp::Not => match expr.gen_code(context) {
+                    UnaryOp::Not => match expr.codegen(context) {
                         Some(val) => Some(LLVMBuildNot(context.get_builder(), val, c_str_ptr("not"))),
                         None => None
                     }
                 }
             },
-            Expr::VarDecl(ref _const, ref name, ref val_type, ref expr) => {
+            Expr::VarDecl(_, ref name, ref val_type, ref expr) => {
                 assert!(val_type.is_some(), "CodeGen Error: Variable declaration not given a type by codegen phase");
-                // TODO: Support constant variables
 
+                // Assign to a literal
                 match val_type.as_ref().unwrap().parse::<Types>() {
-                    // Assign to a literal
                     Ok(_) => {
-                        match expr.gen_code(context) {
+                        match expr.codegen(context) {
                             Some(val) => {
-                                // FIXME: Couldn't figure out how to not clone this string and save memory:
+                                // Couldn't figure out how to not clone this string
                                 context.named_values.insert(name.clone(), val);
 
                                 Some(val)
@@ -335,10 +339,113 @@ impl CodeGen for Expr {
                     Err(_) => panic!("CodeGen Error: Unimplemented var declaration for {}", name)
                 }
             },
-            Expr::NoOp => None,
-            _ => None
+            Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
+                // Need to know value type (float or int?)
+
+                let cond_val = match cond_expr.codegen(context) {
+                    Some(val) => val,
+                    None => return None
+                };
+
+                let _type = 1; // tmp
+                let t = match _type {
+                    1 => LLVMDoubleTypeInContext(context.get_context()),
+                    _ => panic!("Unfinished")
+                };
+
+                let cond_cmp = match _type {
+                    1 => {
+                        let zero = LLVMConstReal(t, 0.0);
+                        // let op = LLVMRealPredicate::LLVMRealONE; // Seems to cause stack overflow in cmp fn
+                        let op = LLVMRealPredicate::LLVMRealPredicateFalse;
+                        LLVMBuildFCmp(context.get_builder(), op, cond_val, zero, c_str_ptr("ifcond"))
+                    },
+                    _ => panic!("Unfinished type comparison")
+                };
+
+                let block = LLVMGetInsertBlock(context.get_builder());
+                let parent_block = LLVMGetBasicBlockParent(block);
+
+                let body_block = LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("ifcond"));
+                let else_block = LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("else"));
+                let merge_block = LLVMAppendBasicBlockInContext(context.get_context(), parent_block, c_str_ptr("merge"));
+
+                // If the condition is true:
+                LLVMBuildCondBr(context.get_builder(), cond_cmp, body_block, else_block);
+
+                LLVMPositionBuilderAtEnd(context.get_builder(), body_block);
+                let mut body_val = match body_expr.codegen(context) {
+                    Some(val) => val,
+                    None => return None
+                };
+
+                // Merge into the above layer when done
+                LLVMBuildBr(context.get_builder(), merge_block);
+
+                // Call else codegen if it exists
+                let mut body_end_block = LLVMGetInsertBlock(context.get_builder());
+                LLVMPositionBuilderAtEnd(context.get_builder(), else_block);
+
+                // Optional, doesn't need to return on None
+                let opt_else_val = match opt_else_expr {
+                    &Some(ref expr) => expr.codegen(context),
+                    &None => None
+                };
+
+                let else_br = LLVMBuildBr(context.get_builder(), merge_block);
+                let mut else_end_block = LLVMGetInsertBlock(context.get_builder());
+
+                // Finish up
+                LLVMPositionBuilderAtEnd(context.get_builder(), merge_block);
+                let phi = LLVMBuildPhi(context.get_builder(), t, c_str_ptr("phi"));
+
+                LLVMAddIncoming(phi, &mut body_val, &mut body_end_block, 1);
+                LLVMAddIncoming(phi, &mut opt_else_val.unwrap_or(else_br), &mut else_end_block, 1);
+
+                Some(phi)
+            },
+            Expr::WhileLoop(_, _) => None,
+            Expr::Assign(_, _) => None,
+            Expr::FnDecl(_, _, _, _) => None,
+            Expr::Return(ref opt_expr_val) => {
+                match *opt_expr_val {
+                    Some(ref expr_val) => match expr_val.codegen(context) {
+                        Some(val) => Some(LLVMBuildRet(context.get_builder(), val)),
+                        None => unreachable!("No LLVM return value found")
+                    },
+                    // LLVMBuildRetVoid(context.get_builder()); ?
+                    // Not sure if this is how we want NoneType to work
+                    None => panic!("No return type not supported yet!")
+                }
+            },
+            Expr::NoOp => None
         }
     }
+}
+
+pub unsafe fn codegen(module_name: &str, ast_root: ExprWrapper, dump_ir: bool) {
+    let mut context = Context::new(module_name);
+    let i32_type = LLVMInt32TypeInContext(context.get_context());
+    let main = generate_builtins(&mut context);
+
+    ast_root.codegen(&mut context);
+
+    // Add a return 1 statement to the end of main
+    let last_block = LLVMGetLastBasicBlock(main);
+    LLVMPositionBuilderAtEnd(context.get_builder(), last_block);
+
+    // Adds a return statement
+    LLVMBuildRet(context.get_builder(), LLVMConstInt(i32_type, 1, 1));
+
+    if dump_ir {
+        context.dump();
+    }
+
+    // Compiles the IR and displays errors
+    context.verify();
+
+    context.run();
+
 }
 
 // Helper function

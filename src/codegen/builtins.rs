@@ -1,29 +1,24 @@
 extern crate llvm_sys;
 
 use std::ptr;
+use self::llvm_sys::prelude::*;
 use self::llvm_sys::core::*;
 use self::llvm_sys::*;
 use codegen::codegen::{Context, c_str_ptr};
 
 // Generate LLVM IR for functions built into the language
-pub unsafe fn generate_builtins(context: &mut Context) {
+pub unsafe fn generate_builtins(context: &mut Context) -> LLVMValueRef {
     generate_types(context);
     generate_print(context);
 
     // Generate a `main` function for the script to be housed
-    let i32_type= LLVMInt32TypeInContext(context.get_context());
+    let i32_type = LLVMInt32TypeInContext(context.get_context());
     let fn_type = LLVMFunctionType(i32_type, ptr::null_mut(), 0, 0);
     let main = LLVMAddFunction(context.get_module(), c_str_ptr("main"), fn_type);
     let bb = LLVMAppendBasicBlockInContext(context.get_context(), main, c_str_ptr("entry"));
-
-    // Goes to the end of the block
     LLVMPositionBuilderAtEnd(context.get_builder(), bb);
 
-    // Adds a return statement
-    LLVMBuildRet(context.get_builder(), LLVMConstInt(i32_type, 1, 1));
-
-    // Reposition to the start of the block
-    LLVMPositionBuilder(context.get_builder(), bb, LLVMGetFirstInstruction(bb));
+    main
 }
 
 unsafe fn generate_print(context: &mut Context) {
@@ -100,7 +95,7 @@ unsafe fn generate_print(context: &mut Context) {
     // End
     LLVMPositionBuilderAtEnd(context.get_builder(), end_block);
     let newline = LLVMConstInt(i32_type, '\n' as u64, 0);
-    LLVMBuildCall(context.get_builder(), putchar_fn, vec![newline].as_ptr() as *mut _, 1, c_str_ptr(""));    
+    LLVMBuildCall(context.get_builder(), putchar_fn, vec![newline].as_ptr() as *mut _, 1, c_str_ptr(""));
     LLVMBuildRetVoid(context.get_builder());
 }
 
@@ -111,8 +106,8 @@ unsafe fn generate_types(context: &mut Context) {
     //     len: i64
     // }
 
-    let string_type_fields = vec![LLVMInt32TypeInContext(context.get_context()),
-                  LLVMPointerType(LLVMInt8TypeInContext(context.get_context()), 0)];
+    let string_type_fields = vec![LLVMInt64TypeInContext(context.get_context()),
+                                LLVMPointerType(LLVMInt32TypeInContext(context.get_context()), 0)];
     let string_type = LLVMStructType(string_type_fields.as_ptr() as *mut _, 2, 0);
 
 //    let struct_type = LLVMStructType(string_type_fields.as_ptr() as *mut _, 2, 0);

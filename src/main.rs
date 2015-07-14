@@ -15,8 +15,7 @@ use std::path::Path;
 use docopt::Docopt;
 use syntax::lexer::Lexer;
 use syntax::parser::Parser;
-use codegen::codegen::{CodeGen, Context};
-use codegen::builtins::generate_builtins;
+use codegen::codegen::codegen;
 
 pub mod syntax;
 pub mod codegen;
@@ -95,16 +94,6 @@ fn main() {
 
     // Run Code Gen
     unsafe {
-        let mut context = Context::new("module1");
-
-        generate_builtins(&mut context);
-        ast_root.gen_code(&mut context);
-
-        // TODO: Add a flag for dumping ir to stdout and verifying
-        context.dump();
-        // Compiles the IR and displays errors
-        context.verify();
-
-        context.run();
+        codegen("module1", ast_root, true);
     }
 }

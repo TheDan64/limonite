@@ -36,8 +36,10 @@ impl<'a> Lexer<'a> {
                 self.line_number += 1;
                 self.column_number = 1;
             }
+
             return Some(chr);
         }
+
         None
     }
 
@@ -46,6 +48,7 @@ impl<'a> Lexer<'a> {
             let &(_, chr) = result;
             return Some(chr);
         }
+
         None
     }
 
@@ -321,6 +324,7 @@ impl<'a> Lexer<'a> {
                 };
             },
         }
+
         Numeric(number, suffix.parse::<Types>().ok())
      }
 
@@ -333,7 +337,7 @@ impl<'a> Lexer<'a> {
         match self.next_char() {
             // Multiline comments must end in <<< else error
             Some('>') => {
-                let mut sequence = 0usize;
+                let mut sequence = 0u8;
 
                 // Consume 3rd '>'
                 self.consume_char();
@@ -345,6 +349,7 @@ impl<'a> Lexer<'a> {
                         if sequence == 3 {
                             return false;
                         }
+
                         true
                     },
                     _  => {
@@ -354,9 +359,8 @@ impl<'a> Lexer<'a> {
                 }));
 
                 // Should be able to consume the last <
-                match self.consume_char() {
-                    Some('<') => (),
-                    _         => return Error("Hit eof before end of multi-line comment.".to_string())
+                if self.consume_char() != Some('<') {
+                    return Error("Hit eof before end of multi-line comment.".to_string())
                 }
 
                 // Remove << from end of the comment string
@@ -405,7 +409,7 @@ impl<'a> Lexer<'a> {
             'n' => Ok('\n'),
             'r' => Ok('\r'),
             't' => Ok('\t'),
-//            '\n'=> Ok(''), // Escape newline?
+            '\n'=> Ok(' '), // Escape newline?
             _   => Err(format!("Unknown character escape: \\{}", ch))
         }
     }
@@ -471,7 +475,7 @@ impl<'a> Lexer<'a> {
             };
         };
 
-        return Error("Hit EOF before end of string literal.".to_string());
+        Error("Hit EOF before end of string literal.".to_string())
     }
 }
 
@@ -583,6 +587,7 @@ impl<'a> Iterator for Lexer<'a> {
         if tok.expect(EOF) {
             return None;
         }
+
         Some(tok)
     }
 }
