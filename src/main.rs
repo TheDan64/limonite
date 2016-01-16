@@ -47,10 +47,9 @@ fn main() {
 
     // TODO: Compile the version in from the .toml
     if args.flag_version {
-        return match env::var("VERSION") {
-            Ok(ver) => println!("limonite {}", ver),
-            Err(e)  => println!("{}", e)
-        }
+        let version = env!("CARGO_PKG_VERSION");
+
+        return println!("limonite {}", version);
     }
 
     let input_string = if !args.flag_stdin {
