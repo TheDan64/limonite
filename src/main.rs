@@ -8,7 +8,6 @@ extern crate rustc_serialize;
 extern crate log;
 extern crate env_logger;
 
-use std::env;
 use std::io::{BufReader, Read};
 use std::fs::File;
 use std::path::Path;
