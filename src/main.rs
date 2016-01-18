@@ -44,7 +44,6 @@ fn main() {
                             .and_then(|d| d.decode())
                             .unwrap_or_else(|e| e.exit());
 
-    // TODO: Compile the version in from the .toml
     if args.flag_version {
         let version = env!("CARGO_PKG_VERSION");
 
@@ -59,19 +58,9 @@ fn main() {
             Err(e) => panic!("Failed to open file: {}", e)
         };
 
-        let mut input_string = String::new();
-        if let Err(e) = BufReader::new(file).read_to_string(&mut input_string) {
-            panic!("Failed to read file: {}", e);
-        }
-
-        input_string
+        readable_to_string(BufReader::new(file))
     } else {
-        let mut input_string = String::new();
-        if let Err(e) = std::io::stdin().read_to_string(&mut input_string) {
-            panic!("Failed to read file: {}", e);
-        }
-
-        input_string
+        readable_to_string(std::io::stdin())
     };
 
     // Tokanize the input
@@ -91,4 +80,14 @@ fn main() {
     unsafe {
         codegen("module1", ast_root, true);
     }
+}
+
+fn readable_to_string<R: Read>(mut readable: R) -> String {
+    let mut input_string = String::new();
+
+    if let Err(e) = readable.read_to_string(&mut input_string) {
+        panic!("Failed to read: {}", e);
+    }
+
+    input_string
 }
