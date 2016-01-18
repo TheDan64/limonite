@@ -14,7 +14,7 @@ use std::path::Path;
 use docopt::Docopt;
 use syntax::lexer::Lexer;
 use syntax::parser::Parser;
-use codegen::codegen::codegen;
+use codegen::codegen::codegen; // REVIEW: better codegen name convention + class?
 
 pub mod syntax;
 pub mod codegen;
@@ -52,25 +52,23 @@ fn main() {
     }
 
     let input_string = if !args.flag_stdin {
-        // Read from file
         let ref file_name = &args.arg_file;
         let path = Path::new(file_name);
         let file = match File::open(&path) {
             Ok(f)  => f,
-            Err(e) => panic!("Failed to open file. File error: {}", e)
+            Err(e) => panic!("Failed to open file: {}", e)
         };
 
         let mut input_string = String::new();
         if let Err(e) = BufReader::new(file).read_to_string(&mut input_string) {
-            panic!(e);
+            panic!("Failed to read file: {}", e);
         }
 
         input_string
     } else {
-        // Read from stdin
         let mut input_string = String::new();
         if let Err(e) = std::io::stdin().read_to_string(&mut input_string) {
-            panic!(e);
+            panic!("Failed to read file: {}", e);
         }
 
         input_string
@@ -82,7 +80,6 @@ fn main() {
     // Parse & Build an AST
     let mut parser = Parser::new(lexer);
 
-    // Could just unwrap this?:
     let ast_root = match parser.parse() {
         Some(ast) => ast,
         None => return,
