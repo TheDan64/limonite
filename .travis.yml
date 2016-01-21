@@ -9,24 +9,24 @@ rust:
 
 matrix:
   allow_failures:
-      - rust: nightly
+    - rust: nightly
 
 addons:
   apt:
     sources:
-      - llvm-toolchain-precise-3.7
       - ubuntu-toolchain-r-test
+      - llvm-toolchain-precise-3.7
     packages:
-      - cmake
-      - clang-3.7
-      - libclang-3.7-dev
+      - llvm-3.7-dev
       - lib32z1-dev
       - libedit-dev
 
-#install:
-#    - sudo mkdir -p /usr/lib/llvm-3.7/share/llvm
-#    - sudo ln -s /usr/share/llvm-3.7/cmake/ /usr/lib/llvm-3.7/share/llvm
-#    - sudo ln -s /usr/bin/llvm-config-3.7 /usr/bin/llvm-config
+before_install:
+  - export PATH=/usr/lib/llvm-3.7/bin/:$PATH
+
+install:
+  - llvm-config --version
+  - llvm-config --prefix
 
 notifications:
-    email: false
+  email: false
