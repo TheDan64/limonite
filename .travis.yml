@@ -21,6 +21,7 @@ addons:
       - libelf-dev
       - lib32z1-dev
       - libedit-dev
+      - libdw-dev
 
 before_install:
   - pip install 'travis-cargo<0.2' --user # code coverage
