@@ -24,11 +24,11 @@ addons:
       - libdw-dev
 
 before_install:
-  - pip install 'travis-cargo<0.2' --user # code coverage
   - export PATH=/usr/lib/llvm-3.7/bin/:$HOME/.local/bin:$PATH
 
 after_success:
-    - travis-cargo --only stable coveralls --no-sudo
+  - pip install 'travis-cargo<0.2' --user # code coverage
+  - travis-cargo --only stable coveralls --no-sudo
 
 notifications:
   email: false
