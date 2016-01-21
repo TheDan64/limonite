@@ -18,16 +18,13 @@ addons:
       - llvm-toolchain-precise-3.7
     packages:
       - llvm-3.7-dev
+      - libelf-dev
       - lib32z1-dev
       - libedit-dev
 
 before_install:
   - pip install 'travis-cargo<0.2' --user # code coverage
   - export PATH=/usr/lib/llvm-3.7/bin/:$HOME/.local/bin:$PATH
-
-install:
-  - llvm-config --version
-  - llvm-config --prefix
 
 after_success:
     - travis-cargo --only stable coveralls --no-sudo
