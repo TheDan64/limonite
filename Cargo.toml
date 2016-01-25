@@ -5,12 +5,19 @@ authors = [
     "thadancardin@gmail.com",
     "thadan64@gmail.com"
 ]
+license = "MPL-2.0"
 description = "The Limonite language compiler"
-repository = "https://github.com/TheDan64/limonite.git"
+repository = "https://github.com/TheDan64/limonite"
+
+[lib]
+name = "limonite"
+path = "src/lib.rs"
 
 [[bin]]
 name = "limonite"
 path = "src/main.rs"
+test = false
+doc = false
 
 [dependencies]
 docopt = "*"
@@ -18,3 +25,6 @@ env_logger = "*"
 llvm-sys = "*"
 log = "*"
 rustc-serialize = "*"
+
+[[test]]
+name = "tests"
