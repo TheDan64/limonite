@@ -3,16 +3,16 @@ extern crate env_logger;
 
 use std::vec::IntoIter;
 
-use limonite::syntax::lexer::Tokenizer;
+use limonite::lexical::lexer::Tokenizer;
+use limonite::lexical::tokens::Tokens;
+use limonite::lexical::tokens::Tokens::*;
+use limonite::lexical::types::Types;
+use limonite::lexical::keywords::Keywords;
+use limonite::lexical::symbols::Symbols;
 use limonite::syntax::parser::Parser;
-use limonite::syntax::core::tokens::Tokens;
-use limonite::syntax::core::tokens::Tokens::*;
-use limonite::syntax::core::types::Types;
-use limonite::syntax::core::keywords::Keywords;
-use limonite::syntax::core::symbols::Symbols;
-use limonite::syntax::ast::expr::{Expr, ExprWrapper};
-use limonite::syntax::ast::literals::*;
-use limonite::syntax::ast::op::*;
+use limonite::syntax::expr::{Expr, ExprWrapper};
+use limonite::syntax::literals::*;
+use limonite::syntax::op::*;
 
 struct MockLexer {
     tokens: IntoIter<Tokens>

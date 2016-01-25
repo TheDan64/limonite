@@ -1,13 +1,13 @@
 #![allow(dead_code)]
-use syntax::lexer::Tokenizer;
-use syntax::core::tokens::Tokens;
-use syntax::core::tokens::Tokens::*;
-use syntax::core::keywords::Keywords;
-use syntax::core::symbols::Symbols;
-use syntax::ast::expr::*;
-use syntax::ast::literals::*;
-use syntax::ast::op::*;
-use syntax::core::types::*;
+use lexical::lexer::Tokenizer;
+use lexical::tokens::Tokens;
+use lexical::tokens::Tokens::*;
+use lexical::keywords::Keywords;
+use lexical::symbols::Symbols;
+use syntax::expr::*;
+use syntax::literals::*;
+use syntax::op::*;
+use lexical::types::*;
 
 pub struct Parser<TokType: Tokenizer> {
     lexer: TokType,

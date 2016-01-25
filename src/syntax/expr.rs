@@ -1,8 +1,8 @@
 use std::fmt;
 
-use syntax::ast::literals::*;
-use syntax::ast::op::*;
-use syntax::core::tokens::Tokens;
+use lexical::tokens::Tokens;
+use syntax::literals::*;
+use syntax::op::*;
 
 #[derive(PartialEq)]
 pub struct ExprWrapper {

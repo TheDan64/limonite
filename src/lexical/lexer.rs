@@ -1,11 +1,11 @@
 use std::iter;
 use std::str;
 
-use syntax::core::tokens::Tokens;
-use syntax::core::tokens::Tokens::*;
-use syntax::core::types::Types;
-use syntax::core::keywords::Keywords;
-use syntax::core::symbols::Symbols;
+use lexical::tokens::Tokens;
+use lexical::tokens::Tokens::*;
+use lexical::types::Types;
+use lexical::keywords::Keywords;
+use lexical::symbols::Symbols;
 
 // A Lexer that keeps track of the current line and column position
 // as well as the position in the char input stream.

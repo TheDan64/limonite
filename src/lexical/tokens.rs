@@ -1,6 +1,6 @@
-use syntax::core::keywords::Keywords;
-use syntax::core::symbols::Symbols;
-use syntax::core::types::Types;
+use lexical::keywords::Keywords;
+use lexical::symbols::Symbols;
+use lexical::types::Types;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Tokens {

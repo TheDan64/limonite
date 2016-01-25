@@ -12,11 +12,16 @@ use std::io::{BufReader, Read};
 use std::fs::File;
 use std::path::Path;
 use docopt::Docopt;
-use syntax::lexer::Lexer;
+
+use lexical::lexer::Lexer;
 use syntax::parser::Parser;
+use semantic::analyzer::SemanticAnalyzer;
+use semantic::analyzer_trait::ASTAnalyzer;
 use codegen::codegen::codegen; // REVIEW: better codegen name convention + class?
 
+pub mod lexical;
 pub mod syntax;
+pub mod semantic;
 pub mod codegen;
 
 static USAGE: &'static str = "\
@@ -69,12 +74,14 @@ fn main() {
     // Parse & Build an AST
     let mut parser = Parser::new(lexer);
 
-    let ast_root = match parser.parse() {
+    let mut ast_root = match parser.parse() {
         Some(ast) => ast,
         None => return,
     };
 
     // TODO: Semantic Analysis
+    let mut semantic_analyzer = SemanticAnalyzer::new();
+    let ast_root = semantic_analyzer.analyze(&mut ast_root);
 
     // Run Code Gen
     unsafe {
