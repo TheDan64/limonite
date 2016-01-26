@@ -26,10 +26,12 @@ pub mod codegen;
 
 static USAGE: &'static str = "\
 Usage: limonite <file>
+       limonite (-d | --dump) <file>
        limonite (-s | --stdin)
        limonite (-v | --version)
 
 Options:
+    -d, --dump      Dumps LLVM IR
     -h, --help      Display this message
     -s, --stdin     Read input from stdin
     -v, --version   Displays current version
@@ -38,6 +40,7 @@ Options:
 #[derive(RustcDecodable)]
 struct Args {
     pub arg_file: String,
+    pub flag_dump: bool,
     pub flag_stdin: bool,
     pub flag_version: bool
 }
@@ -81,11 +84,11 @@ fn main() {
 
     // TODO: Semantic Analysis
     let mut semantic_analyzer = SemanticAnalyzer::new();
-    let ast_root = semantic_analyzer.analyze(&mut ast_root);
+    semantic_analyzer.analyze(&mut ast_root);
 
     // Run Code Gen
     unsafe {
-        codegen("module1", ast_root, true);
+        codegen("module1", &ast_root, args.flag_dump);
     }
 }
 

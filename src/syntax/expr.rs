@@ -38,6 +38,10 @@ impl ExprWrapper {
     pub fn get_expr(&self) -> &Expr {
         &self.expr
     }
+
+    pub fn get_mut_expr(&mut self) -> &mut Expr {
+        &mut self.expr
+    }
 }
 
 impl fmt::Debug for ExprWrapper {
