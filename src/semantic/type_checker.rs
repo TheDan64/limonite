@@ -13,48 +13,54 @@ impl TypeChecker {
     }
 
     fn analyze_to_type(&mut self, ast_root: &mut ExprWrapper) -> Option<String> {
+        // How to get Expr's type?
+        // Basics:
+        // Literal -> Builtin Type (Done) or Custom Type
+        // Variable -> VarName -> Lookup VarDecl -> Type
+        // FnCall -> FnName -> LookUp FnDecl -> Type
+        // InfixOp -> analyze bubble up type from Expr op Expr
+        // UnaryOp -> analyze bubble up type from Expr
+
+        // Future?:
+        // if rust style let i = if a {} else {}
+        // If needs lookup all returns in all possible code blocks, assert they're the same type
+
         match ast_root.get_mut_expr() {
             &mut Block(ref mut vec) => {
                 for expr_wrapper in vec {
-                    println!("Looping over wrapper {:?}!", expr_wrapper);
+                    println!("Looping over expr {:?}!", expr_wrapper);
                     self.analyze(expr_wrapper);
                 }
             },
             &mut VarDecl(ref mut const_, ref mut name, ref mut type_, ref mut expr_wrapper) => {
-                let rhs_type = self.analyze_to_type(expr_wrapper);
+                let rhs_type = match self.analyze_to_type(expr_wrapper) {
+                    Some(t) => t,
+                    None => unreachable!("This should not happen??") // REVIEW
+                };
 
                 println!("Var decl rhs type: {:?}", rhs_type);
 
-                // How to get Expr's type?
-                // Basics:
-                // Literal -> Type
-                // Variable -> VarName -> Lookup VarDecl -> Type
-                // FnCall -> FnName -> LookUp FnDecl -> Type
-                // InfixOp -> analyze bubble up type from Expr op Expr
-                // UnaryOp -> analyze bubble up type from Expr
-
-                // Future?:
-                // if rust style let i = if a {} else {}
-                // If needs lookup all returns in all possible code blocks, assert they're the same type
-
-
-
-
                 match type_ {
                     &mut Some(ref str) => {
-                        match str.parse::<Types>() {
-                            Ok(t) => {
-                                if t != Types::Bool { // FIXME
-                                    panic!("Error goes here");
+                        match (str.parse::<Types>(), rhs_type.parse::<Types>()) {
+                            (Ok(lhs_type), Ok(rhs_type)) => {
+                                if lhs_type != rhs_type {
+                                    panic!("Error goes here"); // FIXME: Better errors
+                                } else {
+                                    return Some(str.clone());
                                 }
                             },
-                            Err(()) => {
-                                // TODO: Custom type
-                                panic!("Found a custom type reference");
-                            }
+                            (Err(()), Err(())) => {
+                                // TODO: Custom type comparison. Not an error.
+                                panic!("Found a custom type references");
+                            },
+                            _ => panic!("Error goes here") // FIXME: Better errors
                         }
                     },
-                    &mut None => *type_ = Some("i32".parse().unwrap()) // FIXME
+                    &mut None => *type_ = Some(rhs_type) // Done?
+                    // REVIEW: The above was *type_ = Some("i32".parse().unwrap())
+                    // Codegen doesn't seem to care what the actual type is.
+                    // Does that matter?
                 }
 
             },
