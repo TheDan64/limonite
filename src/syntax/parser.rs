@@ -188,7 +188,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
             break;
         }
         self.write_error(&format!("Invalid syntax."));
-        return None;
+        None
     }
 
     fn collect_sequence<F, G>
@@ -254,6 +254,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
         } else {
             self.write_expect_error("", "An expression", "None");
         }
+
         None
     }
 
@@ -360,7 +361,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
 
         let return_type = match tok {
             Identifier(ident) => {
-                Identifier(ident)
+                Some(ident)
             },
             _ => {
                 self.write_expect_error("", "a return type", &format!("{:?}", tok));
@@ -376,7 +377,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
 
         let expr = Expr::FnDecl(fn_name, args, return_type, definition);
 
-        return Some(ExprWrapper::default(expr));
+        Some(ExprWrapper::default(expr))
     }
 
     fn parse_declaration(&mut self) -> Option<ExprWrapper> {
@@ -419,6 +420,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
             self.write_expect_error("No identifier", "an identifier",
                                     &format!("{:?}", token));
         }
+
         None
     }
 
@@ -437,12 +439,13 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
 
             let block = self.sub_parse();
             let result = Expr::WhileLoop(expr, block);
-            return Some(ExprWrapper::default(result));
+
+            Some(ExprWrapper::default(result))
         } else {
             self.write_expect_error("While should have an expression",
                                     &format!("{:?}", "An expression"),
                                     &format!("{:?}", "Nothing"));
-            return None;
+            None
         }
     }
 
@@ -551,7 +554,8 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
             token = self.peek_any();
             debug!("        Parse expr end: {:?}", token);
         }
-        return Some(lhs);
+
+        Some(lhs)
     }
 
     fn parse_expression_subroutine(&mut self) -> Option<ExprWrapper> {

@@ -55,6 +55,15 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
 
                 None // FIXME?
             },
+            FnDecl(ref mut name, ref mut args, ref mut ret_type, ref mut body_expr_wrapper) => {
+                // TODO: Check if args are of a valid type
+
+                if ret_type != &self.analyze(body_expr_wrapper) {
+                    panic!("Error goes here") // FIXME: Better errors
+                }
+
+                ret_type.clone() // Better way than to clone?
+            },
             InfixOp(ref mut op, ref mut lhs_expr_wrapper, ref mut rhs_expr_wrapper) => {
                 let lhs_type = match self.analyze(lhs_expr_wrapper) {
                     Some(t) => t,
@@ -92,7 +101,7 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                     Some(ref string) => match string.parse::<Types>() {
                         Ok(t) => {
                             if t != Bool {
-                                panic!("Error goes here, not a bool")
+                                panic!("Error goes here, not a bool") // FIXME: Better errors
                             }
                         },
                         Err(()) => unreachable!("Should not happen") // VERIFY, unwrap?
@@ -103,7 +112,7 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                 // Type of a while loop is the type it returns
                 self.analyze(body_expr_wrapper)
             },
-            FnCall(ref name, ref args) => None, // FIXME: Compare to fn declaration
+            FnCall(ref name, ref args) => None, // FIXME: Compare to fn declaration?
             Literal(ref literal) => Some(literal.to_string()), // Done?
             Return(ref mut opt_ret_type) => match *opt_ret_type { // Done?
                 Some(ref mut expr_wrapper) => self.analyze(expr_wrapper),
