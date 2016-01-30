@@ -24,14 +24,16 @@ impl TypeChecker {
         // if rust style let i = if a {} else {}
         // If needs lookup all returns in all possible code blocks, assert they're the same type
 
-        match ast_root.get_mut_expr() {
-            &mut Block(ref mut vec) => {
+        match *ast_root.get_mut_expr() {
+            Block(ref mut vec) => {
                 for expr_wrapper in vec {
                     println!("Looping over expr {:?}!", expr_wrapper);
                     self.analyze(expr_wrapper);
                 }
+
+                None // FIXME?
             },
-            &mut VarDecl(ref mut const_, ref mut name, ref mut type_, ref mut expr_wrapper) => {
+            VarDecl(ref mut const_, ref mut name, ref mut opt_type, ref mut expr_wrapper) => {
                 let rhs_type = match self.analyze_to_type(expr_wrapper) {
                     Some(t) => t,
                     None => unreachable!("This should not happen??") // REVIEW
@@ -39,14 +41,14 @@ impl TypeChecker {
 
                 println!("Var decl rhs type: {:?}", rhs_type);
 
-                match type_ {
-                    &mut Some(ref str) => {
+                match *opt_type {
+                    Some(ref str) => {
                         match (str.parse::<Types>(), rhs_type.parse::<Types>()) {
                             (Ok(lhs_type), Ok(rhs_type)) => {
                                 if lhs_type != rhs_type {
                                     panic!("Error goes here"); // FIXME: Better errors
                                 } else {
-                                    return Some(str.clone()); // No way to not clone?
+                                    Some(str.clone()) // No way to not clone?
                                 }
                             },
                             (Err(()), Err(())) => {
@@ -57,19 +59,25 @@ impl TypeChecker {
                             _ => panic!("Error goes here") // FIXME: Better errors
                         }
                     },
-                    &mut None => *type_ = Some(rhs_type) // Done?
-                    // REVIEW: The above was *type_ = Some("i32".parse().unwrap())
+                    None => {
+                        *opt_type = Some(rhs_type); // Done?
+
+                        None
+                    }
+                    // REVIEW: The above was *opt_type = Some("i32".parse().unwrap())
                     // Codegen doesn't seem to care what the actual type is.
                     // Does that matter if type checker does its job correctly?
                 }
-
             },
-            &mut FnCall(ref name, ref args) => (), // FIXME: Compare to fn declaration
-            &mut Literal(ref literal) => return Some(literal.to_string()), // Done?
-            node => panic!("Unimplemented node: {:?}", node)
+            FnCall(ref name, ref args) => None, // FIXME: Compare to fn declaration
+            Literal(ref literal) => Some(literal.to_string()), // Done?
+            Return(ref mut opt_ret_type) => match *opt_ret_type { // Done? What happens if weird: return var foo = "str"?
+                Some(ref mut expr_wrapper) => self.analyze_to_type(expr_wrapper),
+                None => None
+            },
+            NoOp => None, // Done?
+            ref node => panic!("Unimplemented node: {:?}", node)
         }
-
-        None // tmp
     }
 }
 
