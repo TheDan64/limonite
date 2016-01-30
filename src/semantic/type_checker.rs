@@ -29,8 +29,11 @@ impl TypeChecker {
             _ => panic!("Error goes here") // FIXME: Better errors
         }
     }
+}
 
-    fn analyze_to_type(&mut self, ast_root: &mut ExprWrapper) -> Option<String> {
+impl ASTAnalyzer<Option<String>> for TypeChecker {
+    fn analyze(&mut self, ast_root: &mut ExprWrapper) -> Option<String> {
+        // TODO: Handle errors, Option<ExprWrapper> like elsewhere for now?
         // How to get Expr's type?
         // Basics:
         // Literal -> Builtin Type (Done) or Custom Type
@@ -53,11 +56,11 @@ impl TypeChecker {
                 None // FIXME?
             },
             InfixOp(ref mut op, ref mut lhs_expr_wrapper, ref mut rhs_expr_wrapper) => {
-                let lhs_type = match self.analyze_to_type(lhs_expr_wrapper) {
+                let lhs_type = match self.analyze(lhs_expr_wrapper) {
                     Some(t) => t,
                     None => unreachable!("This should not happen??") // VERIFY, unwrap?
                 };
-                let rhs_type = match self.analyze_to_type(rhs_expr_wrapper) {
+                let rhs_type = match self.analyze(rhs_expr_wrapper) {
                     Some(t) => t,
                     None => unreachable!("This should not happen??") // VERIFY, unwrap?
                 };
@@ -65,7 +68,7 @@ impl TypeChecker {
                 TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
             },
             VarDecl(ref mut const_, ref mut name, ref mut opt_type, ref mut expr_wrapper) => {
-                let rhs_type = match self.analyze_to_type(expr_wrapper) {
+                let rhs_type = match self.analyze(expr_wrapper) {
                     Some(t) => t,
                     None => unreachable!("This should not happen??") // VERIFY, unwrap?
                 };
@@ -85,7 +88,7 @@ impl TypeChecker {
                 }
             },
             WhileLoop(ref mut cond_expr_wrapper, ref mut body_expr_wrapper) => {
-                match self.analyze_to_type(cond_expr_wrapper) {
+                match self.analyze(cond_expr_wrapper) {
                     Some(ref string) => match string.parse::<Types>() {
                         Ok(t) => {
                             if t != Bool {
@@ -98,23 +101,16 @@ impl TypeChecker {
                 }
 
                 // Type of a while loop is the type it returns
-                self.analyze_to_type(body_expr_wrapper)
+                self.analyze(body_expr_wrapper)
             },
             FnCall(ref name, ref args) => None, // FIXME: Compare to fn declaration
             Literal(ref literal) => Some(literal.to_string()), // Done?
             Return(ref mut opt_ret_type) => match *opt_ret_type { // Done?
-                Some(ref mut expr_wrapper) => self.analyze_to_type(expr_wrapper),
+                Some(ref mut expr_wrapper) => self.analyze(expr_wrapper),
                 None => Some("None".into()) // None type?
             },
             NoOp => None, // Done?
             ref node => panic!("Unimplemented node: {:?}", node)
         }
-    }
-}
-
-impl ASTAnalyzer for TypeChecker {
-    fn analyze(&mut self, ast_root: &mut ExprWrapper) {
-        // TODO: Handle errors, Option<ExprWrapper> like elsewhere for now?
-        self.analyze_to_type(ast_root);
     }
 }

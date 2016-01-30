@@ -10,9 +10,8 @@ impl SemanticAnalyzer {
     }
 }
 
-impl ASTAnalyzer for SemanticAnalyzer {
-    fn analyze(&mut self, ast_root: &mut ExprWrapper){
-        // TODO: Handle errors, Option<ExprWrapper> like elsewhere for now?
+impl ASTAnalyzer<()> for SemanticAnalyzer {
+    fn analyze(&mut self, ast_root: &mut ExprWrapper) {
         let mut type_checker = TypeChecker::new();
         // More stages
 
