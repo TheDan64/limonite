@@ -1,6 +1,5 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
-#![allow(dead_code)]
 
 extern crate docopt;
 extern crate rustc_serialize;

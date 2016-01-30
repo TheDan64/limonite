@@ -50,20 +50,21 @@ impl TypeChecker {
                                 }
                             },
                             (Err(()), Err(())) => {
-                                // TODO: Custom type comparison. Not an error.
+                                // TODO: Custom type comparison. May or may not be an error.
                                 panic!("Found a custom type references");
                             },
+                            // Found a builtin type and a custom type -> error
                             _ => panic!("Error goes here") // FIXME: Better errors
                         }
                     },
                     &mut None => *type_ = Some(rhs_type) // Done?
                     // REVIEW: The above was *type_ = Some("i32".parse().unwrap())
                     // Codegen doesn't seem to care what the actual type is.
-                    // Does that matter?
+                    // Does that matter if type checker does its job correctly?
                 }
 
             },
-            &mut FnCall(ref name, ref args) => (), // FIXME
+            &mut FnCall(ref name, ref args) => (), // FIXME: Compare to fn declaration
             &mut Literal(ref literal) => return Some(literal.to_string()), // Done?
             node => panic!("Unimplemented node: {:?}", node)
         }
