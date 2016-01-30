@@ -1,5 +1,6 @@
 #![allow(unused_variables)]
 use lexical::types::Types;
+use lexical::types::Types::Bool;
 use syntax::expr::ExprWrapper;
 use syntax::expr::Expr::*;
 use semantic::analyzer_trait::ASTAnalyzer;
@@ -54,11 +55,11 @@ impl TypeChecker {
             InfixOp(ref mut op, ref mut lhs_expr_wrapper, ref mut rhs_expr_wrapper) => {
                 let lhs_type = match self.analyze_to_type(lhs_expr_wrapper) {
                     Some(t) => t,
-                    None => unreachable!("This should not happen??") // REVIEW
+                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
                 };
                 let rhs_type = match self.analyze_to_type(rhs_expr_wrapper) {
                     Some(t) => t,
-                    None => unreachable!("This should not happen??") // REVIEW
+                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
                 };
 
                 TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
@@ -66,7 +67,7 @@ impl TypeChecker {
             VarDecl(ref mut const_, ref mut name, ref mut opt_type, ref mut expr_wrapper) => {
                 let rhs_type = match self.analyze_to_type(expr_wrapper) {
                     Some(t) => t,
-                    None => unreachable!("This should not happen??") // REVIEW
+                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
                 };
 
                 println!("Var decl rhs type: {:?}", rhs_type);
@@ -83,11 +84,27 @@ impl TypeChecker {
                     // Does that matter if type checker does its job correctly?
                 }
             },
+            WhileLoop(ref mut cond_expr_wrapper, ref mut body_expr_wrapper) => {
+                match self.analyze_to_type(cond_expr_wrapper) {
+                    Some(ref string) => match string.parse::<Types>() {
+                        Ok(t) => {
+                            if t != Bool {
+                                panic!("Error goes here, not a bool")
+                            }
+                        },
+                        Err(()) => unreachable!("Should not happen") // VERIFY, unwrap?
+                    },
+                    None => unreachable!("Should not happen") // VERIFY, unwrap?
+                }
+
+                // Type of a while loop is the type it returns
+                self.analyze_to_type(body_expr_wrapper)
+            },
             FnCall(ref name, ref args) => None, // FIXME: Compare to fn declaration
             Literal(ref literal) => Some(literal.to_string()), // Done?
             Return(ref mut opt_ret_type) => match *opt_ret_type { // Done?
                 Some(ref mut expr_wrapper) => self.analyze_to_type(expr_wrapper),
-                None => None
+                None => Some("None".into()) // None type?
             },
             NoOp => None, // Done?
             ref node => panic!("Unimplemented node: {:?}", node)
