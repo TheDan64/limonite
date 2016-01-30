@@ -11,6 +11,24 @@ impl TypeChecker {
         TypeChecker
     }
 
+    fn cmp_lhs_rhs(lhs_str: String, rhs_str: String) -> Option<String> {
+        match (lhs_str.parse::<Types>(), rhs_str.parse::<Types>()) {
+            (Ok(lhs_type), Ok(rhs_type)) => {
+                if lhs_type != rhs_type {
+                    panic!("Error goes here"); // FIXME: Better errors
+                }
+
+                Some(lhs_str)
+            },
+            (Err(()), Err(())) => {
+                // TODO: Custom type comparison. May or may not be an error.
+                panic!("Found a custom type references");
+            },
+            // Found a builtin type and a custom type -> error
+            _ => panic!("Error goes here") // FIXME: Better errors
+        }
+    }
+
     fn analyze_to_type(&mut self, ast_root: &mut ExprWrapper) -> Option<String> {
         // How to get Expr's type?
         // Basics:
@@ -33,6 +51,18 @@ impl TypeChecker {
 
                 None // FIXME?
             },
+            InfixOp(ref mut op, ref mut lhs_expr_wrapper, ref mut rhs_expr_wrapper) => {
+                let lhs_type = match self.analyze_to_type(lhs_expr_wrapper) {
+                    Some(t) => t,
+                    None => unreachable!("This should not happen??") // REVIEW
+                };
+                let rhs_type = match self.analyze_to_type(rhs_expr_wrapper) {
+                    Some(t) => t,
+                    None => unreachable!("This should not happen??") // REVIEW
+                };
+
+                TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
+            },
             VarDecl(ref mut const_, ref mut name, ref mut opt_type, ref mut expr_wrapper) => {
                 let rhs_type = match self.analyze_to_type(expr_wrapper) {
                     Some(t) => t,
@@ -42,23 +72,7 @@ impl TypeChecker {
                 println!("Var decl rhs type: {:?}", rhs_type);
 
                 match *opt_type {
-                    Some(ref str) => {
-                        match (str.parse::<Types>(), rhs_type.parse::<Types>()) {
-                            (Ok(lhs_type), Ok(rhs_type)) => {
-                                if lhs_type != rhs_type {
-                                    panic!("Error goes here"); // FIXME: Better errors
-                                } else {
-                                    Some(str.clone()) // No way to not clone?
-                                }
-                            },
-                            (Err(()), Err(())) => {
-                                // TODO: Custom type comparison. May or may not be an error.
-                                panic!("Found a custom type references");
-                            },
-                            // Found a builtin type and a custom type -> error
-                            _ => panic!("Error goes here") // FIXME: Better errors
-                        }
-                    },
+                    Some(ref lhs_type) => TypeChecker::cmp_lhs_rhs(lhs_type.clone(), rhs_type),  // No way to not clone?
                     None => {
                         *opt_type = Some(rhs_type); // Done?
 
@@ -71,7 +85,7 @@ impl TypeChecker {
             },
             FnCall(ref name, ref args) => None, // FIXME: Compare to fn declaration
             Literal(ref literal) => Some(literal.to_string()), // Done?
-            Return(ref mut opt_ret_type) => match *opt_ret_type { // Done? What happens if weird: return var foo = "str"?
+            Return(ref mut opt_ret_type) => match *opt_ret_type { // Done?
                 Some(ref mut expr_wrapper) => self.analyze_to_type(expr_wrapper),
                 None => None
             },
