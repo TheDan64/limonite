@@ -1,5 +1,4 @@
-use std::str;
-
+#![allow(unused_variables)]
 use lexical::types::Types;
 use syntax::expr::ExprWrapper;
 use syntax::expr::Expr::*;
@@ -47,7 +46,7 @@ impl TypeChecker {
                                 if lhs_type != rhs_type {
                                     panic!("Error goes here"); // FIXME: Better errors
                                 } else {
-                                    return Some(str.clone());
+                                    return Some(str.clone()); // No way to not clone?
                                 }
                             },
                             (Err(()), Err(())) => {
