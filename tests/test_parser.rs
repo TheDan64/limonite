@@ -142,7 +142,7 @@ fn test_valid_fn_definition() {
     ];
 
     // One arg: foo(bar: i32) -> str
-    let args = vec![("bar".to_string(), Identifier("int".to_string()))];
+    let args = vec![("bar".to_string(), "int".to_string())];
     let desired_ast = vec![
         ExprWrapper::default(
             Expr::FnDecl("foo".to_string(), args, Some("str".to_string()),
@@ -173,9 +173,9 @@ fn test_valid_fn_definition() {
     ];
     //
     // Multiple args: foo(bar: i32, left: Obj, right: Obj) -> None
-    let args = vec![("bar".to_string(), Identifier("int".to_string())),
-                    ("left".to_string(), Identifier("Obj".to_string())),
-                    ("right".to_string(), Identifier("Obj".to_string()))];
+    let args = vec![("bar".to_string(), "int".to_string()),
+                    ("left".to_string(), "Obj".to_string()),
+                    ("right".to_string(), "Obj".to_string())];
     let desired_ast = vec![
         ExprWrapper::default(
             Expr::FnDecl("foo".to_string(), args, Some("None".to_string()),
