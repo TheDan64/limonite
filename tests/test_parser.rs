@@ -122,7 +122,7 @@ fn test_valid_fn_definition() {
     ];
     let desired_ast = vec![
         ExprWrapper::default(
-            Expr::FnDecl("foo".to_string(), Vec::new(), Identifier("int".to_string()),
+            Expr::FnDecl("foo".to_string(), Vec::new(), Some("int".to_string()),
             ExprWrapper::default(Expr::Block(Vec::new()))))
     ];
     expect_test(tokens, desired_ast);
@@ -145,7 +145,7 @@ fn test_valid_fn_definition() {
     let args = vec![("bar".to_string(), Identifier("int".to_string()))];
     let desired_ast = vec![
         ExprWrapper::default(
-            Expr::FnDecl("foo".to_string(), args, Identifier("str".to_string()),
+            Expr::FnDecl("foo".to_string(), args, Some("str".to_string()),
             ExprWrapper::default(Expr::Block(Vec::new()))))
     ];
     expect_test(tokens, desired_ast);
@@ -178,7 +178,7 @@ fn test_valid_fn_definition() {
                     ("right".to_string(), Identifier("Obj".to_string()))];
     let desired_ast = vec![
         ExprWrapper::default(
-            Expr::FnDecl("foo".to_string(), args, Identifier("None".to_string()),
+            Expr::FnDecl("foo".to_string(), args, Some("None".to_string()),
             ExprWrapper::default(Expr::Block(Vec::new()))))
     ];
     expect_test(tokens, desired_ast);
