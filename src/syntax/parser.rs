@@ -321,7 +321,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
 
                 let this_token = self.next_token();
                 match this_token {
-                    Identifier(ident) => args.push((arg_name, Identifier(ident))),
+                    Identifier(ident) => args.push((arg_name, ident)),
                     _ => {
                         self.write_expect_error("", "a return type", &format!("{:?}", this_token));
 

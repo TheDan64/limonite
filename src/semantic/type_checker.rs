@@ -47,6 +47,11 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
         // If needs lookup all returns in all possible code blocks, assert they're the same type
 
         match *ast_root.get_mut_expr() {
+            Assign(ref name, ref mut rhs_expr_wrapper) => {
+                // Name should be a String not expr_wrapper?
+
+                None // FIXME
+            },
             Block(ref mut vec) => {
                 for expr_wrapper in vec {
                     println!("Looping over expr {:?}!", expr_wrapper);
@@ -55,8 +60,14 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
 
                 None // FIXME?
             },
-            FnDecl(ref mut name, ref mut args, ref mut ret_type, ref mut body_expr_wrapper) => {
+            FnCall(ref fn_name, ref args) => None, // FIXME: Compare to fn declaration?
+            FnDecl(ref fn_name, ref args, ref mut ret_type, ref mut body_expr_wrapper) => {
                 // TODO: Check if args are of a valid type
+                for &(ref name, ref type_) in args {
+                    if let Err(()) = type_.parse::<Types>() {
+                        // TODO: Custom type found. Figure out if it is valid
+                    }
+                }
 
                 if ret_type != &self.analyze(body_expr_wrapper) {
                     panic!("Error goes here") // FIXME: Better errors
@@ -64,7 +75,11 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
 
                 ret_type.clone() // Better way than to clone?
             },
-            InfixOp(ref mut op, ref mut lhs_expr_wrapper, ref mut rhs_expr_wrapper) => {
+            If(ref mut cond_expr_wrapper, ref mut body_expr_wrapper, ref mut opt_else_expr_wrapper) => {
+
+                None // FIXME
+            },
+            InfixOp(ref op, ref mut lhs_expr_wrapper, ref mut rhs_expr_wrapper) => {
                 let lhs_type = match self.analyze(lhs_expr_wrapper) {
                     Some(t) => t,
                     None => unreachable!("This should not happen??") // VERIFY, unwrap?
@@ -76,7 +91,9 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
 
                 TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
             },
-            VarDecl(ref mut const_, ref mut name, ref mut opt_type, ref mut expr_wrapper) => {
+            UnaryOp(ref op, ref mut expr_wrapper) => self.analyze(expr_wrapper),
+            Var(ref name) => None, // FIXME: Lookup VarDecl type
+            VarDecl(ref const_, ref name, ref mut opt_type, ref mut expr_wrapper) => {
                 let rhs_type = match self.analyze(expr_wrapper) {
                     Some(t) => t,
                     None => unreachable!("This should not happen??") // VERIFY, unwrap?
@@ -109,17 +126,17 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                     None => unreachable!("Should not happen") // VERIFY, unwrap?
                 }
 
-                // Type of a while loop is the type it returns
+                // Type of a while loop is the type it returns? REVIEW
                 self.analyze(body_expr_wrapper)
+
+                // TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
             },
-            FnCall(ref name, ref args) => None, // FIXME: Compare to fn declaration?
             Literal(ref literal) => Some(literal.to_string()), // Done?
             Return(ref mut opt_ret_type) => match *opt_ret_type { // Done?
                 Some(ref mut expr_wrapper) => self.analyze(expr_wrapper),
                 None => Some("None".into()) // None type?
             },
             NoOp => None, // Done?
-            ref node => panic!("Unimplemented node: {:?}", node)
         }
     }
 }
