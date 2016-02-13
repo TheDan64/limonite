@@ -32,7 +32,7 @@ impl TypeChecker {
 
 impl ASTAnalyzer<Option<String>> for TypeChecker {
     fn analyze(&mut self, ast_root: &mut ExprWrapper) -> Option<String> {
-        // TODO: Handle errors, Option<ExprWrapper> like elsewhere for now?
+        // TODO: Handle errors, Result<ExprWrapper, String>?
         // How to get Expr's type?
         // Basics:
         // Literal -> Builtin Type (Done) or Custom Type
@@ -49,32 +49,55 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
             Assign(ref mut var_name_expr_wrapper, ref mut rhs_expr_wrapper) => {
                 let lhs_type = match self.analyze(var_name_expr_wrapper) {
                     Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
+                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
                 };
                 let rhs_type = match self.analyze(rhs_expr_wrapper) {
                     Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
+                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
                 };
 
                 TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
             },
             Block(ref mut vec) => {
+                let mut last_seen_type: Option<String> = None;
+
                 for expr_wrapper in vec {
-                    println!("Looping over expr {:?}!", expr_wrapper);
-                    self.analyze(expr_wrapper);
+                    debug!("Looping over expr {:?}!", expr_wrapper);
+
+                    if let Return(_) = *expr_wrapper.get_expr() {
+                        let mut set_last_seen_type = false;
+                        let opt_current_type = self.analyze(expr_wrapper);
+
+                        match (&last_seen_type, &opt_current_type) {
+                            (&Some(ref last_type), &Some(ref current_type)) => {
+                                if last_type != current_type {
+                                    panic!("Found different types in block") // FIXME: Better errors
+                                }
+
+                                set_last_seen_type = true;
+                            },
+                            (&None, &Some(ref current_type)) => {
+                                set_last_seen_type = true;
+                            },
+                            _ => ()
+                        };
+
+                        if set_last_seen_type {
+                            last_seen_type = opt_current_type;
+                        };
+                    };
                 }
 
                 None // FIXME?
             },
             FnCall(ref fn_name, ref args) => None, // FIXME: Compare to fn declaration?
             FnDecl(ref fn_name, ref args, ref mut ret_type, ref mut body_expr_wrapper) => {
-                for &(ref name, ref type_) in args {
-                    if let Err(()) = type_.parse::<Types>() {
+                for &(ref name, ref _type) in args {
+                    if let Err(()) = _type.parse::<Types>() {
                         // TODO: Custom type found. Figure out if it is valid
                     }
                 }
 
-                // TODO: Check if all return values return proper type
                 if ret_type != &self.analyze(body_expr_wrapper) {
                     panic!("Error goes here") // FIXME: Better errors
                 }
@@ -93,11 +116,11 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
             InfixOp(ref op, ref mut lhs_expr_wrapper, ref mut rhs_expr_wrapper) => {
                 let lhs_type = match self.analyze(lhs_expr_wrapper) {
                     Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
+                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
                 };
                 let rhs_type = match self.analyze(rhs_expr_wrapper) {
                     Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
+                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
                 };
 
                 TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
@@ -112,10 +135,8 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
             VarDecl(ref const_, ref name, ref mut opt_type, ref mut expr_wrapper) => {
                 let rhs_type = match self.analyze(expr_wrapper) {
                     Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
+                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
                 };
-
-                println!("Var decl rhs type: {:?}", rhs_type);
 
                 match *opt_type {
                     Some(ref lhs_type) => TypeChecker::cmp_lhs_rhs(lhs_type.clone(), rhs_type),  // No way to not clone?
@@ -124,9 +145,6 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
 
                         None
                     }
-                    // REVIEW: The above was *opt_type = Some("i32".parse().unwrap())
-                    // Codegen doesn't seem to care what the actual type is.
-                    // Does that matter if type checker does its job correctly?
                 }
             },
             WhileLoop(ref mut cond_expr_wrapper, ref mut body_expr_wrapper) => {
@@ -134,10 +152,8 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                     panic!("Error goes here, not a bool") // FIXME: Better errors
                 }
 
-                // Type of a while loop is the type it returns? REVIEW
+                // WhileLoop's type, if any, is the type of the body
                 self.analyze(body_expr_wrapper)
-
-                // TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
             },
             NoOp => None,
         }
