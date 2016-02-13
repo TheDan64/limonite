@@ -1,6 +1,5 @@
 #![allow(unused_variables)]
 use lexical::types::Types;
-use lexical::types::Types::Bool;
 use syntax::expr::ExprWrapper;
 use syntax::expr::Expr::*;
 use semantic::analyzer_trait::ASTAnalyzer;
@@ -47,10 +46,17 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
         // If needs lookup all returns in all possible code blocks, assert they're the same type
 
         match *ast_root.get_mut_expr() {
-            Assign(ref name, ref mut rhs_expr_wrapper) => {
-                // Name should be a String not expr_wrapper?
+            Assign(ref mut var_name_expr_wrapper, ref mut rhs_expr_wrapper) => {
+                let lhs_type = match self.analyze(var_name_expr_wrapper) {
+                    Some(t) => t,
+                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
+                };
+                let rhs_type = match self.analyze(rhs_expr_wrapper) {
+                    Some(t) => t,
+                    None => unreachable!("This should not happen??") // VERIFY, unwrap?
+                };
 
-                None // FIXME
+                TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
             },
             Block(ref mut vec) => {
                 for expr_wrapper in vec {
@@ -62,13 +68,13 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
             },
             FnCall(ref fn_name, ref args) => None, // FIXME: Compare to fn declaration?
             FnDecl(ref fn_name, ref args, ref mut ret_type, ref mut body_expr_wrapper) => {
-                // TODO: Check if args are of a valid type
                 for &(ref name, ref type_) in args {
                     if let Err(()) = type_.parse::<Types>() {
                         // TODO: Custom type found. Figure out if it is valid
                     }
                 }
 
+                // TODO: Check if all return values return proper type
                 if ret_type != &self.analyze(body_expr_wrapper) {
                     panic!("Error goes here") // FIXME: Better errors
                 }
@@ -76,6 +82,11 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                 ret_type.clone() // Better way than to clone?
             },
             If(ref mut cond_expr_wrapper, ref mut body_expr_wrapper, ref mut opt_else_expr_wrapper) => {
+                // First arg should be Opt<>? for else {} clause? Or Else could eval this to True
+                // if let Some(cond_expr_wrapper) = opt_cond_expr_wrapper {
+                if self.analyze(cond_expr_wrapper) != Some("bool".into()) {
+                    panic!("Error goes here, not a bool") // FIXME: Better errors
+                }
 
                 None // FIXME
             },
@@ -90,6 +101,11 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                 };
 
                 TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
+            },
+            Literal(ref literal) => Some(literal.to_string()), // Done?
+            Return(ref mut opt_ret_type) => match *opt_ret_type { // Done?
+                Some(ref mut expr_wrapper) => self.analyze(expr_wrapper),
+                None => Some("None".into()) // None type?
             },
             UnaryOp(ref op, ref mut expr_wrapper) => self.analyze(expr_wrapper),
             Var(ref name) => None, // FIXME: Lookup VarDecl type
@@ -114,16 +130,8 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                 }
             },
             WhileLoop(ref mut cond_expr_wrapper, ref mut body_expr_wrapper) => {
-                match self.analyze(cond_expr_wrapper) {
-                    Some(ref string) => match string.parse::<Types>() {
-                        Ok(t) => {
-                            if t != Bool {
-                                panic!("Error goes here, not a bool") // FIXME: Better errors
-                            }
-                        },
-                        Err(()) => unreachable!("Should not happen") // VERIFY, unwrap?
-                    },
-                    None => unreachable!("Should not happen") // VERIFY, unwrap?
+                if self.analyze(cond_expr_wrapper) != Some("bool".into()) {
+                    panic!("Error goes here, not a bool") // FIXME: Better errors
                 }
 
                 // Type of a while loop is the type it returns? REVIEW
@@ -131,12 +139,7 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
 
                 // TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
             },
-            Literal(ref literal) => Some(literal.to_string()), // Done?
-            Return(ref mut opt_ret_type) => match *opt_ret_type { // Done?
-                Some(ref mut expr_wrapper) => self.analyze(expr_wrapper),
-                None => Some("None".into()) // None type?
-            },
-            NoOp => None, // Done?
+            NoOp => None,
         }
     }
 }
