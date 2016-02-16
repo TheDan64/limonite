@@ -47,14 +47,8 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
 
         match *ast_root.get_mut_expr() {
             Assign(ref mut var_name_expr_wrapper, ref mut rhs_expr_wrapper) => {
-                let lhs_type = match self.analyze(var_name_expr_wrapper) {
-                    Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
-                };
-                let rhs_type = match self.analyze(rhs_expr_wrapper) {
-                    Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
-                };
+                let lhs_type = self.analyze(var_name_expr_wrapper).unwrap();
+                let rhs_type = self.analyze(rhs_expr_wrapper).unwrap();
 
                 TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
             },
@@ -114,14 +108,8 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                 None // FIXME
             },
             InfixOp(ref op, ref mut lhs_expr_wrapper, ref mut rhs_expr_wrapper) => {
-                let lhs_type = match self.analyze(lhs_expr_wrapper) {
-                    Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
-                };
-                let rhs_type = match self.analyze(rhs_expr_wrapper) {
-                    Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
-                };
+                let lhs_type = self.analyze(lhs_expr_wrapper).unwrap();
+                let rhs_type = self.analyze(rhs_expr_wrapper).unwrap();
 
                 TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
             },
@@ -133,10 +121,7 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
             UnaryOp(ref op, ref mut expr_wrapper) => self.analyze(expr_wrapper),
             Var(ref name) => None, // FIXME: Lookup VarDecl type
             VarDecl(ref const_, ref name, ref mut opt_type, ref mut expr_wrapper) => {
-                let rhs_type = match self.analyze(expr_wrapper) {
-                    Some(t) => t,
-                    None => unreachable!("This should not happen??") // VERIFY: unwrap?
-                };
+                let rhs_type = self.analyze(expr_wrapper).unwrap();
 
                 match *opt_type {
                     Some(ref lhs_type) => TypeChecker::cmp_lhs_rhs(lhs_type.clone(), rhs_type),  // No way to not clone?
