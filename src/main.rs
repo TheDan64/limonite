@@ -1,6 +1,5 @@
 #![crate_name = "limonite"]
 #![crate_type = "bin"]
-#![allow(dead_code)]
 
 extern crate docopt;
 extern crate rustc_serialize;
@@ -12,19 +11,26 @@ use std::io::{BufReader, Read};
 use std::fs::File;
 use std::path::Path;
 use docopt::Docopt;
-use syntax::lexer::Lexer;
+
+use lexical::lexer::Lexer;
 use syntax::parser::Parser;
+use semantic::analyzer::SemanticAnalyzer;
+use semantic::analyzer_trait::ASTAnalyzer;
 use codegen::codegen::codegen; // REVIEW: better codegen name convention + class?
 
+pub mod lexical;
 pub mod syntax;
+pub mod semantic;
 pub mod codegen;
 
 static USAGE: &'static str = "\
 Usage: limonite <file>
+       limonite (-d | --dump) <file>
        limonite (-s | --stdin)
        limonite (-v | --version)
 
 Options:
+    -d, --dump      Dumps LLVM IR
     -h, --help      Display this message
     -s, --stdin     Read input from stdin
     -v, --version   Displays current version
@@ -33,6 +39,7 @@ Options:
 #[derive(RustcDecodable)]
 struct Args {
     pub arg_file: String,
+    pub flag_dump: bool,
     pub flag_stdin: bool,
     pub flag_version: bool
 }
@@ -69,16 +76,18 @@ fn main() {
     // Parse & Build an AST
     let mut parser = Parser::new(lexer);
 
-    let ast_root = match parser.parse() {
+    let mut ast_root = match parser.parse() {
         Some(ast) => ast,
         None => return,
     };
 
     // TODO: Semantic Analysis
+    let mut semantic_analyzer = SemanticAnalyzer::new();
+    semantic_analyzer.analyze(&mut ast_root);
 
     // Run Code Gen
     unsafe {
-        codegen("module1", ast_root, true);
+        codegen("module1", &ast_root, args.flag_dump);
     }
 }
 

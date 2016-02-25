@@ -29,7 +29,7 @@ pub enum Keywords {
 
 impl FromStr for Keywords {
     type Err = ();
-    
+
     fn from_str(s: &str) -> Result<Keywords, ()> {
         match s {
             "and"      => Ok(Keywords::And),

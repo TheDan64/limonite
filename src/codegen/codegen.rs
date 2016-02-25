@@ -10,11 +10,11 @@ use self::llvm_sys::execution_engine::*;
 use self::llvm_sys::prelude::*;
 use self::llvm_sys::target::*;
 //use self::llvm_sys::transforms::scalar::*;
+use lexical::types::*;
+use syntax::op::*;
+use syntax::expr::*;
+use syntax::literals::*;
 use codegen::builtins::generate_builtins;
-use syntax::ast::op::*;
-use syntax::ast::expr::*;
-use syntax::ast::literals::*;
-use syntax::core::types::*;
 
 // Struct to keep track of data needed to build IR
 pub struct Context {
@@ -423,7 +423,7 @@ impl CodeGen for Expr {
     }
 }
 
-pub unsafe fn codegen(module_name: &str, ast_root: ExprWrapper, dump_ir: bool) {
+pub unsafe fn codegen(module_name: &str, ast_root: &ExprWrapper, dump_ir: bool) {
     let mut context = Context::new(module_name);
     let i32_type = LLVMInt32TypeInContext(context.get_context());
     let main = generate_builtins(&mut context);

@@ -3,16 +3,16 @@ extern crate env_logger;
 
 use std::vec::IntoIter;
 
-use limonite::syntax::lexer::Tokenizer;
+use limonite::lexical::lexer::Tokenizer;
+use limonite::lexical::tokens::Tokens;
+use limonite::lexical::tokens::Tokens::*;
+use limonite::lexical::types::Types;
+use limonite::lexical::keywords::Keywords;
+use limonite::lexical::symbols::Symbols;
 use limonite::syntax::parser::Parser;
-use limonite::syntax::core::tokens::Tokens;
-use limonite::syntax::core::tokens::Tokens::*;
-use limonite::syntax::core::types::Types;
-use limonite::syntax::core::keywords::Keywords;
-use limonite::syntax::core::symbols::Symbols;
-use limonite::syntax::ast::expr::{Expr, ExprWrapper};
-use limonite::syntax::ast::literals::*;
-use limonite::syntax::ast::op::*;
+use limonite::syntax::expr::{Expr, ExprWrapper};
+use limonite::syntax::literals::*;
+use limonite::syntax::op::*;
 
 struct MockLexer {
     tokens: IntoIter<Tokens>
@@ -122,7 +122,7 @@ fn test_valid_fn_definition() {
     ];
     let desired_ast = vec![
         ExprWrapper::default(
-            Expr::FnDecl("foo".to_string(), Vec::new(), Identifier("int".to_string()),
+            Expr::FnDecl("foo".to_string(), Vec::new(), Some("int".to_string()),
             ExprWrapper::default(Expr::Block(Vec::new()))))
     ];
     expect_test(tokens, desired_ast);
@@ -142,10 +142,10 @@ fn test_valid_fn_definition() {
     ];
 
     // One arg: foo(bar: i32) -> str
-    let args = vec![("bar".to_string(), Identifier("int".to_string()))];
+    let args = vec![("bar".to_string(), "int".to_string())];
     let desired_ast = vec![
         ExprWrapper::default(
-            Expr::FnDecl("foo".to_string(), args, Identifier("str".to_string()),
+            Expr::FnDecl("foo".to_string(), args, Some("str".to_string()),
             ExprWrapper::default(Expr::Block(Vec::new()))))
     ];
     expect_test(tokens, desired_ast);
@@ -173,12 +173,12 @@ fn test_valid_fn_definition() {
     ];
     //
     // Multiple args: foo(bar: i32, left: Obj, right: Obj) -> None
-    let args = vec![("bar".to_string(), Identifier("int".to_string())),
-                    ("left".to_string(), Identifier("Obj".to_string())),
-                    ("right".to_string(), Identifier("Obj".to_string()))];
+    let args = vec![("bar".to_string(), "int".to_string()),
+                    ("left".to_string(), "Obj".to_string()),
+                    ("right".to_string(), "Obj".to_string())];
     let desired_ast = vec![
         ExprWrapper::default(
-            Expr::FnDecl("foo".to_string(), args, Identifier("None".to_string()),
+            Expr::FnDecl("foo".to_string(), args, Some("None".to_string()),
             ExprWrapper::default(Expr::Block(Vec::new()))))
     ];
     expect_test(tokens, desired_ast);

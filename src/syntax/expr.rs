@@ -1,8 +1,7 @@
 use std::fmt;
 
-use syntax::ast::literals::*;
-use syntax::ast::op::*;
-use syntax::core::tokens::Tokens;
+use syntax::literals::*;
+use syntax::op::*;
 
 #[derive(PartialEq)]
 pub struct ExprWrapper {
@@ -38,6 +37,10 @@ impl ExprWrapper {
     pub fn get_expr(&self) -> &Expr {
         &self.expr
     }
+
+    pub fn get_mut_expr(&mut self) -> &mut Expr {
+        &mut self.expr
+    }
 }
 
 impl fmt::Debug for ExprWrapper {
@@ -62,8 +65,8 @@ pub enum Expr {
     Assign(ExprWrapper, ExprWrapper),
     // Fn call with name and args.
     FnCall(String, Vec<ExprWrapper>),
-    // Declare a function with a name, args(name, ident), return ident, and body expr
-    FnDecl(String, Vec<(String, Tokens)>, Tokens, ExprWrapper),
+    // Declare a function with a name, args(name, type), return type, and body expr
+    FnDecl(String, Vec<(String, String)>, Option<String>, ExprWrapper),
     // Run consecutive expressions
     Block(Vec<ExprWrapper>),
     // Const declaration?, variable name, type(optional in parser but not SA), and expression
