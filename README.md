@@ -14,11 +14,11 @@ Limonite is a relatively basic programming language written in rust using LLVM a
 
 ## Building
 1. Make sure you have installed all the dependencies.
-	* Rust (Stable/Beta)
-	* Cargo
-	* git
-	* LLVM >= 3.6
-	* cmake
+    * Rust (>= 1.16.0)
+    * Cargo
+    * git (optional)
+    * LLVM >= 3.6 (optional)
+    * cmake (required for LLVM)
 
 2. Download and build Limonite.
 
@@ -27,6 +27,12 @@ Limonite is a relatively basic programming language written in rust using LLVM a
         git clone https://github.com/TheDan64/limonite.git
         cd limonite
         cargo build
+
+    Without LLVM dependency
+
+        git clone https://github.com/TheDan64/limonite.git
+        cd limonite
+        cargo build --no-default-features
 
 ## Working Features
 * Basic variables w/ basic type inference: `var s = "Hello, world!"`
