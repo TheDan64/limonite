@@ -14,7 +14,7 @@ use lexical::types::*;
 use syntax::op::*;
 use syntax::expr::*;
 use syntax::literals::*;
-use codegen::builtins::generate_builtins;
+use codegen::llvm::builtins::generate_builtins;
 
 // Struct to keep track of data needed to build IR
 pub struct Context {
