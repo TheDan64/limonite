@@ -19,10 +19,14 @@ path = "src/main.rs"
 test = false
 doc = false
 
+[features]
+default = ["llvm-backend"]
+llvm-backend = ["llvm-sys"]
+
 [dependencies]
 docopt = "*"
 env_logger = "*"
-llvm-sys = "*"
+llvm-sys = {version="0.2.1", optional=true}
 log = "*"
 rustc-serialize = "*"
 

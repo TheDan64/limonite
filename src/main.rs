@@ -16,7 +16,8 @@ use lexical::lexer::Lexer;
 use syntax::parser::Parser;
 use semantic::analyzer::SemanticAnalyzer;
 use semantic::analyzer_trait::ASTAnalyzer;
-use codegen::codegen::codegen; // REVIEW: better codegen name convention + class?
+#[cfg(feature="llvm-backend")]
+use codegen::llvm::codegen::codegen; // REVIEW: better codegen name convention + class?
 
 pub mod lexical;
 pub mod syntax;
@@ -86,6 +87,7 @@ fn main() {
     semantic_analyzer.analyze(&mut ast_root);
 
     // Run Code Gen
+    #[cfg(feature="llvm-backend")]
     unsafe {
         codegen("module1", &ast_root, args.flag_dump);
     }

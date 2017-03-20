@@ -4,7 +4,7 @@ use std::ptr;
 use self::llvm_sys::prelude::*;
 use self::llvm_sys::core::*;
 use self::llvm_sys::*;
-use codegen::codegen::{Context, c_str_ptr};
+use codegen::llvm::codegen::{Context, c_str_ptr};
 
 // Generate LLVM IR for functions built into the language
 pub unsafe fn generate_builtins(context: &mut Context) -> LLVMValueRef {

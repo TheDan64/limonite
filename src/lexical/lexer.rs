@@ -483,7 +483,7 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = Tokens;
 
     // Parse the file where it left off and return the next token
-    fn next(&mut self) -> Option<Tokens> {
+    fn next(&mut self) -> Option<Self::Item> {
         self.consume_whitespace();
 
         let tok = match self.next_char() {
