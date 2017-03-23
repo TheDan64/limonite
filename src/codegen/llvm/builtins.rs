@@ -28,13 +28,13 @@ unsafe fn generate_print(context: &mut Context) {
     let i32_type = LLVMInt32TypeInContext(context.get_context());
     let i64_type = LLVMInt64TypeInContext(context.get_context());
     let i32_ptr_type = LLVMPointerType(i32_type, 0);
-    let string_type_fields = vec![LLVMPointerType(i8_type, 0), i64_type];
-    let string_type = LLVMStructTypeInContext(context.get_context(), string_type_fields.as_ptr() as *mut _, 2, 0);
+    let mut string_type_fields = vec![LLVMPointerType(i8_type, 0), i64_type];
+    let string_type = LLVMStructTypeInContext(context.get_context(), string_type_fields.as_mut_ptr(), 2, 0);
 
-    let args = vec![string_type];
+    let mut args = vec![string_type];
 
     // 2nd arg is param types (*mut LLVMTypeRef) and 3rd is param count. 4 is variable # of args t/f?
-    let fn_type = LLVMFunctionType(void, args.as_ptr() as *mut _, 1, 0);
+    let fn_type = LLVMFunctionType(void, args.as_mut_ptr(), 1, 0);
     let print_fn = LLVMAddFunction(context.get_module(), c_str_ptr("print"), fn_type);
 
     // Name the param
@@ -65,8 +65,8 @@ unsafe fn generate_print(context: &mut Context) {
     LLVMPositionBuilderAtEnd(context.get_builder(), loop_block);
 
     let offset = LLVMBuildLoad(context.get_builder(), offset_ptr, c_str_ptr("offset"));
-    let indices = vec![offset];
-    let iter_ptr = LLVMBuildGEP(context.get_builder(), str_ptr, indices.as_ptr() as *mut _, 1, c_str_ptr("iterptr"));
+    let mut indices = vec![offset];
+    let iter_ptr = LLVMBuildGEP(context.get_builder(), str_ptr, indices.as_mut_ptr(), 1, c_str_ptr("iterptr"));
 
     let op = LLVMOpcode::LLVMBitCast;
     let iterptr32 = LLVMBuildCast(context.get_builder(), op, iter_ptr, i32_ptr_type, c_str_ptr("iterptr32"));
@@ -75,12 +75,12 @@ unsafe fn generate_print(context: &mut Context) {
 
     let mut putchar_fn = LLVMGetNamedFunction(context.get_module(), c_str_ptr("putchar"));
     if putchar_fn.is_null() {
-        let fn_type2 = LLVMFunctionType(i32_type, vec![i32_type].as_ptr() as *mut _, 1, 0);
+        let fn_type2 = LLVMFunctionType(i32_type, vec![i32_type].as_mut_ptr(), 1, 0);
         putchar_fn = LLVMAddFunction(context.get_module(), c_str_ptr("putchar"), fn_type2);
     }
 
     // Print char at ptr_iter here
-    LLVMBuildCall(context.get_builder(), putchar_fn, vec![iter32].as_ptr() as *mut _, 1, c_str_ptr(""));
+    LLVMBuildCall(context.get_builder(), putchar_fn, vec![iter32].as_mut_ptr(), 1, c_str_ptr(""));
 
     // Increment the offset
     let i64_one = LLVMConstInt(i64_type, 1, 0);
@@ -95,7 +95,7 @@ unsafe fn generate_print(context: &mut Context) {
     // End
     LLVMPositionBuilderAtEnd(context.get_builder(), end_block);
     let newline = LLVMConstInt(i32_type, '\n' as u64, 0);
-    LLVMBuildCall(context.get_builder(), putchar_fn, vec![newline].as_ptr() as *mut _, 1, c_str_ptr(""));
+    LLVMBuildCall(context.get_builder(), putchar_fn, vec![newline].as_mut_ptr(), 1, c_str_ptr(""));
     LLVMBuildRetVoid(context.get_builder());
 }
 
