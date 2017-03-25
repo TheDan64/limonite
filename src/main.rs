@@ -18,6 +18,8 @@ use semantic::analyzer::SemanticAnalyzer;
 use semantic::analyzer_trait::ASTAnalyzer;
 #[cfg(feature="llvm-backend")]
 use codegen::llvm::codegen::codegen; // REVIEW: better codegen name convention + class?
+#[cfg(feature="llvm-backend")]
+use codegen::llvm::LLVMGenerator;
 
 pub mod lexical;
 pub mod syntax;
@@ -90,6 +92,17 @@ fn main() {
     #[cfg(feature="llvm-backend")]
     unsafe {
         codegen("module1", &ast_root, args.flag_dump);
+    }
+
+    #[cfg(feature="llvm-backend")]
+    {
+        let mut generator = LLVMGenerator::new();
+
+        generator.add_module("main", &ast_root);
+
+        if args.flag_dump {
+            generator.dump_ir();
+        }
     }
 }
 

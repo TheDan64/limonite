@@ -1,10 +1,11 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMCreateExecutionEngineForModule, LLVMGetExecutionEngineTargetData};
 use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate};
 
 use std::ffi::CString;
+use std::iter;
 use std::mem::transmute;
 
 pub struct Context {
@@ -20,7 +21,7 @@ impl Context {
         }
     }
 
-    fn create_builder(&self) -> Builder {
+    pub fn create_builder(&self) -> Builder {
         Builder {
             builder: unsafe {
                 LLVMCreateBuilderInContext(self.context)
@@ -191,6 +192,16 @@ impl Builder {
         }
     }
 
+    fn build_add(&self, left_value: Value, right_value: Value, name: &str) -> Value {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        Value {
+            value: unsafe {
+                LLVMBuildAdd(self.builder, left_value.value, right_value.value, c_string)
+            }
+        }
+    }
+
     fn build_cast(&self, op: LLVMOpcode, from_value: Value, to_type: Type, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
@@ -259,6 +270,32 @@ impl Module {
         }
     }
 
+    fn get_named_function(&self, name: &str) -> Option<Value> {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        let value = unsafe {
+            LLVMGetNamedFunction(self.module, c_string)
+        };
+
+        if value.is_null() {
+            return None;
+        }
+
+        Some(Value { value: value })
+    }
+
+    fn create_execution_engine(&self) -> ExecutionEngine {
+        LLVMCreateExecutionEngineForModule(execution_engine_fixme, self.module, err_msg)
+    }
+
+    fn create_fn_pass_manager(&self) -> PassManager {
+        PassManager {
+            pass_manager: unsafe {
+                LLVMCreateFunctionPassManagerForModule(self.module)
+            }
+        }
+    }
+
     pub fn dump(&self) {
         unsafe {
             LLVMDumpModule(self.module);
@@ -266,20 +303,31 @@ impl Module {
     }
 }
 
-struct ExecutionEngine {
-
+pub struct ExecutionEngine {
+    execution_engine: LLVMExecutionEngineRef,
 }
 
-struct PassManager {
+impl ExecutionEngine {
+    fn get_target_data(&self) -> Value {
+        Value {
+            value: unsafe {
+                LLVMGetExecutionEngineTargetData(self.execution_engine)
+            }
+        }
+    }
+}
+
+pub struct PassManager {
     pass_manager: LLVMPassManagerRef,
 }
 
 impl PassManager {
-    fn new() -> Self {
+}
+
+impl Drop for PassManager {
+    fn drop(&mut self) {
         unsafe {
-            PassManager {
-                pass_manager: LLVMCreatePassManager(),
-            }
+            LLVMDisposePassManager(self.pass_manager)
         }
     }
 }
@@ -289,26 +337,35 @@ struct Type {
 }
 
 impl Type {
-    fn ptr_type(mut self, address_space: u32) -> Self {
-        self.type_ = unsafe {
-            LLVMPointerType(self.type_, address_space)
-        };
-
-        self
+    // REVIEW: Design decisions, should we create new type from scratch? (So original type is reusable resource)
+    fn ptr_type(&self, address_space: u32) -> Type {
+        Type {
+            type_: unsafe {
+                LLVMPointerType(self.type_, address_space)
+            }
+        }
     }
 
-    fn fn_type(mut self, mut param_types: Vec<Type>, is_var_args: bool) -> Self {
+    fn fn_type(&self, mut param_types: Vec<Type>, is_var_args: bool) -> Type {
         // WARNING: transmute will no longer work correctly if Type gains more fields
         // We're avoiding reallocation by telling rust Vec<Type> is identical to Vec<LLVMTypeRef>
         let mut param_types: Vec<LLVMTypeRef> = unsafe {
             transmute(param_types)
         };
 
-        self.type_ = unsafe {
-            LLVMFunctionType(self.type_, param_types.as_mut_ptr(), param_types.len() as u32, is_var_args as i32) // REVIEW: safe to cast usize to u32?
-        };
+        Type {
+            type_: unsafe {
+                LLVMFunctionType(self.type_, param_types.as_mut_ptr(), param_types.len() as u32, is_var_args as i32) // REVIEW: safe to cast usize to u32?
+            }
+        }
+    }
 
-        self
+    fn const_int(&self, value: u64) -> Value {
+        Value {
+            value: unsafe {
+                LLVMConstInt(self.type_, value, 0) // REVIEW: What does 0 do?
+            }
+        }
     }
 }
 
@@ -325,6 +382,31 @@ impl Value {
         }
     }
 
+    fn count_params(&self) -> u32 {
+        // WARNING: Should only be used on functions. Consider FunctionValue Type
+        unsafe {
+            LLVMCountParams(self.value)
+        }
+    }
+}
+
+impl Iterator for Value {
+    type Item = Value;
+
+    // WARNING: This must only be used on functions and is worth considering a FunctionValue Type
+    fn next(&mut self) -> Option<Self::Item> {
+        // LLVMGetFirstParam(self.value)
+
+        let next_value = unsafe {
+            LLVMGetNextParam(self.value)
+        };
+
+        if next_value.is_null() {
+            return None;
+        }
+
+        Some(Value { value: next_value })
+    }
 
 }
 
