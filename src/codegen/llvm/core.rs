@@ -1,12 +1,13 @@
 extern crate llvm_sys;
 
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule};
+use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef};
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMCreateExecutionEngineForModule, LLVMGetExecutionEngineTargetData};
 use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate};
 
 use std::ffi::CString;
 use std::iter;
-use std::mem::transmute;
+use std::mem::{transmute, uninitialized, zeroed};
 
 pub struct Context {
     context: LLVMContextRef,
@@ -284,8 +285,23 @@ impl Module {
         Some(Value { value: value })
     }
 
-    fn create_execution_engine(&self) -> ExecutionEngine {
-        LLVMCreateExecutionEngineForModule(execution_engine_fixme, self.module, err_msg)
+    fn create_execution_engine(&self) -> ExecutionEngine { // Result
+        let mut execution_engine = uninitialized();
+        let mut out = zeroed();
+
+        // TODO: Check that these calls are succesful
+        // LLVM_InitializeNativeTarget();
+        // LLVM_InitializeNativeAsmPrinter();
+
+        let code = unsafe {
+            LLVMCreateExecutionEngineForModule(&mut execution_engine, self.module, &mut out) // Should take ownership of module
+        };
+
+        // TODO: Check code/out, difference
+
+        ExecutionEngine {
+            execution_engine: execution_engine
+        }
     }
 
     fn create_fn_pass_manager(&self) -> PassManager {
