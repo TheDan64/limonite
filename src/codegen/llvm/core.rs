@@ -1,8 +1,9 @@
 extern crate llvm_sys;
 
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule};
-use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager};
+use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain};
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
+use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef};
 use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate};
 
 use std::ffi::CString;
@@ -30,7 +31,7 @@ impl Context {
         }
     }
 
-    fn create_module(&self, name: &str) -> Module {
+    pub fn create_module(&self, name: &str) -> Module {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Module {
@@ -113,11 +114,13 @@ impl Context {
         self.struct_type(field_types)
     }
 
-    fn append_basic_block(&self, name: &str, function: Value) -> LLVMBasicBlockRef {
+    fn append_basic_block(&self, name: &str, function: Value) -> BasicBlock {
         let c_string = CString::new(name).unwrap().as_ptr();
 
-        unsafe {
+        BasicBlock {
+            basic_block: unsafe {
                 LLVMAppendBasicBlockInContext(self.context, function.value, c_string)
+            }
         }
     }
 }
@@ -223,26 +226,26 @@ impl Builder {
         }
     }
 
-    fn build_conditional_branch(&self, comparison: Value, then_block: LLVMBasicBlockRef, else_block: LLVMBasicBlockRef) -> Value {
+    fn build_conditional_branch(&self, comparison: Value, then_block: BasicBlock, else_block: BasicBlock) -> Value {
         Value {
             value: unsafe {
-                LLVMBuildCondBr(self.builder, comparison.value, then_block, else_block)
+                LLVMBuildCondBr(self.builder, comparison.value, then_block.basic_block, else_block.basic_block)
             }
         }
     }
 
-    fn position_at_end(&self, basic_block: LLVMBasicBlockRef) {
+    fn position_at_end(&self, basic_block: BasicBlock) {
         unsafe {
-            LLVMPositionBuilderAtEnd(self.builder, basic_block);
+            LLVMPositionBuilderAtEnd(self.builder, basic_block.basic_block);
         }
     }
 
-    fn extract_value(&self, param: Value, name: &str) -> Value {
+    fn extract_value(&self, param: ParamValue, index: u32, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
             value: unsafe {
-                LLVMBuildExtractValue(self.builder, param.value, 0, c_string) // REVIEW: What is 0?
+                LLVMBuildExtractValue(self.builder, param.param_value, index, c_string)
             }
         }
     }
@@ -261,17 +264,17 @@ pub struct Module {
 }
 
 impl Module {
-    fn add_function(&self, name: &str, return_type: Type) -> Value { // Review Function struct?
+    fn add_function(&self, name: &str, return_type: FunctionType) -> FunctionValue {
         let c_string = CString::new(name).unwrap().as_ptr();
 
-        Value {
-            value: unsafe {
-                LLVMAddFunction(self.module, c_string, return_type.type_)
+        FunctionValue {
+            function_value: unsafe {
+                LLVMAddFunction(self.module, c_string, return_type.function_type)
             }
         }
     }
 
-    fn get_named_function(&self, name: &str) -> Option<Value> {
+    pub fn get_named_function(&self, name: &str) -> Option<FunctionValue> {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         let value = unsafe {
@@ -282,16 +285,18 @@ impl Module {
             return None;
         }
 
-        Some(Value { value: value })
+        Some(FunctionValue { function_value: value })
     }
 
-    fn create_execution_engine(&self) -> ExecutionEngine { // Result
-        let mut execution_engine = uninitialized();
-        let mut out = zeroed();
+    pub fn create_execution_engine(&self) -> ExecutionEngine { // Result?
+        let mut execution_engine = unsafe { uninitialized() };
+        let mut out = unsafe { zeroed() };
 
-        // TODO: Check that these calls are succesful
+        // TODO: Check that these calls are succesful or even needed
         // LLVM_InitializeNativeTarget();
         // LLVM_InitializeNativeAsmPrinter();
+        // LLVM_InitializeNativeAsmParser();
+        // LLVMLinkInInterpreter();
 
         let code = unsafe {
             LLVMCreateExecutionEngineForModule(&mut execution_engine, self.module, &mut out) // Should take ownership of module
@@ -324,11 +329,28 @@ pub struct ExecutionEngine {
 }
 
 impl ExecutionEngine {
-    fn get_target_data(&self) -> Value {
-        Value {
-            value: unsafe {
-                LLVMGetExecutionEngineTargetData(self.execution_engine)
-            }
+    fn get_target_data(&self) -> LLVMTargetDataRef {
+        unsafe {
+            LLVMGetExecutionEngineTargetData(self.execution_engine)
+        }
+    }
+
+    pub fn run_function(&self, function: FunctionValue) {
+        let num_args = 0; // TODO
+        let args = 0; // FIXME
+
+        unsafe {
+            LLVMRunFunction(self.execution_engine, function.function_value, num_args, args);
+        }
+    }
+
+    pub fn run_function_as_main(&self, function: FunctionValue) {
+        let arg_c = 0; // TODO
+        let arg_v = 0; // FIXME
+        let env_p = 0; // FIXME
+
+        unsafe {
+            LLVMRunFunctionAsMain(self.execution_engine, function.function_value, arg_c, arg_v, env_p); // ???
         }
     }
 }
@@ -338,6 +360,11 @@ pub struct PassManager {
 }
 
 impl PassManager {
+    fn initialize(&self) { // TODO: Result
+        let code = unsafe {
+            LLVMInitializeFunctionPassManager(self.pass_manager)
+        };
+    }
 }
 
 impl Drop for PassManager {
@@ -362,25 +389,59 @@ impl Type {
         }
     }
 
-    fn fn_type(&self, mut param_types: Vec<Type>, is_var_args: bool) -> Type {
+    fn fn_type(&self, mut param_types: Vec<Type>, is_var_args: bool) -> FunctionType {
         // WARNING: transmute will no longer work correctly if Type gains more fields
         // We're avoiding reallocation by telling rust Vec<Type> is identical to Vec<LLVMTypeRef>
         let mut param_types: Vec<LLVMTypeRef> = unsafe {
             transmute(param_types)
         };
 
-        Type {
-            type_: unsafe {
+        FunctionType {
+            function_type: unsafe {
                 LLVMFunctionType(self.type_, param_types.as_mut_ptr(), param_types.len() as u32, is_var_args as i32) // REVIEW: safe to cast usize to u32?
             }
         }
     }
 
     fn const_int(&self, value: u64) -> Value {
+        // REVIEW: What if type is void??
+
         Value {
             value: unsafe {
                 LLVMConstInt(self.type_, value, 0) // REVIEW: What does 0 do?
             }
+        }
+    }
+}
+
+struct FunctionValue {
+    function_value: LLVMValueRef,
+}
+
+impl FunctionValue {
+    fn get_first_param(&self) -> ParamValue { // Result?
+        ParamValue {
+            param_value: unsafe {
+                LLVMGetFirstParam(self.function_value)
+            }
+        }
+    }
+}
+
+struct FunctionType {
+    function_type: LLVMTypeRef,
+}
+
+struct ParamValue {
+    param_value: LLVMValueRef,
+}
+
+impl ParamValue {
+    fn set_name(&self, name: &str) {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        unsafe {
+            LLVMSetValueName(self.param_value, c_string)
         }
     }
 }
@@ -431,3 +492,7 @@ impl Iterator for Value {
 // LLVMValueRef can be a function
 // LLVMValueRef can be a function param
 // LLVMValueRef can be a comparison_op
+
+struct BasicBlock {
+    basic_block: LLVMBasicBlockRef,
+}
