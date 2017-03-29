@@ -39,9 +39,12 @@ impl LLVMGenerator {
     }
 
     pub fn run(&self) {
-        let execution_engine = self.main_module.as_ref().unwrap().create_execution_engine();
+        let main_module = self.main_module.as_ref().unwrap();
 
-        let main = self.main_module.unwrap().get_named_function("main").unwrap();
+        assert!(main_module.verify(true)); // TODO: print param as cli flag
+
+        let execution_engine = main_module.create_execution_engine();
+        let main = main_module.get_named_function("main").unwrap();
 
         execution_engine.run_function_as_main(main);
     }

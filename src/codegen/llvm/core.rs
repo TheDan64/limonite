@@ -1,12 +1,13 @@
 extern crate llvm_sys;
 
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager};
-use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain};
+use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType};
+use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine};
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef};
 use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate};
 
-use std::ffi::CString;
+use std::ffi::{CString, CStr};
 use std::iter;
 use std::mem::{transmute, uninitialized, zeroed};
 
@@ -107,7 +108,7 @@ impl Context {
     fn string_type(&self) -> Type {
         // TODO: Generic vec_type(i8)
         let field_types = vec![
-            self.i8_type().ptr_type(0),
+            self.i8_type().ptr_type(0), // REVIEW: Existing impl might have had this as array type
             self.i64_type(),
         ];
 
@@ -194,6 +195,14 @@ impl Builder {
                 LLVMBuildLoad(self.builder, ptr.value, c_string)
             }
         }
+    }
+
+    fn build_alloca(&self) {
+        // LLVMBuildAlloca(self.builder, type, string)
+    }
+
+    fn build_malloc(&self) {
+        // LLVMBuildMalloc(self.builder, type, string)
     }
 
     fn build_add(&self, left_value: Value, right_value: Value, name: &str) -> Value {
@@ -317,12 +326,43 @@ impl Module {
         }
     }
 
+    pub fn verify(&self, print: bool) -> bool {
+        let mut err_str: *mut *mut i8 = unsafe { zeroed() };
+
+        let action = if print == true {
+            LLVMVerifierFailureAction::LLVMPrintMessageAction
+        } else {
+            LLVMVerifierFailureAction::LLVMReturnStatusAction
+        };
+
+
+        let code = unsafe {
+            LLVMVerifyModule(self.module, action, err_str)
+        };
+
+        if code == 1 {
+            unsafe {
+                if print {
+                    let rust_str = CStr::from_ptr(*err_str).to_str().unwrap();
+
+                    println!("{}", rust_str); // FIXME: Should probably be stderr?
+                }
+
+                LLVMDisposeMessage(*err_str);
+            }
+        }
+
+        code == 0
+    }
+
     pub fn dump(&self) {
         unsafe {
             LLVMDumpModule(self.module);
         }
     }
 }
+
+// REVIEW: Drop for Module? There's a LLVM method, but I read context dispose takes care of it...
 
 pub struct ExecutionEngine {
     execution_engine: LLVMExecutionEngineRef,
@@ -336,21 +376,27 @@ impl ExecutionEngine {
     }
 
     pub fn run_function(&self, function: FunctionValue) {
-        let num_args = 0; // TODO
-        let args = 0; // FIXME
+        let mut args = vec![]; // TODO: Support args
 
         unsafe {
-            LLVMRunFunction(self.execution_engine, function.function_value, num_args, args);
+            LLVMRunFunction(self.execution_engine, function.function_value, args.len() as u32, args.as_mut_ptr()); // REVIEW: usize to u32 ok??
         }
     }
 
     pub fn run_function_as_main(&self, function: FunctionValue) {
-        let arg_c = 0; // TODO
-        let arg_v = 0; // FIXME
-        let env_p = 0; // FIXME
+        let args = vec![]; // TODO: Support argc, argv
+        let env_p = vec![]; // REVIEW: No clue what this is
 
         unsafe {
-            LLVMRunFunctionAsMain(self.execution_engine, function.function_value, arg_c, arg_v, env_p); // ???
+            LLVMRunFunctionAsMain(self.execution_engine, function.function_value, args.len() as u32, args.as_ptr(), env_p.as_ptr()); // REVIEW: usize to u32 cast ok??
+        }
+    }
+}
+
+impl Drop for ExecutionEngine {
+    fn drop(&mut self) {
+        unsafe {
+            LLVMDisposeExecutionEngine(self.execution_engine);
         }
     }
 }
@@ -403,6 +449,14 @@ impl Type {
         }
     }
 
+    fn array_type(&self, value: u32) -> Type {
+        Type {
+            type_: unsafe {
+                LLVMArrayType(self.type_, value)
+            }
+        }
+    }
+
     fn const_int(&self, value: u64) -> Value {
         // REVIEW: What if type is void??
 
@@ -426,6 +480,31 @@ impl FunctionValue {
             }
         }
     }
+
+    fn count_params(&self) -> u32 {
+        unsafe {
+            LLVMCountParams(self.function_value)
+        }
+    }
+}
+
+impl Iterator for FunctionValue {
+    type Item = ParamValue;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // LLVMGetFirstParam(self.value)
+
+        let next_value = unsafe {
+            LLVMGetNextParam(self.function_value)
+        };
+
+        if next_value.is_null() {
+            return None;
+        }
+
+        Some(ParamValue { param_value: next_value })
+    }
+
 }
 
 struct FunctionType {
@@ -458,33 +537,6 @@ impl Value {
             LLVMSetValueName(self.value, s_string);
         }
     }
-
-    fn count_params(&self) -> u32 {
-        // WARNING: Should only be used on functions. Consider FunctionValue Type
-        unsafe {
-            LLVMCountParams(self.value)
-        }
-    }
-}
-
-impl Iterator for Value {
-    type Item = Value;
-
-    // WARNING: This must only be used on functions and is worth considering a FunctionValue Type
-    fn next(&mut self) -> Option<Self::Item> {
-        // LLVMGetFirstParam(self.value)
-
-        let next_value = unsafe {
-            LLVMGetNextParam(self.value)
-        };
-
-        if next_value.is_null() {
-            return None;
-        }
-
-        Some(Value { value: next_value })
-    }
-
 }
 
 // Case for separate Value structs:
