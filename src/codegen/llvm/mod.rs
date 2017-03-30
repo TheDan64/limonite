@@ -7,7 +7,7 @@ use syntax::expr::ExprWrapper;
 pub struct LLVMGenerator {
     context: core::Context,
     builder: core::Builder,
-    main_module: Option<core::Module>, // Or modules?
+    main_module: Option<core::Module>,
 }
 
 impl LLVMGenerator {
@@ -22,16 +22,18 @@ impl LLVMGenerator {
         }
     }
 
-    pub fn add_module(&mut self, name: &str, ast: &ExprWrapper) {
+    pub fn add_main_module(&mut self, ast: &ExprWrapper) {
         // TODO: Support more modules
 
         if self.main_module.is_none() {
-            self.main_module = Some(self.context.create_module(name));
+            self.main_module = Some(self.context.create_module("main"));
         }
     }
 
     pub fn dump_ir(&self) {
-        // TODO
+        if let Some(ref module) = self.main_module {
+            module.dump();
+        }
     }
 
     pub fn dump_ir_to_file(&self) -> () {

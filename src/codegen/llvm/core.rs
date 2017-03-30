@@ -1,7 +1,7 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine};
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef};
@@ -179,6 +179,16 @@ impl Builder {
         }
     }
 
+    fn build_phi(&self, type_: Type, name: &str) -> Value {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        Value {
+            value: unsafe {
+                LLVMBuildPhi(self.builder, type_.type_, c_string)
+            }
+        }
+    }
+
     fn build_store(&mut self, value: Value, pointer: Value) -> Value {
         Value {
             value: unsafe {
@@ -203,6 +213,14 @@ impl Builder {
 
     fn build_malloc(&self) {
         // LLVMBuildMalloc(self.builder, type, string)
+    }
+
+    fn get_insert_block(&self) -> BasicBlock {
+        BasicBlock {
+            basic_block: unsafe {
+                LLVMGetInsertBlock(self.builder)
+            }
+        }
     }
 
     fn build_add(&self, left_value: Value, right_value: Value, name: &str) -> Value {
@@ -235,10 +253,38 @@ impl Builder {
         }
     }
 
+    fn build_unconditional_branch(&self, destination_block: BasicBlock) -> Value {
+        Value {
+            value: unsafe {
+                LLVMBuildBr(self.builder, destination_block.basic_block)
+            }
+        }
+    }
+
     fn build_conditional_branch(&self, comparison: Value, then_block: BasicBlock, else_block: BasicBlock) -> Value {
         Value {
             value: unsafe {
                 LLVMBuildCondBr(self.builder, comparison.value, then_block.basic_block, else_block.basic_block)
+            }
+        }
+    }
+
+    fn build_neg(&self, value: Value, name: &str) -> Value {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        Value {
+            value: unsafe {
+                LLVMBuildNeg(self.builder, value.value, c_string)
+            }
+        }
+    }
+
+    fn build_not(&self, value: Value, name: &str) -> Value {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        Value {
+            value: unsafe {
+                LLVMBuildNot(self.builder, value.value, c_string)
             }
         }
     }
@@ -426,7 +472,6 @@ struct Type {
 }
 
 impl Type {
-    // REVIEW: Design decisions, should we create new type from scratch? (So original type is reusable resource)
     fn ptr_type(&self, address_space: u32) -> Type {
         Type {
             type_: unsafe {
@@ -466,6 +511,16 @@ impl Type {
             }
         }
     }
+
+    fn const_real(&self, value: f64) -> Value {
+        // REVIEW: What if type is void??
+
+        Value {
+            value: unsafe {
+                LLVMConstReal(self.type_, value)
+            }
+        }
+    }
 }
 
 struct FunctionValue {
@@ -484,6 +539,14 @@ impl FunctionValue {
     fn count_params(&self) -> u32 {
         unsafe {
             LLVMCountParams(self.function_value)
+        }
+    }
+
+    fn get_return_type(&self) -> Type {
+        Type {
+            type_: unsafe {
+                LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(self.function_value)))
+            }
         }
     }
 }
@@ -537,6 +600,13 @@ impl Value {
             LLVMSetValueName(self.value, s_string);
         }
     }
+
+    fn add_incoming(&self, mut incoming_values: Value, mut incoming_basic_block: BasicBlock, count: u32) { // PhiValue (self) only?
+        unsafe {
+            LLVMAddIncoming(self.value, &mut incoming_values.value, &mut incoming_basic_block.basic_block, count);
+        }
+    }
+
 }
 
 // Case for separate Value structs:
@@ -547,4 +617,14 @@ impl Value {
 
 struct BasicBlock {
     basic_block: LLVMBasicBlockRef,
+}
+
+impl BasicBlock {
+    fn get_parent(&self) -> Value { // REVIEW: Why does LLVM return a value instead of a bb??
+        Value {
+            value: unsafe {
+                LLVMGetBasicBlockParent(self.basic_block)
+            }
+        }
+    }
 }

@@ -90,19 +90,21 @@ fn main() {
 
     // Run Code Gen
     #[cfg(feature="llvm-backend")]
-    unsafe {
-        codegen("module1", &ast_root, args.flag_dump);
-    }
+    // unsafe {
+    //     codegen("module1", &ast_root, args.flag_dump);
+    // }
 
     #[cfg(feature="llvm-backend")]
     {
         let mut generator = LLVMGenerator::new();
 
-        generator.add_module("main", &ast_root);
+        generator.add_main_module(&ast_root);
 
         if args.flag_dump {
             generator.dump_ir();
         }
+
+        generator.run();
     }
 }
 
