@@ -33,7 +33,7 @@ Usage: limonite <file>
        limonite (-v | --version)
 
 Options:
-    -d, --dump      Dumps LLVM IR
+    -d, --dump      Dumps backend IR
     -h, --help      Display this message
     -s, --stdin     Read input from stdin
     -v, --version   Displays current version

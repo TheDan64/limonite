@@ -1,15 +1,16 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming};
-use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout};
+use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter};
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
-use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef};
+use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData};
 use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate};
 
 use std::ffi::{CString, CStr};
 use std::iter;
 use std::mem::{transmute, uninitialized, zeroed};
+use std::os::raw::c_char;
 
 pub struct Context {
     context: LLVMContextRef,
@@ -207,12 +208,24 @@ impl Builder {
         }
     }
 
-    fn build_alloca(&self) {
-        // LLVMBuildAlloca(self.builder, type, string)
+    fn build_stack_allocation(&self, type_: Type, name: &str) -> Value {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        Value {
+            value: unsafe {
+                LLVMBuildAlloca(self.builder, type_.type_, c_string)
+            }
+        }
     }
 
-    fn build_malloc(&self) {
-        // LLVMBuildMalloc(self.builder, type, string)
+    fn build_heap_allocation(&self, type_: Type, name: &str) -> Value {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        Value {
+            value: unsafe {
+                LLVMBuildMalloc(self.builder, type_.type_, c_string)
+            }
+        }
     }
 
     fn get_insert_block(&self) -> BasicBlock {
@@ -243,7 +256,7 @@ impl Builder {
         }
     }
 
-    fn build_int_comparison(&self, op: LLVMIntPredicate, left_val: Value, right_val: Value, name: &str) -> Value {
+    fn build_int_compare(&self, op: LLVMIntPredicate, left_val: Value, right_val: Value, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -295,7 +308,7 @@ impl Builder {
         }
     }
 
-    fn extract_value(&self, param: ParamValue, index: u32, name: &str) -> Value {
+    fn build_extract_value(&self, param: ParamValue, index: u32, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -343,28 +356,63 @@ impl Module {
         Some(FunctionValue { function_value: value })
     }
 
-    pub fn create_execution_engine(&self) -> ExecutionEngine { // Result?
+    pub fn create_execution_engine(&self) -> Result<ExecutionEngine, String> {
         let mut execution_engine = unsafe { uninitialized() };
-        let mut out = unsafe { zeroed() };
+        let mut err_str = unsafe { zeroed() };
 
         // TODO: Check that these calls are succesful or even needed
-        // LLVM_InitializeNativeTarget();
-        // LLVM_InitializeNativeAsmPrinter();
-        // LLVM_InitializeNativeAsmParser();
-        // LLVMLinkInInterpreter();
-
         let code = unsafe {
-            LLVMCreateExecutionEngineForModule(&mut execution_engine, self.module, &mut out) // Should take ownership of module
+            LLVM_InitializeNativeTarget()
         };
 
-        // TODO: Check code/out, difference
-
-        ExecutionEngine {
-            execution_engine: execution_engine
+        if code == 1 {
+            return Err("Unknown error in initializing native target".into());
         }
+
+        let code = unsafe {
+            LLVM_InitializeNativeAsmPrinter()
+        };
+
+        if code == 1 {
+            return Err("Unknown error in initializing native asm printer".into());
+        }
+
+        let code = unsafe {
+            LLVM_InitializeNativeAsmParser()
+        };
+
+        if code == 1 { // REVIEW: Does parser need to go before printer?
+            return Err("Unknown error in initializing native asm parser".into());
+        }
+
+        unsafe {
+            LLVMLinkInInterpreter();
+        }
+
+        let code = unsafe {
+            LLVMCreateExecutionEngineForModule(&mut execution_engine, self.module, &mut err_str) // Should take ownership of module
+        };
+
+        if code == 1 {
+            let rust_str = unsafe {
+                let rust_str = CStr::from_ptr(err_str).to_string_lossy().into_owned();
+
+                LLVMDisposeMessage(err_str);
+
+                rust_str
+            };
+
+            return Err(rust_str);
+        }
+
+        let ee = ExecutionEngine {
+            execution_engine: execution_engine
+        };
+
+        Ok(ee)
     }
 
-    fn create_fn_pass_manager(&self) -> PassManager {
+    pub fn create_function_pass_manager(&self) -> PassManager {
         PassManager {
             pass_manager: unsafe {
                 LLVMCreateFunctionPassManagerForModule(self.module)
@@ -401,6 +449,12 @@ impl Module {
         code == 0
     }
 
+    pub fn set_data_layout(&self, data_layout: DataLayout) {
+        unsafe {
+            LLVMSetDataLayout(self.module, data_layout.data_layout)
+        }
+    }
+
     pub fn dump(&self) {
         unsafe {
             LLVMDumpModule(self.module);
@@ -415,9 +469,11 @@ pub struct ExecutionEngine {
 }
 
 impl ExecutionEngine {
-    fn get_target_data(&self) -> LLVMTargetDataRef {
-        unsafe {
-            LLVMGetExecutionEngineTargetData(self.execution_engine)
+    pub fn get_target_data(&self) -> TargetData {
+        TargetData {
+            target_data: unsafe {
+                LLVMGetExecutionEngineTargetData(self.execution_engine)
+            }
         }
     }
 
@@ -447,15 +503,48 @@ impl Drop for ExecutionEngine {
     }
 }
 
+pub struct TargetData {
+    target_data: LLVMTargetDataRef,
+}
+
+impl TargetData {
+    pub fn get_data_layout(&self) -> DataLayout {
+        DataLayout {
+            data_layout: unsafe {
+                LLVMCopyStringRepOfTargetData(self.target_data)
+            }
+        }
+    }
+}
+
+pub struct DataLayout {
+    data_layout: *mut c_char,
+}
+
+impl Drop for DataLayout {
+    fn drop(&mut self) {
+        unsafe {
+            LLVMDisposeMessage(self.data_layout)
+        }
+    }
+}
+
 pub struct PassManager {
     pass_manager: LLVMPassManagerRef,
 }
 
 impl PassManager {
-    fn initialize(&self) { // TODO: Result
-        let code = unsafe {
-            LLVMInitializeFunctionPassManager(self.pass_manager)
-        };
+    pub fn initialize(&self) -> bool {
+        // return true means some pass modified the module, not an error occurred
+        unsafe {
+            LLVMInitializeFunctionPassManager(self.pass_manager) == 1
+        }
+    }
+
+    pub fn add_target_data(&self, target_data: TargetData) {
+        unsafe {
+            LLVMAddTargetData(target_data.target_data, self.pass_manager)
+        }
     }
 }
 
@@ -521,9 +610,17 @@ impl Type {
             }
         }
     }
+
+    fn get_undef(&self, type_: Type) -> Value {
+        Value {
+            value: unsafe {
+                LLVMGetUndef(self.type_)
+            }
+        }
+    }
 }
 
-struct FunctionValue {
+pub struct FunctionValue {
     function_value: LLVMValueRef,
 }
 
@@ -570,11 +667,11 @@ impl Iterator for FunctionValue {
 
 }
 
-struct FunctionType {
+pub struct FunctionType {
     function_type: LLVMTypeRef,
 }
 
-struct ParamValue {
+pub struct ParamValue {
     param_value: LLVMValueRef,
 }
 
@@ -588,7 +685,7 @@ impl ParamValue {
     }
 }
 
-struct Value {
+pub struct Value {
     value: LLVMValueRef,
 }
 
