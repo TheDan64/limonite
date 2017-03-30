@@ -75,7 +75,7 @@ impl Context {
         }
     }
 
-    fn i32_type(&self) -> Type {
+    pub fn i32_type(&self) -> Type {
         unsafe {
             Type {
                 type_: LLVMInt32TypeInContext(self.context)
@@ -148,7 +148,7 @@ impl Builder {
         }
     }
 
-    fn build_call(&self, function: Value, mut args: Vec<Value>, name: &str) -> Value {
+    pub fn build_call(&self, function: FunctionValue, mut args: Vec<Value>, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
@@ -159,7 +159,7 @@ impl Builder {
 
         Value {
             value: unsafe {
-                LLVMBuildCall(self.builder, function.value, args.as_mut_ptr(), args.len() as u32, c_string)
+                LLVMBuildCall(self.builder, function.function_value, args.as_mut_ptr(), args.len() as u32, c_string)
             }
         }
     }
@@ -556,7 +556,7 @@ impl Drop for PassManager {
     }
 }
 
-struct Type {
+pub struct Type {
     type_: LLVMTypeRef,
 }
 
@@ -591,12 +591,12 @@ impl Type {
         }
     }
 
-    fn const_int(&self, value: u64) -> Value {
+    pub fn const_int(&self, value: u64, sign_extend: bool) -> Value {
         // REVIEW: What if type is void??
 
         Value {
             value: unsafe {
-                LLVMConstInt(self.type_, value, 0) // REVIEW: What does 0 do?
+                LLVMConstInt(self.type_, value, sign_extend as i32)
             }
         }
     }
@@ -633,13 +633,13 @@ impl FunctionValue {
         }
     }
 
-    fn count_params(&self) -> u32 {
+    pub fn count_params(&self) -> u32 {
         unsafe {
             LLVMCountParams(self.function_value)
         }
     }
 
-    fn get_return_type(&self) -> Type {
+    pub fn get_return_type(&self) -> Type {
         Type {
             type_: unsafe {
                 LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(self.function_value)))
