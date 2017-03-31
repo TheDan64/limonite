@@ -1,7 +1,7 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter};
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData};
@@ -43,7 +43,7 @@ impl Context {
         }
     }
 
-    fn void_type(&self) -> Type {
+    pub fn void_type(&self) -> Type {
         unsafe {
             Type {
                 type_: LLVMVoidTypeInContext(self.context)
@@ -106,22 +106,22 @@ impl Context {
 
     }
 
-    fn string_type(&self) -> Type {
-        // TODO: Generic vec_type(i8)
-        let field_types = vec![
-            self.i8_type().ptr_type(0), // REVIEW: Existing impl might have had this as array type
-            self.i64_type(),
-        ];
+    // fn string_type(&self) -> Type {
+    //     // TODO: Generic vec_type(i8)
+    //     let field_types = vec![
+    //         self.i8_type().ptr_type(0), // REVIEW: Existing impl might have had this as array type
+    //         self.i64_type(),
+    //     ];
 
-        self.struct_type(field_types)
-    }
+    //     self.struct_type(field_types)
+    // }
 
-    fn append_basic_block(&self, name: &str, function: Value) -> BasicBlock {
+    pub fn append_basic_block(&self, function: &FunctionValue, name: &str) -> BasicBlock {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         BasicBlock {
             basic_block: unsafe {
-                LLVMAppendBasicBlockInContext(self.context, function.value, c_string)
+                LLVMAppendBasicBlockInContext(self.context, function.function_value, c_string)
             }
         }
     }
@@ -228,6 +228,12 @@ impl Builder {
         }
     }
 
+    pub fn insert_instruction(&self, value: Value) {
+        unsafe {
+            LLVMInsertIntoBuilder(self.builder, value.value);
+        }
+    }
+
     fn get_insert_block(&self) -> BasicBlock {
         BasicBlock {
             basic_block: unsafe {
@@ -302,7 +308,7 @@ impl Builder {
         }
     }
 
-    fn position_at_end(&self, basic_block: BasicBlock) {
+    pub fn position_at_end(&self, basic_block: &BasicBlock) {
         unsafe {
             LLVMPositionBuilderAtEnd(self.builder, basic_block.basic_block);
         }
@@ -332,7 +338,7 @@ pub struct Module {
 }
 
 impl Module {
-    fn add_function(&self, name: &str, return_type: FunctionType) -> FunctionValue {
+    pub fn add_function(&self, name: &str, return_type: FunctionType) -> FunctionValue {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         FunctionValue {
@@ -569,7 +575,7 @@ impl Type {
         }
     }
 
-    fn fn_type(&self, mut param_types: Vec<Type>, is_var_args: bool) -> FunctionType {
+    pub fn fn_type(&self, mut param_types: Vec<Type>, is_var_args: bool) -> FunctionType {
         // WARNING: transmute will no longer work correctly if Type gains more fields
         // We're avoiding reallocation by telling rust Vec<Type> is identical to Vec<LLVMTypeRef>
         let mut param_types: Vec<LLVMTypeRef> = unsafe {
@@ -621,7 +627,7 @@ impl Type {
 }
 
 pub struct FunctionValue {
-    function_value: LLVMValueRef,
+    pub function_value: LLVMValueRef, // TEMP: pub
 }
 
 impl FunctionValue {
@@ -686,7 +692,7 @@ impl ParamValue {
 }
 
 pub struct Value {
-    value: LLVMValueRef,
+    pub value: LLVMValueRef, // TEMP: pub
 }
 
 impl Value {
@@ -721,6 +727,14 @@ impl BasicBlock {
         Value {
             value: unsafe {
                 LLVMGetBasicBlockParent(self.basic_block)
+            }
+        }
+    }
+
+    pub fn get_terminator(&self) -> Value {
+        Value {
+            value: unsafe {
+                LLVMGetBasicBlockTerminator(self.basic_block)
             }
         }
     }

@@ -23,15 +23,17 @@ impl LLVMGenerator {
         }
     }
 
-    pub fn add_main_module(&mut self, ast: &ExprWrapper) {
+    pub fn add_main_module(&mut self, ast: ExprWrapper) {
         if self.main_module.is_some() {
             panic!("Cannot override main module");
         }
 
         let main_module = self.context.create_module("main");
 
-        // TODO: Wrap, setup main block
-        self.generate_ir(&main_module, ast);
+        // TODO: Only run whole script as "main" if there isn't a main defined already
+        let ast = ExprWrapper::default(Expr::FnDecl("main".into(), vec![], None, ast));
+
+        self.generate_ir(&main_module, &ast);
 
         self.main_module = Some(main_module);
     }
@@ -125,6 +127,26 @@ impl LLVMGenerator {
                     &Literals::UTF8Char(ref val) => Some(self.context.i32_type().const_int(*val as u64, false)),
                     e => panic!("LLVMGenError: Unsupported literal type {}", e)
                 }
+            },
+            &Expr::FnDecl(ref name, ref arg_defs, ref return_type, ref body_expr) => {
+                // TODO: Support args types and return types
+                let return_type = match return_type {
+                    &Some(ref t) => panic!("TODO"),
+                    &None => self.context.void_type().fn_type(vec![], false),
+                };
+
+                let function = module.add_function(name, return_type);
+
+                let bb_enter = self.context.append_basic_block(&function, "enter");
+
+                self.builder.position_at_end(&bb_enter);
+                self.builder.insert_instruction(self.generate_ir(module, body_expr).unwrap()); // FIXME: unwrap
+
+                // REVIEW: This will return the last generated value... is that what we want?
+                // Or should it go back to the global scope after generating ir?
+                // self.generate_ir(module, body_expr);
+
+                Some(bb_enter.get_terminator())
             },
             e => panic!("LLVMGenError: Unsupported codegen: {:?}", e)
         }
