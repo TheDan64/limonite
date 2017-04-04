@@ -59,7 +59,7 @@ impl Context {
         }
     }
 
-    fn i8_type(&self) -> Type {
+    pub fn i8_type(&self) -> Type {
         unsafe {
             Type {
                 type_: LLVMInt8TypeInContext(self.context)
@@ -83,7 +83,7 @@ impl Context {
         }
     }
 
-    fn i64_type(&self) -> Type {
+    pub fn i64_type(&self) -> Type {
         unsafe {
             Type {
                 type_: LLVMInt64TypeInContext(self.context)
@@ -91,7 +91,7 @@ impl Context {
         }
     }
 
-    fn struct_type(&self, field_types: Vec<Type>) -> Type {
+    pub fn struct_type(&self, field_types: Vec<Type>) -> Type {
         // WARNING: transmute will no longer work correctly if Type gains more fields
         // We're avoiding reallocation by telling rust Vec<Type> is identical to Vec<LLVMTypeRef>
         let mut field_types: Vec<LLVMTypeRef> = unsafe {
@@ -140,7 +140,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    fn build_return(&self, value: Option<Value>) -> Value {
+    pub fn build_return(&self, value: Option<Value>) -> Value {
         Value {
             value: unsafe {
                 value.map_or(LLVMBuildRetVoid(self.builder), |value| LLVMBuildRet(self.builder, value.value))
@@ -164,7 +164,7 @@ impl Builder {
         }
     }
 
-    fn build_gep(&self, ptr: Value, indicies: Vec<Value>, name: &str) -> Value {
+    pub fn build_gep(&self, ptr: Value, indicies: Vec<Value>, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
@@ -190,7 +190,7 @@ impl Builder {
         }
     }
 
-    fn build_store(&mut self, value: Value, pointer: Value) -> Value {
+    pub fn build_store(&mut self, value: Value, pointer: Value) -> Value {
         Value {
             value: unsafe {
                 LLVMBuildStore(self.builder, value.value, pointer.value)
@@ -198,7 +198,7 @@ impl Builder {
         }
     }
 
-    fn build_load(&self, name: &str, ptr: Value) -> Value {
+    pub fn build_load(&self, ptr: Value, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -208,7 +208,7 @@ impl Builder {
         }
     }
 
-    fn build_stack_allocation(&self, type_: Type, name: &str) -> Value {
+    pub fn build_stack_allocation(&self, type_: Type, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -242,7 +242,7 @@ impl Builder {
         }
     }
 
-    fn build_add(&self, left_value: Value, right_value: Value, name: &str) -> Value {
+    pub fn build_add(&self, left_value: Value, right_value: Value, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -252,7 +252,7 @@ impl Builder {
         }
     }
 
-    fn build_cast(&self, op: LLVMOpcode, from_value: Value, to_type: Type, name: &str) -> Value {
+    pub fn build_cast(&self, op: LLVMOpcode, from_value: Value, to_type: Type, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -262,7 +262,7 @@ impl Builder {
         }
     }
 
-    fn build_int_compare(&self, op: LLVMIntPredicate, left_val: Value, right_val: Value, name: &str) -> Value {
+    pub fn build_int_compare(&self, op: LLVMIntPredicate, left_val: Value, right_val: Value, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -280,7 +280,7 @@ impl Builder {
         }
     }
 
-    fn build_conditional_branch(&self, comparison: Value, then_block: BasicBlock, else_block: BasicBlock) -> Value {
+    pub fn build_conditional_branch(&self, comparison: Value, then_block: BasicBlock, else_block: BasicBlock) -> Value {
         Value {
             value: unsafe {
                 LLVMBuildCondBr(self.builder, comparison.value, then_block.basic_block, else_block.basic_block)
@@ -314,7 +314,7 @@ impl Builder {
         }
     }
 
-    fn build_extract_value(&self, param: ParamValue, index: u32, name: &str) -> Value {
+    pub fn build_extract_value(&self, param: ParamValue, index: u32, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -567,7 +567,7 @@ pub struct Type {
 }
 
 impl Type {
-    fn ptr_type(&self, address_space: u32) -> Type {
+    pub fn ptr_type(&self, address_space: u32) -> Type {
         Type {
             type_: unsafe {
                 LLVMPointerType(self.type_, address_space)
@@ -631,7 +631,7 @@ pub struct FunctionValue {
 }
 
 impl FunctionValue {
-    fn get_first_param(&self) -> ParamValue { // Result?
+    pub fn get_first_param(&self) -> ParamValue { // Result/Option?
         ParamValue {
             param_value: unsafe {
                 LLVMGetFirstParam(self.function_value)
@@ -682,7 +682,7 @@ pub struct ParamValue {
 }
 
 impl ParamValue {
-    fn set_name(&self, name: &str) {
+    pub fn set_name(&mut self, name: &str) {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         unsafe {

@@ -1,9 +1,11 @@
+pub mod builtins;
 pub mod codegen;
 mod core;
-pub mod builtins;
+mod std;
 
 use syntax::expr::{Expr, ExprWrapper};
 use syntax::literals::Literals;
+use codegen::llvm::std::string::print_function_definition;
 
 pub struct LLVMGenerator {
     context: core::Context,
