@@ -1,7 +1,7 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter};
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData};
@@ -149,7 +149,7 @@ impl Builder {
         Value::new(value)
     }
 
-    pub fn build_call(&self, function: &FunctionValue, mut args: Vec<Value>, name: &str) -> Value {
+    pub fn build_call(&self, function: &FunctionValue, args: Vec<Value>, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
@@ -165,7 +165,7 @@ impl Builder {
         Value::new(value)
     }
 
-    pub fn build_gep(&self, ptr: &Value, mut indicies: &mut Vec<Value>, name: &str) -> Value {
+    pub fn build_gep(&self, ptr: &Value, indicies: &mut Vec<Value>, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         println!("{:?}", name);
@@ -598,7 +598,7 @@ impl Type {
         Type::new(type_)
     }
 
-    pub fn fn_type(&self, mut param_types: &mut Vec<Type>, is_var_args: bool) -> FunctionType {
+    pub fn fn_type(&self, param_types: &mut Vec<Type>, is_var_args: bool) -> FunctionType {
         // WARNING: transmute will no longer work correctly if Type gains more fields
         // We're avoiding reallocation by telling rust Vec<Type> is identical to Vec<LLVMTypeRef>
         let mut param_types: &mut Vec<LLVMTypeRef> = unsafe {
@@ -655,7 +655,15 @@ pub struct FunctionValue {
 
 impl FunctionValue {
     fn new(value: LLVMValueRef) -> FunctionValue {
-        assert!(!value.is_null());
+        // TODO: Debug mode only assertions:
+        {
+            assert!(!value.is_null());
+
+            unsafe {
+                assert!(!LLVMIsAFunction(value).is_null())
+            }
+        }
+
 
         FunctionValue {
             function_value: value
@@ -767,7 +775,6 @@ impl Value {
             LLVMAddIncoming(self.value, &mut incoming_values.value, &mut incoming_basic_block.basic_block, count);
         }
     }
-
 }
 
 // Case for separate Value structs:
@@ -782,7 +789,14 @@ pub struct BasicBlock {
 
 impl BasicBlock {
     fn new(basic_block: LLVMBasicBlockRef) -> BasicBlock {
-        assert!(!basic_block.is_null());
+        // TODO: debug mode only assertionsL
+        {
+            assert!(!basic_block.is_null());
+
+            unsafe {
+                assert!(!LLVMIsABasicBlock(basic_block as LLVMValueRef).is_null())
+            }
+        }
 
         BasicBlock {
             basic_block: basic_block
