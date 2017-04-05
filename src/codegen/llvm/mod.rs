@@ -1,5 +1,3 @@
-pub mod builtins;
-pub mod codegen;
 mod core;
 mod std;
 
@@ -34,6 +32,8 @@ impl LLVMGenerator {
 
         // TODO: Only run whole script as "main" if there isn't a main defined already
         let ast = ExprWrapper::default(Expr::FnDecl("main".into(), vec![], None, ast));
+
+        print_function_definition(&self.builder, &self.context, &main_module);
 
         self.generate_ir(&main_module, &ast);
 
@@ -122,7 +122,7 @@ impl LLVMGenerator {
                 // Apparently void functions don't get saved return values. Maybe this check could be
                 // baked into the build call?
 
-                Some(self.builder.build_call(function, arg_values, name)) // REVIEW: maybe tmp_ + name? Unclear if same name as fn is bad..
+                Some(self.builder.build_call(&function, arg_values, name)) // REVIEW: maybe tmp_ + name? Unclear if same name as fn is bad..
             },
             &Expr::Literal(ref literal_type) => {
                 match literal_type {
@@ -134,7 +134,7 @@ impl LLVMGenerator {
                 // TODO: Support args types and return types
                 let return_type = match return_type {
                     &Some(ref t) => panic!("TODO"),
-                    &None => self.context.void_type().fn_type(vec![], false),
+                    &None => self.context.void_type().fn_type(&mut vec![], false),
                 };
 
                 let function = module.add_function(name, return_type);

@@ -17,8 +17,6 @@ use syntax::parser::Parser;
 use semantic::analyzer::SemanticAnalyzer;
 use semantic::analyzer_trait::ASTAnalyzer;
 #[cfg(feature="llvm-backend")]
-use codegen::llvm::codegen::codegen; // REVIEW: better codegen name convention + class?
-#[cfg(feature="llvm-backend")]
 use codegen::llvm::LLVMGenerator;
 
 pub mod lexical;
@@ -94,6 +92,8 @@ fn main() {
         let mut generator = LLVMGenerator::new();
 
         generator.add_main_module(ast_root);
+
+        println!("asds");
 
         if args.flag_dump {
             generator.dump_ir();

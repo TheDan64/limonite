@@ -148,7 +148,7 @@ impl Builder {
         }
     }
 
-    pub fn build_call(&self, function: FunctionValue, mut args: Vec<Value>, name: &str) -> Value {
+    pub fn build_call(&self, function: &FunctionValue, mut args: Vec<Value>, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
@@ -164,14 +164,20 @@ impl Builder {
         }
     }
 
-    pub fn build_gep(&self, ptr: Value, indicies: Vec<Value>, name: &str) -> Value {
+    pub fn build_gep(&self, ptr: &Value, mut indicies: &mut Vec<Value>, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
+
+        println!("{:?}", name);
+        println!("{:?}", indicies);
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
         // We're avoiding reallocation by telling rust Vec<Value> is identical to Vec<LLVMValueRef>
-        let mut indicies: Vec<LLVMValueRef> = unsafe {
+        let mut indicies: &mut Vec<LLVMValueRef> = unsafe {
             transmute(indicies)
         };
+
+        println!("{:?}", ptr.value);
+        println!("{:?}", indicies);
 
         Value {
             value: unsafe {
@@ -190,7 +196,7 @@ impl Builder {
         }
     }
 
-    pub fn build_store(&mut self, value: Value, pointer: Value) -> Value {
+    pub fn build_store(&self, value: &Value, pointer: &Value) -> Value {
         Value {
             value: unsafe {
                 LLVMBuildStore(self.builder, value.value, pointer.value)
@@ -198,7 +204,7 @@ impl Builder {
         }
     }
 
-    pub fn build_load(&self, ptr: Value, name: &str) -> Value {
+    pub fn build_load(&self, ptr: &Value, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -208,7 +214,7 @@ impl Builder {
         }
     }
 
-    pub fn build_stack_allocation(&self, type_: Type, name: &str) -> Value {
+    pub fn build_stack_allocation(&self, type_: &Type, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -242,7 +248,7 @@ impl Builder {
         }
     }
 
-    pub fn build_add(&self, left_value: Value, right_value: Value, name: &str) -> Value {
+    pub fn build_add(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -262,12 +268,12 @@ impl Builder {
         }
     }
 
-    pub fn build_int_compare(&self, op: LLVMIntPredicate, left_val: Value, right_val: Value, name: &str) -> Value {
+    pub fn build_int_compare(&self, op: LLVMIntPredicate, left_val: &Value, right_val: &Value, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
             value: unsafe {
-                LLVMBuildICmp(self.builder, op, left_val.value, right_val.value, c_string)
+                LLVMBuildICmp(self.builder, op, (*left_val).value, (*right_val).value, c_string)
             }
         }
     }
@@ -280,7 +286,7 @@ impl Builder {
         }
     }
 
-    pub fn build_conditional_branch(&self, comparison: Value, then_block: BasicBlock, else_block: BasicBlock) -> Value {
+    pub fn build_conditional_branch(&self, comparison: &Value, then_block: &BasicBlock, else_block: &BasicBlock) -> Value {
         Value {
             value: unsafe {
                 LLVMBuildCondBr(self.builder, comparison.value, then_block.basic_block, else_block.basic_block)
@@ -314,7 +320,7 @@ impl Builder {
         }
     }
 
-    pub fn build_extract_value(&self, param: ParamValue, index: u32, name: &str) -> Value {
+    pub fn build_extract_value(&self, param: &ParamValue, index: u32, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         Value {
@@ -575,10 +581,10 @@ impl Type {
         }
     }
 
-    pub fn fn_type(&self, mut param_types: Vec<Type>, is_var_args: bool) -> FunctionType {
+    pub fn fn_type(&self, mut param_types: &mut Vec<Type>, is_var_args: bool) -> FunctionType {
         // WARNING: transmute will no longer work correctly if Type gains more fields
         // We're avoiding reallocation by telling rust Vec<Type> is identical to Vec<LLVMTypeRef>
-        let mut param_types: Vec<LLVMTypeRef> = unsafe {
+        let mut param_types: &mut Vec<LLVMTypeRef> = unsafe {
             transmute(param_types)
         };
 
@@ -691,6 +697,7 @@ impl ParamValue {
     }
 }
 
+#[derive(Debug)]
 pub struct Value {
     pub value: LLVMValueRef, // TEMP: pub
 }
@@ -718,7 +725,7 @@ impl Value {
 // LLVMValueRef can be a function param
 // LLVMValueRef can be a comparison_op
 
-struct BasicBlock {
+pub struct BasicBlock {
     basic_block: LLVMBasicBlockRef,
 }
 
