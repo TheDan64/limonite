@@ -1,13 +1,14 @@
 extern crate llvm_sys;
 
-use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction};
-use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter};
+use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction, LLVMVerifyFunction};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext};
+use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress};
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData};
 use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate};
 
 use std::ffi::{CString, CStr};
+use std::fmt;
 use std::iter;
 use std::mem::{transmute, uninitialized, zeroed};
 use std::os::raw::c_char;
@@ -121,7 +122,17 @@ impl Context {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         let bb = unsafe {
-            LLVMAppendBasicBlockInContext(self.context, function.function_value, c_string)
+            LLVMAppendBasicBlockInContext(self.context, function.fn_value, c_string)
+        };
+
+        BasicBlock::new(bb)
+    }
+
+    fn prepend_basic_block(&self, basic_block: &BasicBlock, name: &str) -> BasicBlock {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        let bb = unsafe {
+            LLVMInsertBasicBlockInContext(self.context, basic_block.basic_block, c_string)
         };
 
         BasicBlock::new(bb)
@@ -159,7 +170,7 @@ impl Builder {
         };
 
         let value = unsafe {
-            LLVMBuildCall(self.builder, function.function_value, args.as_mut_ptr(), args.len() as u32, c_string)
+            LLVMBuildCall(self.builder, function.fn_value, args.as_mut_ptr(), args.len() as u32, c_string)
         };
 
         Value::new(value)
@@ -168,17 +179,11 @@ impl Builder {
     pub fn build_gep(&self, ptr: &Value, indicies: &mut Vec<Value>, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
-        println!("{:?}", name);
-        println!("{:?}", indicies);
-
         // WARNING: transmute will no longer work correctly if Value gains more fields
         // We're avoiding reallocation by telling rust Vec<Value> is identical to Vec<LLVMValueRef>
         let mut indicies: &mut Vec<LLVMValueRef> = unsafe {
             transmute(indicies)
         };
-
-        println!("{:?}", ptr.value);
-        println!("{:?}", indicies);
 
         let value = unsafe {
             LLVMBuildGEP(self.builder, ptr.value, indicies.as_mut_ptr(), indicies.len() as u32, c_string)
@@ -434,14 +439,13 @@ impl Module {
     }
 
     pub fn verify(&self, print: bool) -> bool {
-        let mut err_str: *mut *mut i8 = unsafe { zeroed() };
+        let err_str: *mut *mut i8 = unsafe { zeroed() };
 
         let action = if print == true {
             LLVMVerifierFailureAction::LLVMPrintMessageAction
         } else {
             LLVMVerifierFailureAction::LLVMReturnStatusAction
         };
-
 
         let code = unsafe {
             LLVMVerifyModule(self.module, action, err_str)
@@ -482,19 +486,33 @@ pub struct ExecutionEngine {
 }
 
 impl ExecutionEngine {
-    pub fn get_target_data(&self) -> TargetData {
-        TargetData {
-            target_data: unsafe {
-                LLVMGetExecutionEngineTargetData(self.execution_engine)
-            }
+    fn get_function_address(&self, name: &str) -> Option<u64> {
+        let c_string = CString::new(name).unwrap().as_ptr();
+
+        let value = unsafe {
+            LLVMGetFunctionAddress(self.execution_engine, c_string)
+        };
+
+        if value == 0 { // REVIEW: Need to test if 0 is actualy returned
+            return None;
         }
+
+        Some(value)
+    }
+
+    pub fn get_target_data(&self) -> TargetData {
+        let target_data = unsafe {
+            LLVMGetExecutionEngineTargetData(self.execution_engine)
+        };
+
+        TargetData::new(target_data)
     }
 
     pub fn run_function(&self, function: FunctionValue) {
         let mut args = vec![]; // TODO: Support args
 
         unsafe {
-            LLVMRunFunction(self.execution_engine, function.function_value, args.len() as u32, args.as_mut_ptr()); // REVIEW: usize to u32 ok??
+            LLVMRunFunction(self.execution_engine, function.fn_value, args.len() as u32, args.as_mut_ptr()); // REVIEW: usize to u32 ok??
         }
     }
 
@@ -503,7 +521,7 @@ impl ExecutionEngine {
         let env_p = vec![]; // REVIEW: No clue what this is
 
         unsafe {
-            LLVMRunFunctionAsMain(self.execution_engine, function.function_value, args.len() as u32, args.as_ptr(), env_p.as_ptr()); // REVIEW: usize to u32 cast ok??
+            LLVMRunFunctionAsMain(self.execution_engine, function.fn_value, args.len() as u32, args.as_ptr(), env_p.as_ptr()); // REVIEW: usize to u32 cast ok??
         }
     }
 }
@@ -521,17 +539,35 @@ pub struct TargetData {
 }
 
 impl TargetData {
-    pub fn get_data_layout(&self) -> DataLayout {
-        DataLayout {
-            data_layout: unsafe {
-                LLVMCopyStringRepOfTargetData(self.target_data)
-            }
+    fn new(target_data: LLVMTargetDataRef) -> TargetData {
+        assert!(!target_data.is_null());
+
+        TargetData {
+            target_data: target_data
         }
+    }
+
+    pub fn get_data_layout(&self) -> DataLayout {
+        let data_layout = unsafe {
+            LLVMCopyStringRepOfTargetData(self.target_data)
+        };
+
+        DataLayout::new(data_layout)
     }
 }
 
 pub struct DataLayout {
     data_layout: *mut c_char,
+}
+
+impl DataLayout {
+    fn new(data_layout: *mut c_char) -> DataLayout {
+        assert!(!data_layout.is_null());
+
+        DataLayout {
+            data_layout: data_layout
+        }
+    }
 }
 
 impl Drop for DataLayout {
@@ -587,6 +623,14 @@ impl Type {
 
         Type {
             type_: type_
+        }
+    }
+
+    pub fn dump_type(&self) {
+        println!("DEBUG: ");
+
+        unsafe {
+            LLVMDumpType(self.type_);
         }
     }
 
@@ -649,8 +693,17 @@ impl Type {
     }
 }
 
+impl fmt::Debug for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let llvm_type = unsafe {
+            CStr::from_ptr(LLVMPrintTypeToString(self.type_))
+        };
+        write!(f, "Type {{\n    address: {:?}\n    llvm_type: {:?}\n}}", self.type_, llvm_type)
+    }
+}
+
 pub struct FunctionValue {
-    pub function_value: LLVMValueRef, // TEMP: pub
+    pub fn_value: LLVMValueRef, // TEMP: pub
 }
 
 impl FunctionValue {
@@ -666,13 +719,31 @@ impl FunctionValue {
 
 
         FunctionValue {
-            function_value: value
+            fn_value: value
+        }
+    }
+
+    pub fn verify(&self, print: bool) {
+        let err_str: *mut *mut i8 = unsafe { zeroed() };
+
+        let action = if print == true {
+            LLVMVerifierFailureAction::LLVMPrintMessageAction
+        } else {
+            LLVMVerifierFailureAction::LLVMReturnStatusAction
+        };
+
+        let code = unsafe {
+            LLVMVerifyFunction(self.fn_value, action)
+        };
+
+        if code == 1 {
+            panic!("LLVMGenError")
         }
     }
 
     pub fn get_first_param(&self) -> ParamValue { // Result/Option?
         let param = unsafe {
-            LLVMGetFirstParam(self.function_value)
+            LLVMGetFirstParam(self.fn_value)
         };
 
         ParamValue::new(param)
@@ -680,16 +751,29 @@ impl FunctionValue {
 
     pub fn count_params(&self) -> u32 {
         unsafe {
-            LLVMCountParams(self.function_value)
+            LLVMCountParams(self.fn_value)
         }
     }
 
     pub fn get_return_type(&self) -> Type {
         let type_ = unsafe {
-            LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(self.function_value)))
+            LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(self.fn_value)))
         };
 
         Type::new(type_)
+    }
+}
+
+impl fmt::Debug for FunctionValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let llvm_value = unsafe {
+            CStr::from_ptr(LLVMPrintValueToString(self.fn_value))
+        };
+        let llvm_type = unsafe {
+            CStr::from_ptr(LLVMPrintTypeToString(LLVMTypeOf(self.fn_value)))
+        };
+
+        write!(f, "FunctionValue {{\n    address: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", self.fn_value, llvm_value, llvm_type)
     }
 }
 
@@ -700,7 +784,7 @@ impl Iterator for FunctionValue {
         // LLVMGetFirstParam(self.value)
 
         let next_value = unsafe {
-            LLVMGetNextParam(self.function_value)
+            LLVMGetNextParam(self.fn_value)
         };
 
         if next_value.is_null() {
@@ -723,6 +807,22 @@ impl FunctionType {
         FunctionType {
             fn_type: fn_type
         }
+    }
+
+    fn is_var_arg(&self) -> bool {
+        unsafe {
+            LLVMIsFunctionVarArg(self.fn_type) == 1
+        }
+    }
+}
+
+impl fmt::Debug for FunctionType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let llvm_type = unsafe {
+            CStr::from_ptr(LLVMPrintTypeToString(self.fn_type))
+        };
+
+        write!(f, "FunctionType {{\n    address: {:?}\n    llvm_type: {:?}\n}}", self.fn_type, llvm_type)
     }
 }
 
@@ -748,7 +848,6 @@ impl ParamValue {
     }
 }
 
-#[derive(Debug)]
 pub struct Value {
     pub value: LLVMValueRef, // TEMP: pub
 }
@@ -777,6 +876,19 @@ impl Value {
     }
 }
 
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let llvm_value = unsafe {
+            CStr::from_ptr(LLVMPrintValueToString(self.value))
+        };
+        let llvm_type = unsafe {
+            CStr::from_ptr(LLVMPrintTypeToString(LLVMTypeOf(self.value)))
+        };
+
+        write!(f, "Value {{\n    address: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", self.value, llvm_value, llvm_type)
+    }
+}
+
 // Case for separate Value structs:
 // LLVMValueRef can be a value (ie int)
 // LLVMValueRef can be a function
@@ -794,7 +906,7 @@ impl BasicBlock {
             assert!(!basic_block.is_null());
 
             unsafe {
-                assert!(!LLVMIsABasicBlock(basic_block as LLVMValueRef).is_null())
+                assert!(!LLVMIsABasicBlock(basic_block as LLVMValueRef).is_null()) // NOTE: There is a LLVMBasicBlockAsValue but it might be the same as casting
             }
         }
 
@@ -811,11 +923,38 @@ impl BasicBlock {
         Value::new(value)
     }
 
-    pub fn get_terminator(&self) -> Value {
+    pub fn get_terminator(&self) -> Option<Value> {
         let value = unsafe {
             LLVMGetBasicBlockTerminator(self.basic_block)
         };
 
-        Value::new(value)
+        if value.is_null() {
+            return None;
+        }
+
+        Some(Value::new(value))
+    }
+
+    // fn prepend_basic_block(&self, name: &str) -> BasicBlock {
+    //     let c_string = CString::new(name).unwrap().as_ptr();
+
+    //     let bb = unsafe {
+    //         LLVMInsertBasicBlock(self.basic_block, c_string)
+    //     };
+
+    //     BasicBlock::new(bb)
+    // }
+}
+
+impl fmt::Debug for BasicBlock {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let llvm_value = unsafe {
+            CStr::from_ptr(LLVMPrintValueToString(self.basic_block as LLVMValueRef))
+        };
+        let llvm_type = unsafe {
+            CStr::from_ptr(LLVMPrintTypeToString(LLVMTypeOf(self.basic_block as LLVMValueRef)))
+        };
+
+        write!(f, "BasicBlock {{\n    address: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", self.basic_block, llvm_value, llvm_type)
     }
 }

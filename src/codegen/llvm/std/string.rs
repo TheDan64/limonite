@@ -7,8 +7,8 @@ pub fn string_type(context: &Context) -> Type {
     // TODO: I think real Strings have another field for capacity,
     // so it knows when to reallocate
     let field_types = vec![
-        context.i64_type(),
         context.i8_type().ptr_type(0),
+        context.i64_type(),
     ];
 
     context.struct_type(field_types)
@@ -18,9 +18,8 @@ pub fn string_type(context: &Context) -> Type {
 pub fn print_function_definition(builder: &Builder, context: &Context, module: &Module) {
     // Types
     let void = context.void_type();
-    let i8_type = context.i8_type();
     let i32_type = context.i32_type();
-    let i64_type = context.i32_type();
+    let i64_type = context.i64_type();
     let i32_ptr_type = i32_type.ptr_type(0);
     let string_type = string_type(context);
 
@@ -59,23 +58,21 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     let cmp = builder.build_int_compare(op, &len, &i64_zero, "cmp");
 
     // Branch to end if string len is 0
-    builder.build_conditional_branch(&cmp, &end_block, &loop_block);
+    let br = builder.build_conditional_branch(&cmp, &end_block, &loop_block);
 
     // Loop
     builder.position_at_end(&loop_block);
 
     let offset = builder.build_load(&offset_ptr, "offset");
     let mut indices = vec![offset];
-    println!("qweewq2.2");
+
     let iter_ptr = builder.build_gep(&str_ptr, &mut indices, "iterptr");
-    println!("qweewq3");
 
     let offset = indices.pop().unwrap();
 
     let op = LLVMOpcode::LLVMBitCast; // REVIEW: LLVM shouldn't be exposed
     let iterptr32 = builder.build_cast(op, iter_ptr, i32_ptr_type, "iterptr32");
     let iter32 = builder.build_load(&iterptr32, "iter");
-    println!("qweewq4");
 
     let putchar_fn = match module.get_named_function("putchar") {
         Some(f) => f,
@@ -85,7 +82,6 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
             module.add_function("putchar", fn_type2)
         }
     };
-    println!("qweewq5");
 
     // Print char at ptr_iter here
     builder.build_call(&putchar_fn, vec![iter32], "");
@@ -102,7 +98,6 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     builder.build_conditional_branch(&cmp2, &end_block, &loop_block);
 
-    println!("qweewq6");
     // End
     builder.position_at_end(&end_block);
 
@@ -111,4 +106,6 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     builder.build_call(&putchar_fn, vec![newline], "");
 
     builder.build_return(None);
+
+    module.verify(true);
 }

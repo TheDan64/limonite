@@ -148,7 +148,8 @@ impl LLVMGenerator {
                 // Or should it go back to the global scope after generating ir?
                 // self.generate_ir(module, body_expr);
 
-                Some(bb_enter.get_terminator())
+                // Note: Terminator is None if the block is not well formed
+                bb_enter.get_terminator()
             },
             e => panic!("LLVMGenError: Unsupported codegen: {:?}", e)
         }
