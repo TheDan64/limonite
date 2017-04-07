@@ -93,8 +93,6 @@ fn main() {
 
         generator.add_main_module(ast_root);
 
-        println!("asds");
-
         if args.flag_dump {
             generator.dump_ir();
         }

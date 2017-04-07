@@ -3,7 +3,7 @@ mod std;
 
 use syntax::expr::{Expr, ExprWrapper};
 use syntax::literals::Literals;
-use codegen::llvm::std::string::print_function_definition;
+use codegen::llvm::std::string::{print_function_definition, string_type};
 
 pub struct LLVMGenerator {
     context: core::Context,
@@ -71,15 +71,19 @@ impl LLVMGenerator {
 
         pass_manager.initialize();
 
-        let main = match main_module.get_named_function("main") {
+        let main = match main_module.get_function("main") {
             Some(main) => main,
             None => panic!("LLVMExecutionError: Could not find main function to run")
         };
+
+        self.builder.build_return(None);
 
         execution_engine.run_function_as_main(main);
     }
 
     pub fn generate_ir(&self, module: &core::Module, ast: &ExprWrapper) -> Option<core::Value> {
+        println!("generating");
+
         match ast.get_expr() {
             &Expr::Block(ref exprs) => {
                 let mut last_value = None;
@@ -91,7 +95,7 @@ impl LLVMGenerator {
                 last_value
             },
             &Expr::FnCall(ref name, ref args) => {
-                let function = match module.get_named_function(name) {
+                let function = match module.get_function(name) {
                     Some(function) => function,
                     None => {
                         println!("LLVMGenError: Could not find function {}", name);
@@ -99,6 +103,8 @@ impl LLVMGenerator {
                         return None; // REVIEW: Should this panic? We should've already known it was missing and safely unwrap
                     }
                 };
+
+                module.dump();
 
                 let num_params = function.count_params() as usize;
 
@@ -127,6 +133,45 @@ impl LLVMGenerator {
             &Expr::Literal(ref literal_type) => {
                 match literal_type {
                     &Literals::UTF8Char(ref val) => Some(self.context.i32_type().const_int(*val as u64, false)),
+                    &Literals::UTF8String(ref val) => {
+                        let string_type = string_type(&self.context);
+                        let i8_type = self.context.i8_type();
+                        let i8_ptr_type = i8_type.ptr_type(0);
+                        let i32_type = self.context.i32_type();
+                        let i64_type = self.context.i64_type();
+
+                        let len = i64_type.const_int(val.len() as u64, false);
+                        // TODO: Get capacity too
+                        // let const_str_char =
+                        let mut chars = Vec::with_capacity(val.len()); // REVIEW: is rust string len in chars or bytes? Probably bytes?
+
+                        for chr in val.bytes() {
+                            chars.push(i8_type.const_int(chr as u64, false));
+                        }
+
+                        let const_str_array = i8_type.const_array(chars);
+
+                        let stack_struct = self.builder.build_stack_allocation(&string_type, "string_struct");
+                        // let heap_ptr = self.builder.build_heap_allocation(&i8_ptr_type, )
+
+                        let mut struct_index = vec![i64_type.const_int(1, false)];
+
+                        let len_ptr = self.builder.build_gep(&stack_struct, &mut struct_index, "len_ptr");
+                        let store_len = self.builder.build_store(&len, &len_ptr);
+
+                        let mut struct_index = vec![i64_type.const_int(0, false)];
+
+                        let str_ptr = self.builder.build_gep(&stack_struct, &mut struct_index, "str_ptr");
+                        let heap_ptr = self.builder.build_heap_allocation(&i8_ptr_type, "str");
+
+                        let stored = self.builder.build_store(&const_str_array, &heap_ptr);
+
+                        self.builder.build_store(&heap_ptr, &str_ptr);
+
+
+
+                        Some(stack_struct)
+                    },
                     e => panic!("LLVMGenError: Unsupported literal type {}", e)
                 }
             },

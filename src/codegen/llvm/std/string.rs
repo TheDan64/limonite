@@ -44,8 +44,6 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     let op = LLVMIntPredicate::LLVMIntEQ; // REVIEW: Shouldn't need to touch LLVM directly
 
-    // REVIEW: Probably incorrect in the long run. We're allocating the string on the heap but the length on the stack
-
     let offset_ptr = builder.build_stack_allocation(&i64_type, "offsetptr");
 
     builder.build_store(&i64_zero, &offset_ptr);
@@ -58,7 +56,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     let cmp = builder.build_int_compare(op, &len, &i64_zero, "cmp");
 
     // Branch to end if string len is 0
-    let br = builder.build_conditional_branch(&cmp, &end_block, &loop_block);
+    builder.build_conditional_branch(&cmp, &end_block, &loop_block);
 
     // Loop
     builder.position_at_end(&loop_block);
@@ -74,7 +72,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     let iterptr32 = builder.build_cast(op, iter_ptr, i32_ptr_type, "iterptr32");
     let iter32 = builder.build_load(&iterptr32, "iter");
 
-    let putchar_fn = match module.get_named_function("putchar") {
+    let putchar_fn = match module.get_function("putchar") {
         Some(f) => f,
         None => {
             let fn_type2 = i32_type.fn_type(&mut vec![context.i32_type()], false);
@@ -107,5 +105,5 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     builder.build_return(None);
 
-    module.verify(true);
+    println!("{:?}", module.get_function("print"));
 }

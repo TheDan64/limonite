@@ -1,7 +1,7 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction, LLVMVerifyFunction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress};
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData};
@@ -163,6 +163,11 @@ impl Builder {
     pub fn build_call(&self, function: &FunctionValue, args: Vec<Value>, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
+        println!("{:?}", function);
+        unsafe {
+            println!("{:?}", LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(function.fn_value))) == LLVMVoidType());
+        }
+
         // WARNING: transmute will no longer work correctly if Value gains more fields
         // We're avoiding reallocation by telling rust Vec<Value> is identical to Vec<LLVMValueRef>
         let mut args: Vec<LLVMValueRef> = unsafe {
@@ -230,7 +235,7 @@ impl Builder {
         Value::new(value)
     }
 
-    fn build_heap_allocation(&self, type_: Type, name: &str) -> Value {
+    pub fn build_heap_allocation(&self, type_: &Type, name: &str) -> Value {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         let value = unsafe {
@@ -357,10 +362,16 @@ impl Module {
             LLVMAddFunction(self.module, c_string, return_type.fn_type)
         };
 
+        // REVIEW: I think the string above is not the name, just the alias
+        // Maybe it should take two string inputs?
+        unsafe {
+            LLVMSetValueName(value, CString::new(name).unwrap().as_ptr());
+        }
+
         FunctionValue::new(value)
     }
 
-    pub fn get_named_function(&self, name: &str) -> Option<FunctionValue> {
+    pub fn get_function(&self, name: &str) -> Option<FunctionValue> {
         let c_string = CString::new(name).unwrap().as_ptr();
 
         let value = unsafe {
@@ -441,15 +452,21 @@ impl Module {
     pub fn verify(&self, print: bool) -> bool {
         let err_str: *mut *mut i8 = unsafe { zeroed() };
 
+        println!("1");
+
         let action = if print == true {
             LLVMVerifierFailureAction::LLVMPrintMessageAction
         } else {
             LLVMVerifierFailureAction::LLVMReturnStatusAction
         };
 
+        println!("2");
+
         let code = unsafe {
             LLVMVerifyModule(self.module, action, err_str)
         };
+
+        println!("3");
 
         if code == 1 {
             unsafe {
@@ -493,7 +510,7 @@ impl ExecutionEngine {
             LLVMGetFunctionAddress(self.execution_engine, c_string)
         };
 
-        if value == 0 { // REVIEW: Need to test if 0 is actualy returned
+        if value == 0 { // REVIEW: Need to test if 0 is actually returned
             return None;
         }
 
@@ -684,6 +701,20 @@ impl Type {
         Value::new(value)
     }
 
+    pub fn const_array(&self, values: Vec<Value>) -> Value {
+        // WARNING: transmute will no longer work correctly if Type gains more fields
+        // We're avoiding reallocation by telling rust Vec<Type> is identical to Vec<LLVMTypeRef>
+        let mut values: Vec<LLVMValueRef> = unsafe {
+            transmute(values)
+        };
+
+        let value = unsafe {
+            LLVMConstArray(self.type_, values.as_mut_ptr(), values.len() as u32)
+        };
+
+        Value::new(value)
+    }
+
     fn get_undef(&self, type_: Type) -> Value {
         let value = unsafe {
             LLVMGetUndef(self.type_)
@@ -741,9 +772,17 @@ impl FunctionValue {
         }
     }
 
-    pub fn get_first_param(&self) -> ParamValue { // Result/Option?
+    pub fn get_first_param(&self) -> ParamValue { // REVIEW: Option?
         let param = unsafe {
             LLVMGetFirstParam(self.fn_value)
+        };
+
+        ParamValue::new(param)
+    }
+
+    fn get_nth_param(&self, nth: u32) -> ParamValue { // REVIEW: Option?
+        let param = unsafe {
+            LLVMGetParam(self.fn_value, nth)
         };
 
         ParamValue::new(param)
@@ -772,8 +811,14 @@ impl fmt::Debug for FunctionValue {
         let llvm_type = unsafe {
             CStr::from_ptr(LLVMPrintTypeToString(LLVMTypeOf(self.fn_value)))
         };
+        let name = unsafe {
+            CStr::from_ptr(LLVMGetValueName(self.fn_value))
+        };
+        let is_const = unsafe {
+            LLVMIsConstant(self.fn_value) == 1
+        };
 
-        write!(f, "FunctionValue {{\n    address: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", self.fn_value, llvm_value, llvm_type)
+        write!(f, "FunctionValue {{\n    name: {:?}\n    address: {:?}\n    is_const: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", name, self.fn_value, is_const, llvm_value, llvm_type)
     }
 }
 
@@ -884,8 +929,14 @@ impl fmt::Debug for Value {
         let llvm_type = unsafe {
             CStr::from_ptr(LLVMPrintTypeToString(LLVMTypeOf(self.value)))
         };
+        let name = unsafe {
+            CStr::from_ptr(LLVMGetValueName(self.value))
+        };
+        let is_const = unsafe {
+            LLVMIsConstant(self.value) == 1
+        };
 
-        write!(f, "Value {{\n    address: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", self.value, llvm_value, llvm_type)
+        write!(f, "Value {{\n    name: {:?}\n    address: {:?}\n    is_const: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", name, self.value, is_const, llvm_value, llvm_type)
     }
 }
 
@@ -901,7 +952,7 @@ pub struct BasicBlock {
 
 impl BasicBlock {
     fn new(basic_block: LLVMBasicBlockRef) -> BasicBlock {
-        // TODO: debug mode only assertionsL
+        // TODO: debug mode only assertions
         {
             assert!(!basic_block.is_null());
 
@@ -954,7 +1005,10 @@ impl fmt::Debug for BasicBlock {
         let llvm_type = unsafe {
             CStr::from_ptr(LLVMPrintTypeToString(LLVMTypeOf(self.basic_block as LLVMValueRef)))
         };
+        let is_const = unsafe {
+            LLVMIsConstant(self.basic_block as LLVMValueRef) == 1
+        };
 
-        write!(f, "BasicBlock {{\n    address: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", self.basic_block, llvm_value, llvm_type)
+        write!(f, "BasicBlock {{\n    address: {:?}\n    is_const: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", self.basic_block, is_const, llvm_value, llvm_type)
     }
 }
