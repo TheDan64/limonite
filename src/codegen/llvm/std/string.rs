@@ -69,7 +69,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     let offset = indices.pop().unwrap();
 
     let op = LLVMOpcode::LLVMBitCast; // REVIEW: LLVM shouldn't be exposed
-    let iterptr32 = builder.build_cast(op, iter_ptr, i32_ptr_type, "iterptr32");
+    let iterptr32 = builder.build_cast(op, iter_ptr, i32_ptr_type, "iterptr32"); // REVIEW: cast necessary?
     let iter32 = builder.build_load(&iterptr32, "iter");
 
     let putchar_fn = match module.get_function("putchar") {
@@ -104,6 +104,4 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     builder.build_call(&putchar_fn, vec![newline], "");
 
     builder.build_return(None);
-
-    println!("{:?}", module.get_function("print"));
 }

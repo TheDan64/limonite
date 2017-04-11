@@ -53,7 +53,9 @@ impl LLVMGenerator {
     pub fn run(&self) {
         let main_module = self.main_module.as_ref().unwrap();
 
+        println!("DEBUG: Start Verify");
         assert!(main_module.verify(true)); // TODO: print param as cli flag
+        println!("DEBUG: End Verify");
 
         let execution_engine = match main_module.create_execution_engine() {
             Ok(ee) => ee,
@@ -82,8 +84,6 @@ impl LLVMGenerator {
     }
 
     pub fn generate_ir(&self, module: &core::Module, ast: &ExprWrapper) -> Option<core::Value> {
-        println!("generating");
-
         match ast.get_expr() {
             &Expr::Block(ref exprs) => {
                 let mut last_value = None;
@@ -103,8 +103,6 @@ impl LLVMGenerator {
                         return None; // REVIEW: Should this panic? We should've already known it was missing and safely unwrap
                     }
                 };
-
-                module.dump();
 
                 let num_params = function.count_params() as usize;
 
@@ -157,14 +155,14 @@ impl LLVMGenerator {
                         let mut struct_index = vec![i64_type.const_int(1, false)];
 
                         let len_ptr = self.builder.build_gep(&stack_struct, &mut struct_index, "len_ptr");
-                        let store_len = self.builder.build_store(&len, &len_ptr);
+                        let store_len = self.builder.build_store(&len_ptr, &len);
 
                         let mut struct_index = vec![i64_type.const_int(0, false)];
 
                         let str_ptr = self.builder.build_gep(&stack_struct, &mut struct_index, "str_ptr");
                         let heap_ptr = self.builder.build_heap_allocation(&i8_ptr_type, "str");
 
-                        let stored = self.builder.build_store(&const_str_array, &heap_ptr);
+                        let stored = self.builder.build_store(&heap_ptr, &const_str_array);
 
                         self.builder.build_store(&heap_ptr, &str_ptr);
 

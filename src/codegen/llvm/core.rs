@@ -1,8 +1,9 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction, LLVMVerifyFunction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress};
+use self::llvm_sys::LLVMLinkage::LLVMCommonLinkage;
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData};
 use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate};
@@ -12,6 +13,10 @@ use std::fmt;
 use std::iter;
 use std::mem::{transmute, uninitialized, zeroed};
 use std::os::raw::c_char;
+
+// Misc Notes
+// Always pass a c_string.as_ptr() call into the function call directly and never
+// before hand. Seems to make a huge difference (stuff stops working) otherwise
 
 pub struct Context {
     context: LLVMContextRef,
@@ -43,10 +48,10 @@ impl Context {
     }
 
     pub fn create_module(&self, name: &str) -> Module {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let module = unsafe {
-            LLVMModuleCreateWithNameInContext(c_string, self.context)
+            LLVMModuleCreateWithNameInContext(c_string.as_ptr(), self.context)
         };
 
         assert!(!module.is_null());
@@ -119,20 +124,20 @@ impl Context {
     }
 
     pub fn append_basic_block(&self, function: &FunctionValue, name: &str) -> BasicBlock {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let bb = unsafe {
-            LLVMAppendBasicBlockInContext(self.context, function.fn_value, c_string)
+            LLVMAppendBasicBlockInContext(self.context, function.fn_value, c_string.as_ptr())
         };
 
         BasicBlock::new(bb)
     }
 
     fn prepend_basic_block(&self, basic_block: &BasicBlock, name: &str) -> BasicBlock {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let bb = unsafe {
-            LLVMInsertBasicBlockInContext(self.context, basic_block.basic_block, c_string)
+            LLVMInsertBasicBlockInContext(self.context, basic_block.basic_block, c_string.as_ptr())
         };
 
         BasicBlock::new(bb)
@@ -161,12 +166,7 @@ impl Builder {
     }
 
     pub fn build_call(&self, function: &FunctionValue, args: Vec<Value>, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
-
-        println!("{:?}", function);
-        unsafe {
-            println!("{:?}", LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(function.fn_value))) == LLVMVoidType());
-        }
+        let c_string = CString::new(name).unwrap();
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
         // We're avoiding reallocation by telling rust Vec<Value> is identical to Vec<LLVMValueRef>
@@ -175,14 +175,14 @@ impl Builder {
         };
 
         let value = unsafe {
-            LLVMBuildCall(self.builder, function.fn_value, args.as_mut_ptr(), args.len() as u32, c_string)
+            LLVMBuildCall(self.builder, function.fn_value, args.as_mut_ptr(), args.len() as u32, c_string.as_ptr())
         };
 
         Value::new(value)
     }
 
     pub fn build_gep(&self, ptr: &Value, indicies: &mut Vec<Value>, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
         // We're avoiding reallocation by telling rust Vec<Value> is identical to Vec<LLVMValueRef>
@@ -191,17 +191,17 @@ impl Builder {
         };
 
         let value = unsafe {
-            LLVMBuildGEP(self.builder, ptr.value, indicies.as_mut_ptr(), indicies.len() as u32, c_string)
+            LLVMBuildGEP(self.builder, ptr.value, indicies.as_mut_ptr(), indicies.len() as u32, c_string.as_ptr())
         };
 
         Value::new(value)
     }
 
     fn build_phi(&self, type_: Type, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildPhi(self.builder, type_.type_, c_string)
+            LLVMBuildPhi(self.builder, type_.type_, c_string.as_ptr())
         };
 
         Value::new(value)
@@ -216,30 +216,30 @@ impl Builder {
     }
 
     pub fn build_load(&self, ptr: &Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildLoad(self.builder, ptr.value, c_string)
+            LLVMBuildLoad(self.builder, ptr.value, c_string.as_ptr())
         };
 
         Value::new(value)
     }
 
     pub fn build_stack_allocation(&self, type_: &Type, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildAlloca(self.builder, type_.type_, c_string)
+            LLVMBuildAlloca(self.builder, type_.type_, c_string.as_ptr())
         };
 
         Value::new(value)
     }
 
     pub fn build_heap_allocation(&self, type_: &Type, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildMalloc(self.builder, type_.type_, c_string)
+            LLVMBuildMalloc(self.builder, type_.type_, c_string.as_ptr())
         };
 
         Value::new(value)
@@ -260,30 +260,30 @@ impl Builder {
     }
 
     pub fn build_add(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildAdd(self.builder, left_value.value, right_value.value, c_string)
+            LLVMBuildAdd(self.builder, left_value.value, right_value.value, c_string.as_ptr())
         };
 
         Value::new(value)
     }
 
     pub fn build_cast(&self, op: LLVMOpcode, from_value: Value, to_type: Type, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildCast(self.builder, op, from_value.value, to_type.type_, c_string)
+            LLVMBuildCast(self.builder, op, from_value.value, to_type.type_, c_string.as_ptr())
         };
 
         Value::new(value)
     }
 
     pub fn build_int_compare(&self, op: LLVMIntPredicate, left_val: &Value, right_val: &Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildICmp(self.builder, op, (*left_val).value, (*right_val).value, c_string)
+            LLVMBuildICmp(self.builder, op, (*left_val).value, (*right_val).value, c_string.as_ptr())
         };
 
         Value::new(value)
@@ -306,20 +306,20 @@ impl Builder {
     }
 
     fn build_neg(&self, value: Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildNeg(self.builder, value.value, c_string)
+            LLVMBuildNeg(self.builder, value.value, c_string.as_ptr())
         };
 
         Value::new(value)
     }
 
     fn build_not(&self, value: Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildNot(self.builder, value.value, c_string)
+            LLVMBuildNot(self.builder, value.value, c_string.as_ptr())
         };
 
         Value::new(value)
@@ -332,10 +332,10 @@ impl Builder {
     }
 
     pub fn build_extract_value(&self, param: &ParamValue, index: u32, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMBuildExtractValue(self.builder, param.param_value, index, c_string)
+            LLVMBuildExtractValue(self.builder, param.param_value, index, c_string.as_ptr())
         };
 
         Value::new(value)
@@ -356,26 +356,24 @@ pub struct Module {
 
 impl Module {
     pub fn add_function(&self, name: &str, return_type: FunctionType) -> FunctionValue {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMAddFunction(self.module, c_string, return_type.fn_type)
+            LLVMAddFunction(self.module, c_string.as_ptr(), return_type.fn_type)
         };
 
-        // REVIEW: I think the string above is not the name, just the alias
-        // Maybe it should take two string inputs?
-        unsafe {
-            LLVMSetValueName(value, CString::new(name).unwrap().as_ptr());
-        }
+        // unsafe {
+        //     LLVMSetLinkage(value, LLVMCommonLinkage);
+        // }
 
         FunctionValue::new(value)
     }
 
     pub fn get_function(&self, name: &str) -> Option<FunctionValue> {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMGetNamedFunction(self.module, c_string)
+            LLVMGetNamedFunction(self.module, c_string.as_ptr())
         };
 
         if value.is_null() {
@@ -452,21 +450,15 @@ impl Module {
     pub fn verify(&self, print: bool) -> bool {
         let err_str: *mut *mut i8 = unsafe { zeroed() };
 
-        println!("1");
-
         let action = if print == true {
             LLVMVerifierFailureAction::LLVMPrintMessageAction
         } else {
             LLVMVerifierFailureAction::LLVMReturnStatusAction
         };
 
-        println!("2");
-
         let code = unsafe {
             LLVMVerifyModule(self.module, action, err_str)
         };
-
-        println!("3");
 
         if code == 1 {
             unsafe {
@@ -504,10 +496,10 @@ pub struct ExecutionEngine {
 
 impl ExecutionEngine {
     fn get_function_address(&self, name: &str) -> Option<u64> {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         let value = unsafe {
-            LLVMGetFunctionAddress(self.execution_engine, c_string)
+            LLVMGetFunctionAddress(self.execution_engine, c_string.as_ptr())
         };
 
         if value == 0 { // REVIEW: Need to test if 0 is actually returned
@@ -885,10 +877,10 @@ impl ParamValue {
     }
 
     pub fn set_name(&mut self, name: &str) {
-        let c_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         unsafe {
-            LLVMSetValueName(self.param_value, c_string)
+            LLVMSetValueName(self.param_value, c_string.as_ptr())
         }
     }
 }
@@ -907,10 +899,10 @@ impl Value {
     }
 
     fn set_name(&mut self, name: &str) {
-        let s_string = CString::new(name).unwrap().as_ptr();
+        let c_string = CString::new(name).unwrap();
 
         unsafe {
-            LLVMSetValueName(self.value, s_string);
+            LLVMSetValueName(self.value, c_string.as_ptr());
         }
     }
 
@@ -987,10 +979,10 @@ impl BasicBlock {
     }
 
     // fn prepend_basic_block(&self, name: &str) -> BasicBlock {
-    //     let c_string = CString::new(name).unwrap().as_ptr();
+    //     let c_string = CString::new(name).unwrap();
 
     //     let bb = unsafe {
-    //         LLVMInsertBasicBlock(self.basic_block, c_string)
+    //         LLVMInsertBasicBlock(self.basic_block, c_string.as_ptr())
     //     };
 
     //     BasicBlock::new(bb)

@@ -26,7 +26,7 @@ llvm-backend = ["llvm-sys"]
 [dependencies]
 docopt = "*"
 env_logger = "*"
-llvm-sys = {version="0.2.1", optional=true}
+llvm-sys = {version="37.0.1", optional=true}
 log = "*"
 rustc-serialize = "*"
 
