@@ -82,7 +82,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     };
 
     // Print char at ptr_iter here
-    builder.build_call(&putchar_fn, vec![iter32], "");
+    builder.build_call(&putchar_fn, vec![iter32], "putchar");
 
     // Increment the offset
     let i64_one = i64_type.const_int(1, false);
@@ -101,7 +101,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     let newline = i32_type.const_int('\n' as u64, false);
 
-    builder.build_call(&putchar_fn, vec![newline], "");
+    builder.build_call(&putchar_fn, vec![newline], "putchar");
 
     builder.build_return(None);
 }

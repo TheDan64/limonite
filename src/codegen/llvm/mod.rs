@@ -23,7 +23,7 @@ impl LLVMGenerator {
         }
     }
 
-    pub fn add_main_module(&mut self, ast: ExprWrapper) {
+    pub fn add_main_module(&mut self, mut ast: ExprWrapper) {
         if self.main_module.is_some() {
             panic!("Cannot override main module");
         }
@@ -31,6 +31,11 @@ impl LLVMGenerator {
         let main_module = self.context.create_module("main");
 
         // TODO: Only run whole script as "main" if there isn't a main defined already
+        // And only add return None if there isn't a return None defined already
+        if let &mut Expr::Block(ref mut blocks) = ast.get_mut_expr() {
+            blocks.push(ExprWrapper::default(Expr::Return(None)));
+        }
+
         let ast = ExprWrapper::default(Expr::FnDecl("main".into(), vec![], None, ast));
 
         print_function_definition(&self.builder, &self.context, &main_module);
@@ -150,25 +155,31 @@ impl LLVMGenerator {
                         let const_str_array = i8_type.const_array(chars);
 
                         let stack_struct = self.builder.build_stack_allocation(&string_type, "string_struct");
-                        // let heap_ptr = self.builder.build_heap_allocation(&i8_ptr_type, )
 
-                        let mut struct_index = vec![i64_type.const_int(1, false)];
+                        let mut struct_index = vec![i32_type.const_int(0, false), i32_type.const_int(1, false)];
 
                         let len_ptr = self.builder.build_gep(&stack_struct, &mut struct_index, "len_ptr");
-                        let store_len = self.builder.build_store(&len_ptr, &len);
 
-                        let mut struct_index = vec![i64_type.const_int(0, false)];
+                        let store_len = self.builder.build_store(&len, &len_ptr);
+
+                        let mut struct_index = vec![i32_type.const_int(0, false), i32_type.const_int(0, false)];
 
                         let str_ptr = self.builder.build_gep(&stack_struct, &mut struct_index, "str_ptr");
-                        let heap_ptr = self.builder.build_heap_allocation(&i8_ptr_type, "str");
 
-                        let stored = self.builder.build_store(&heap_ptr, &const_str_array);
+                        let heap_ptr = self.builder.build_heap_allocation(&i8_type, "str");
+                        // let heap_ptr = self.builder.build_array_heap_allocation(&i8_type, &const_str_array, "str");
 
-                        self.builder.build_store(&heap_ptr, &str_ptr);
+                        // let stored = self.builder.build_store(&heap_ptr, &str_ptr);
 
+                        self.builder.build_store(&const_str_array, &heap_ptr);
 
+                        // self.builder.build_insert_value(&const_str_array, &heap_ptr, 0, "insert");
 
-                        Some(stack_struct)
+                        let tmp = self.builder.build_load(&stack_struct, "string");
+
+                        module.dump();
+
+                        Some(tmp)
                     },
                     e => panic!("LLVMGenError: Unsupported literal type {}", e)
                 }
@@ -176,7 +187,7 @@ impl LLVMGenerator {
             &Expr::FnDecl(ref name, ref arg_defs, ref return_type, ref body_expr) => {
                 // TODO: Support args types and return types
                 let return_type = match return_type {
-                    &Some(ref t) => panic!("TODO"),
+                    &Some(ref t) => panic!("TODO: Return types"),
                     &None => self.context.void_type().fn_type(&mut vec![], false),
                 };
 
@@ -185,14 +196,23 @@ impl LLVMGenerator {
                 let bb_enter = self.context.append_basic_block(&function, "enter");
 
                 self.builder.position_at_end(&bb_enter);
-                self.builder.insert_instruction(self.generate_ir(module, body_expr).unwrap()); // FIXME: unwrap
+                // self.builder.insert_instruction(); // FIXME: unwrap
 
                 // REVIEW: This will return the last generated value... is that what we want?
                 // Or should it go back to the global scope after generating ir?
                 // self.generate_ir(module, body_expr);
 
                 // Note: Terminator is None if the block is not well formed
-                bb_enter.get_terminator()
+                self.generate_ir(module, body_expr)
+            },
+            &Expr::Return(ref return_type_expr) => {
+                match return_type_expr {
+                    &Some(ref return_type) => match self.generate_ir(module, return_type) {
+                        Some(t) => Some(self.builder.build_return(Some(t))),
+                        None => panic!("LLVMGenError: Could not generate return type IR"),
+                    },
+                    &None => Some(self.builder.build_return(None)),
+                }
             },
             e => panic!("LLVMGenError: Unsupported codegen: {:?}", e)
         }
