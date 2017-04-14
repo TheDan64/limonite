@@ -48,7 +48,7 @@ impl Context {
     }
 
     pub fn create_module(&self, name: &str) -> Module {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let module = unsafe {
             LLVMModuleCreateWithNameInContext(c_string.as_ptr(), self.context)
@@ -124,7 +124,7 @@ impl Context {
     }
 
     pub fn append_basic_block(&self, function: &FunctionValue, name: &str) -> BasicBlock {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let bb = unsafe {
             LLVMAppendBasicBlockInContext(self.context, function.fn_value, c_string.as_ptr())
@@ -134,7 +134,7 @@ impl Context {
     }
 
     fn prepend_basic_block(&self, basic_block: &BasicBlock, name: &str) -> BasicBlock {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let bb = unsafe {
             LLVMInsertBasicBlockInContext(self.context, basic_block.basic_block, c_string.as_ptr())
@@ -174,7 +174,7 @@ impl Builder {
             }
         };
 
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
         // We're avoiding reallocation by telling rust Vec<Value> is identical to Vec<LLVMValueRef>
@@ -190,15 +190,15 @@ impl Builder {
     }
 
     pub fn build_gep<V: Into<Value> + Copy>(&self, ptr: &Value, ordered_indexes: &Vec<V>, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let mut index_values: Vec<Value> = Vec::with_capacity(ordered_indexes.len());
 
-        // TODO: Assert vec values are all i32 - Result?
+        // TODO: Assert vec values are all i32 => Result?
         for int_or_value in ordered_indexes {
             // REVIEW: Had to make Value Copy + Clone to get this to work...
             // Is this safe, given Value is a raw ptr wrapper?
-            // I suppose in theory LLVM should never delete the values
+            // I suppose in theory LLVM should never delete the values in the scope of this call, but still
             index_values.push(match int_or_value {
                 &Value => (*int_or_value).into(),
                 &int => int.into(),
@@ -219,7 +219,7 @@ impl Builder {
     }
 
     fn build_phi(&self, type_: Type, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildPhi(self.builder, type_.type_, c_string.as_ptr())
@@ -237,7 +237,7 @@ impl Builder {
     }
 
     pub fn build_load(&self, ptr: &Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildLoad(self.builder, ptr.value, c_string.as_ptr())
@@ -247,7 +247,7 @@ impl Builder {
     }
 
     pub fn build_stack_allocation(&self, type_: &Type, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildAlloca(self.builder, type_.type_, c_string.as_ptr())
@@ -257,7 +257,7 @@ impl Builder {
     }
 
     pub fn build_heap_allocation(&self, type_: &Type, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildMalloc(self.builder, type_.type_, c_string.as_ptr())
@@ -267,7 +267,7 @@ impl Builder {
     }
 
     pub fn build_array_heap_allocation(&self, type_: &Type, value: &Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildArrayMalloc(self.builder, type_.type_, value.value, c_string.as_ptr())
@@ -291,7 +291,7 @@ impl Builder {
     }
 
     pub fn build_add(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildAdd(self.builder, left_value.value, right_value.value, c_string.as_ptr())
@@ -301,7 +301,7 @@ impl Builder {
     }
 
     pub fn build_cast(&self, op: LLVMOpcode, from_value: &Value, to_type: &Type, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildCast(self.builder, op, from_value.value, to_type.type_, c_string.as_ptr())
@@ -311,7 +311,7 @@ impl Builder {
     }
 
     pub fn build_int_compare(&self, op: LLVMIntPredicate, left_val: &Value, right_val: &Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildICmp(self.builder, op, (*left_val).value, (*right_val).value, c_string.as_ptr())
@@ -337,7 +337,7 @@ impl Builder {
     }
 
     fn build_neg(&self, value: Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildNeg(self.builder, value.value, c_string.as_ptr())
@@ -347,7 +347,7 @@ impl Builder {
     }
 
     fn build_not(&self, value: Value, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildNot(self.builder, value.value, c_string.as_ptr())
@@ -363,7 +363,7 @@ impl Builder {
     }
 
     pub fn build_extract_value<V: AsRef<LLVMValueRef>>(&self, value: &V, index: u32, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildExtractValue(self.builder, *value.as_ref(), index, c_string.as_ptr())
@@ -373,7 +373,7 @@ impl Builder {
     }
 
     pub fn build_insert_value(&self, value: &Value, ptr: &Value, index: u32, name: &str) -> Value {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildInsertValue(self.builder, value.value, ptr.value, index, c_string.as_ptr())
@@ -397,7 +397,7 @@ pub struct Module {
 
 impl Module {
     pub fn add_function(&self, name: &str, return_type: FunctionType) -> FunctionValue {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMAddFunction(self.module, c_string.as_ptr(), return_type.fn_type)
@@ -411,7 +411,7 @@ impl Module {
     }
 
     pub fn get_function(&self, name: &str) -> Option<FunctionValue> {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMGetNamedFunction(self.module, c_string.as_ptr())
@@ -537,7 +537,7 @@ pub struct ExecutionEngine {
 
 impl ExecutionEngine {
     fn get_function_address(&self, name: &str) -> Option<u64> {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMGetFunctionAddress(self.execution_engine, c_string.as_ptr())
@@ -926,7 +926,7 @@ impl ParamValue {
     }
 
     pub fn set_name(&mut self, name: &str) {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         unsafe {
             LLVMSetValueName(self.param_value, c_string.as_ptr())
@@ -977,7 +977,7 @@ impl Value {
     }
 
     fn set_name(&mut self, name: &str) {
-        let c_string = CString::new(name).unwrap();
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         unsafe {
             LLVMSetValueName(self.value, c_string.as_ptr());
@@ -1074,7 +1074,7 @@ impl BasicBlock {
     }
 
     // fn prepend_basic_block(&self, name: &str) -> BasicBlock {
-    //     let c_string = CString::new(name).unwrap();
+    //     let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
     //     let bb = unsafe {
     //         LLVMInsertBasicBlock(self.basic_block, c_string.as_ptr())
