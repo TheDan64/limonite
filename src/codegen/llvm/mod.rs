@@ -1,6 +1,8 @@
 mod core;
 mod std;
 
+extern crate llvm_sys; // TODO: Remove
+
 use syntax::expr::{Expr, ExprWrapper};
 use syntax::literals::Literals;
 use codegen::llvm::std::string::{print_function_definition, string_type};
@@ -83,12 +85,12 @@ impl LLVMGenerator {
             None => panic!("LLVMExecutionError: Could not find main function to run")
         };
 
-        self.builder.build_return(None);
+        main_module.dump();
 
         execution_engine.run_function_as_main(main);
     }
 
-    pub fn generate_ir(&self, module: &core::Module, ast: &ExprWrapper) -> Option<core::Value> {
+    pub fn generate_ir(&self, module: &core::Module, ast: &ExprWrapper) -> Option<core::Value> { // TODO: Result makes more sense. Maybe Result<Value, Enum(Error, ErrorVec)>?
         match ast.get_expr() {
             &Expr::Block(ref exprs) => {
                 let mut last_value = None;
@@ -142,6 +144,7 @@ impl LLVMGenerator {
                         let i8_ptr_type = i8_type.ptr_type(0);
                         let i32_type = self.context.i32_type();
                         let i64_type = self.context.i64_type();
+                        let i8_array_type = i8_type.array_type(val.len() as u32);
 
                         let len = i64_type.const_int(val.len() as u64, false);
                         // TODO: Get capacity too
@@ -152,36 +155,32 @@ impl LLVMGenerator {
                             chars.push(i8_type.const_int(chr as u64, false));
                         }
 
-                        let const_str_array = i8_type.const_array(chars);
+                        let const_str_array = i8_array_type.const_array(chars);
+
+                        println!("{:?}", const_str_array);
 
                         let stack_struct = self.builder.build_stack_allocation(&string_type, "string_struct");
 
-                        let mut struct_index = vec![i32_type.const_int(0, false), i32_type.const_int(1, false)];
-
-                        let len_ptr = self.builder.build_gep(&stack_struct, &mut struct_index, "len_ptr");
-
+                        let str_ptr = self.builder.build_gep(&stack_struct, &vec![0, 0], "str_ptr");
+                        let len_ptr = self.builder.build_gep(&stack_struct, &vec![0, 1], "len_ptr");
+                        // TODO:
+                        // let cap_ptr = self.builder.build_gep(&stack_struct, &vec![0, 2], "cap_ptr");
                         let store_len = self.builder.build_store(&len, &len_ptr);
 
-                        let mut struct_index = vec![i32_type.const_int(0, false), i32_type.const_int(0, false)];
+                        let tmp_ptr = self.builder.build_stack_allocation(&i8_array_type, "arr_ptr");
 
-                        let str_ptr = self.builder.build_gep(&stack_struct, &mut struct_index, "str_ptr");
+                        use self::llvm_sys::{LLVMOpcode};
 
-                        let heap_ptr = self.builder.build_heap_allocation(&i8_type, "str");
-                        // let heap_ptr = self.builder.build_array_heap_allocation(&i8_type, &const_str_array, "str");
+                        let heap_ptr = self.builder.build_array_heap_allocation(&i8_array_type, &(val.len() as u64), "str");
+                        let heap_ptr = self.builder.build_cast(LLVMOpcode::LLVMBitCast, &heap_ptr, &i8_ptr_type, "cast");
+                        let tmp = self.builder.build_store(&const_str_array, &tmp_ptr);
+                        let c1 = self.builder.build_cast(LLVMOpcode::LLVMBitCast, &tmp_ptr, &i8_ptr_type, "c1");
+                        let store_heap_ptr = self.builder.build_store(&heap_ptr, &str_ptr);
+                        self.builder.build_store(&c1, &str_ptr);
 
-                        // let stored = self.builder.build_store(&heap_ptr, &str_ptr);
-
-                        self.builder.build_store(&const_str_array, &heap_ptr);
-
-                        // self.builder.build_insert_value(&const_str_array, &heap_ptr, 0, "insert");
-
-                        let tmp = self.builder.build_load(&stack_struct, "string");
-
-                        module.dump();
-
-                        Some(tmp)
+                        Some(self.builder.build_load(&stack_struct, "struct")) // REVIEW: Maybe print should take ptr?
                     },
-                    e => panic!("LLVMGenError: Unsupported literal type {}", e)
+                    _ => unimplemented!()
                 }
             },
             &Expr::FnDecl(ref name, ref arg_defs, ref return_type, ref body_expr) => {
@@ -201,8 +200,6 @@ impl LLVMGenerator {
                 // REVIEW: This will return the last generated value... is that what we want?
                 // Or should it go back to the global scope after generating ir?
                 // self.generate_ir(module, body_expr);
-
-                // Note: Terminator is None if the block is not well formed
                 self.generate_ir(module, body_expr)
             },
             &Expr::Return(ref return_type_expr) => {
@@ -214,7 +211,7 @@ impl LLVMGenerator {
                     &None => Some(self.builder.build_return(None)),
                 }
             },
-            e => panic!("LLVMGenError: Unsupported codegen: {:?}", e)
+            _ => unimplemented!()
         }
     }
 }

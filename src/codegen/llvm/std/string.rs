@@ -64,12 +64,12 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     let offset = builder.build_load(&offset_ptr, "offset");
     let mut indices = vec![offset];
 
-    let iter_ptr = builder.build_gep(&str_ptr, &mut indices, "iterptr");
+    let iter_ptr = builder.build_gep(&str_ptr, &indices, "iterptr");
 
     let offset = indices.pop().unwrap();
 
     let op = LLVMOpcode::LLVMBitCast; // REVIEW: LLVM shouldn't be exposed
-    let iterptr32 = builder.build_cast(op, iter_ptr, i32_ptr_type, "iterptr32"); // REVIEW: cast necessary?
+    let iterptr32 = builder.build_cast(op, &iter_ptr, &i32_ptr_type, "iterptr32"); // REVIEW: cast necessary?
     let iter32 = builder.build_load(&iterptr32, "iter");
 
     let putchar_fn = match module.get_function("putchar") {
