@@ -1,7 +1,7 @@
 extern crate llvm_sys;
 
 use codegen::llvm::core::{Builder, Context, Module, Type};
-use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate}; // TODO: Remove
+use self::llvm_sys::LLVMIntPredicate; // TODO: Remove
 
 pub fn string_type(context: &Context) -> Type {
     // TODO: I think real Strings have another field for capacity,
@@ -21,9 +21,9 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     let i32_type = context.i32_type();
     let i64_type = context.i64_type();
     let i32_ptr_type = i32_type.ptr_type(0);
-    let string_type = string_type(context);
+    let string_type_ptr = string_type(context).ptr_type(0);
 
-    let mut args = vec![string_type];
+    let mut args = vec![string_type_ptr];
 
     let fn_type = void.fn_type(&mut args, false);
 
@@ -50,8 +50,13 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     // REVIEW: Maybe we can bake in offsets into a StructType struct so that
     // the following is less manual?
-    let str_ptr = builder.build_extract_value(&param, 0, "strptr");
-    let len = builder.build_extract_value(&param, 1, "len");
+    let str_ptr = builder.build_gep(&param.as_value(), &vec![0, 0], "strptrptr");
+    // let str_ptr = builder.build_load(&str_ptr, "len");
+    let len = builder.build_gep(&param.as_value(), &vec![0, 1], "len_ptr");
+    let len = builder.build_load(&len, "len");
+
+    // let str_ptr = builder.build_extract_value(&param, 0, "strptr");
+    // let len = builder.build_extract_value(&param, 1, "len");
 
     let cmp = builder.build_int_compare(op, &len, &i64_zero, "cmp");
 
@@ -68,8 +73,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     let offset = indices.pop().unwrap();
 
-    let op = LLVMOpcode::LLVMBitCast; // REVIEW: LLVM shouldn't be exposed
-    let iterptr32 = builder.build_cast(op, &iter_ptr, &i32_ptr_type, "iterptr32"); // REVIEW: cast necessary?
+    let iterptr32 = builder.build_pointer_cast(&iter_ptr, &i32_ptr_type, "iterptr32"); // REVIEW: cast necessary?
     let iter32 = builder.build_load(&iterptr32, "iter");
 
     let putchar_fn = match module.get_function("putchar") {

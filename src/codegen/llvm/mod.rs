@@ -169,16 +169,16 @@ impl LLVMGenerator {
 
                         let tmp_ptr = self.builder.build_stack_allocation(&i8_array_type, "arr_ptr");
 
-                        use self::llvm_sys::{LLVMOpcode};
-
                         let heap_ptr = self.builder.build_array_heap_allocation(&i8_array_type, &(val.len() as u64), "str");
-                        let heap_ptr = self.builder.build_cast(LLVMOpcode::LLVMBitCast, &heap_ptr, &i8_ptr_type, "cast");
-                        let tmp = self.builder.build_store(&const_str_array, &tmp_ptr);
-                        let c1 = self.builder.build_cast(LLVMOpcode::LLVMBitCast, &tmp_ptr, &i8_ptr_type, "c1");
+                        let heap_ptr = self.builder.build_pointer_cast(&heap_ptr, &i8_ptr_type, "cast");
+                        // let tmp = self.builder.build_store(&const_str_array, &tmp_ptr);
+                        let c1 = self.builder.build_pointer_cast(&tmp_ptr, &i8_ptr_type, "c1");
                         let store_heap_ptr = self.builder.build_store(&heap_ptr, &str_ptr);
                         self.builder.build_store(&c1, &str_ptr);
 
-                        Some(self.builder.build_load(&stack_struct, "struct")) // REVIEW: Maybe print should take ptr?
+                        println!("{:?}", stack_struct);
+
+                        Some(stack_struct) // REVIEW: Maybe print should take ptr?
                     },
                     _ => unimplemented!()
                 }
