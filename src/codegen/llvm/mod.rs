@@ -144,7 +144,6 @@ impl LLVMGenerator {
                         let i32_type = self.context.i32_type();
                         let i64_type = self.context.i64_type();
                         let i8_array_type = i8_type.array_type(val.len() as u32);
-                        let void_ptr_type = void_type.ptr_type(0);
                         let i32_one = i32_type.const_int(1, false);
                         let bool_false = bool_type.const_int(0, false);
 
@@ -178,7 +177,7 @@ impl LLVMGenerator {
                             Some(f) => f,
                             None => {
                                 let i8_ptr_type2 = i8_type.ptr_type(0);
-                                let mut args = vec![i8_ptr_type, i8_ptr_type2, i64_type, i32_type, bool_type]; // last param is really usize...
+                                let mut args = vec![i8_ptr_type, i8_ptr_type2, i64_type, i32_type, bool_type];
 
                                 let fn_type2 = void_type.fn_type(&mut args, false);
 

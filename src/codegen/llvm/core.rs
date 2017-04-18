@@ -11,7 +11,6 @@ use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate, LLVMTypeKind};
 
 use std::ffi::{CString, CStr};
 use std::fmt;
-use std::iter;
 use std::mem::{transmute, uninitialized, zeroed};
 use std::os::raw::c_char;
 
@@ -177,17 +176,10 @@ impl Builder {
 
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
-        let mut arg_values: Vec<Value> = Vec::with_capacity(args.len());
-
-        for int_or_value in args {
-            // REVIEW: Had to make Value Copy + Clone to get this to work...
-            // Is this safe, given Value is a raw ptr wrapper?
-            // I suppose in theory LLVM should never delete the values in the scope of this call, but still
-            arg_values.push(match int_or_value {
-                &Value => (*int_or_value).into(),
-                &int => int.into(),
-            });
-        }
+        // REVIEW: Had to make Value Copy + Clone to get this to work...
+        // Is this safe, given Value is a raw ptr wrapper?
+        // I suppose in theory LLVM should never delete the values in the scope of this call, but still
+        let arg_values: Vec<Value> = args.iter().map(|val| (*val).into()).collect();
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
         // We're avoiding reallocation by telling rust Vec<Value> is identical to Vec<LLVMValueRef>
@@ -205,18 +197,11 @@ impl Builder {
     pub fn build_gep<V: Into<Value> + Copy>(&self, ptr: &Value, ordered_indexes: &Vec<V>, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
-        let mut index_values: Vec<Value> = Vec::with_capacity(ordered_indexes.len());
-
-        // TODO: Assert vec values are all i32 => Result?
-        for int_or_value in ordered_indexes {
-            // REVIEW: Had to make Value Copy + Clone to get this to work...
-            // Is this safe, given Value is a raw ptr wrapper?
-            // I suppose in theory LLVM should never delete the values in the scope of this call, but still
-            index_values.push(match int_or_value {
-                &Value => (*int_or_value).into(),
-                &int => int.into(),
-            });
-        }
+        // TODO: Assert vec values are all i32 => Result? Might not always be desirable
+        // REVIEW: Had to make Value Copy + Clone to get this to work...
+        // Is this safe, given Value is a raw ptr wrapper?
+        // I suppose in theory LLVM should never delete the values in the scope of this call, but still
+        let index_values: Vec<Value> = ordered_indexes.iter().map(|val| (*val).into()).collect();
 
         // WARNING: transmute will no longer work correctly if Value gains more fields
         // We're avoiding reallocation by telling rust Vec<Value> is identical to Vec<LLVMValueRef>
@@ -1142,7 +1127,7 @@ impl BasicBlock {
         }
     }
 
-    fn get_parent(&self) -> Value { // REVIEW: Why does LLVM return a value instead of a bb??
+    fn get_parent(&self) -> Value { // REVIEW: Should this return FunctionValue instead?
         let value = unsafe {
             LLVMGetBasicBlockParent(self.basic_block)
         };
@@ -1150,7 +1135,7 @@ impl BasicBlock {
         Value::new(value)
     }
 
-    pub fn get_terminator(&self) -> Option<Value> {
+    fn get_terminator(&self) -> Option<Value> {
         let value = unsafe {
             LLVMGetBasicBlockTerminator(self.basic_block)
         };
