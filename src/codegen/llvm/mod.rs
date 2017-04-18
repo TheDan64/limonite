@@ -60,9 +60,7 @@ impl LLVMGenerator {
     pub fn run(&self) {
         let main_module = self.main_module.as_ref().unwrap();
 
-        println!("DEBUG: Start Verify");
         assert!(main_module.verify(true)); // TODO: print param as cli flag
-        println!("DEBUG: End Verify");
 
         let execution_engine = match main_module.create_execution_engine() {
             Ok(ee) => ee,
@@ -77,6 +75,7 @@ impl LLVMGenerator {
         pass_manager.add_target_data(target_data);
 
         // TODO: Add more passes here
+        // pass_manager.add_optimize_memcpy_pass();
 
         pass_manager.initialize();
 
@@ -84,8 +83,6 @@ impl LLVMGenerator {
             Some(main) => main,
             None => panic!("LLVMExecutionError: Could not find main function to run")
         };
-
-        main_module.dump();
 
         execution_engine.run_function_as_main(main);
     }
@@ -133,23 +130,28 @@ impl LLVMGenerator {
                 // Apparently void functions don't get saved return values. Maybe this check could be
                 // baked into the build call?
 
-                Some(self.builder.build_call(&function, arg_values, name)) // REVIEW: maybe tmp_ + name? Unclear if same name as fn is bad..
+                Some(self.builder.build_call(&function, &arg_values, name)) // REVIEW: maybe tmp_ + name? Unclear if same name as fn is bad..
             },
             &Expr::Literal(ref literal_type) => {
                 match literal_type {
                     &Literals::UTF8Char(ref val) => Some(self.context.i32_type().const_int(*val as u64, false)),
                     &Literals::UTF8String(ref val) => {
                         let string_type = string_type(&self.context);
+                        let void_type = self.context.void_type();
+                        let bool_type = self.context.bool_type();
                         let i8_type = self.context.i8_type();
                         let i8_ptr_type = i8_type.ptr_type(0);
                         let i32_type = self.context.i32_type();
                         let i64_type = self.context.i64_type();
                         let i8_array_type = i8_type.array_type(val.len() as u32);
+                        let void_ptr_type = void_type.ptr_type(0);
+                        let i32_one = i32_type.const_int(1, false);
+                        let bool_false = bool_type.const_int(0, false);
 
                         let len = i64_type.const_int(val.len() as u64, false);
                         // TODO: Get capacity too
-                        // let const_str_char =
-                        let mut chars = Vec::with_capacity(val.len()); // REVIEW: is rust string len in chars or bytes? Probably bytes?
+
+                        let mut chars = Vec::with_capacity(val.len());
 
                         for chr in val.bytes() {
                             chars.push(i8_type.const_int(chr as u64, false));
@@ -157,7 +159,7 @@ impl LLVMGenerator {
 
                         let const_str_array = i8_array_type.const_array(chars);
 
-                        println!("{:?}", const_str_array);
+                        let global_str = module.add_global(&i8_array_type, &Some(const_str_array), "global_str");
 
                         let stack_struct = self.builder.build_stack_allocation(&string_type, "string_struct");
 
@@ -165,20 +167,31 @@ impl LLVMGenerator {
                         let len_ptr = self.builder.build_gep(&stack_struct, &vec![0, 1], "len_ptr");
                         // TODO:
                         // let cap_ptr = self.builder.build_gep(&stack_struct, &vec![0, 2], "cap_ptr");
-                        let store_len = self.builder.build_store(&len, &len_ptr);
 
-                        let tmp_ptr = self.builder.build_stack_allocation(&i8_array_type, "arr_ptr");
+                        self.builder.build_store(&len, &len_ptr);
 
-                        let heap_ptr = self.builder.build_array_heap_allocation(&i8_array_type, &(val.len() as u64), "str");
-                        let heap_ptr = self.builder.build_pointer_cast(&heap_ptr, &i8_ptr_type, "cast");
-                        // let tmp = self.builder.build_store(&const_str_array, &tmp_ptr);
-                        let c1 = self.builder.build_pointer_cast(&tmp_ptr, &i8_ptr_type, "c1");
-                        let store_heap_ptr = self.builder.build_store(&heap_ptr, &str_ptr);
-                        self.builder.build_store(&c1, &str_ptr);
+                        let i8_heap_array = self.builder.build_array_heap_allocation(&i8_array_type, &(val.len() as u64), "i8_heap_array");
+                        let i8_heap_ptr = self.builder.build_pointer_cast(&i8_heap_array, &i8_ptr_type, "i8_heap_ptr");
 
-                        println!("{:?}", stack_struct);
+                        self.builder.build_store(&i8_heap_ptr, &str_ptr);
 
-                        Some(stack_struct) // REVIEW: Maybe print should take ptr?
+                        let memcpy_fn = match module.get_function("llvm.memcpy.p0i8.p0i8.i64") {
+                            Some(f) => f,
+                            None => {
+                                let i8_ptr_type2 = i8_type.ptr_type(0);
+                                let mut args = vec![i8_ptr_type, i8_ptr_type2, i64_type, i32_type, bool_type]; // last param is really usize...
+
+                                let fn_type2 = void_type.fn_type(&mut args, false);
+
+                                module.add_function("llvm.memcpy.p0i8.p0i8.i64", fn_type2)
+                            }
+                        };
+
+                        let global_i8_ptr = self.builder.build_gep(&global_str, &vec![0, 0], "global_i8_ptr");
+
+                        self.builder.build_call(&memcpy_fn, &vec![i8_heap_ptr, global_i8_ptr, len, i32_one, bool_false], "llvm.memcpy.p0i8.p0i8.i64"); // REVIEW: val.len() as u64 doesn't seem to work. Says type is invalid... due to missing context?
+
+                        Some(stack_struct)
                     },
                     _ => unimplemented!()
                 }

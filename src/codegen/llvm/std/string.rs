@@ -50,8 +50,8 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     // REVIEW: Maybe we can bake in offsets into a StructType struct so that
     // the following is less manual?
-    let str_ptr = builder.build_gep(&param.as_value(), &vec![0, 0], "strptrptr");
-    // let str_ptr = builder.build_load(&str_ptr, "len");
+    let str_ptr_ptr = builder.build_gep(&param.as_value(), &vec![0, 0], "strptrptr");
+    let str_ptr = builder.build_load(&str_ptr_ptr, "str_ptr");
     let len = builder.build_gep(&param.as_value(), &vec![0, 1], "len_ptr");
     let len = builder.build_load(&len, "len");
 
@@ -86,7 +86,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     };
 
     // Print char at ptr_iter here
-    builder.build_call(&putchar_fn, vec![iter32], "putchar");
+    builder.build_call(&putchar_fn, &vec![iter32], "putchar");
 
     // Increment the offset
     let i64_one = i64_type.const_int(1, false);
@@ -105,7 +105,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     let newline = i32_type.const_int('\n' as u64, false);
 
-    builder.build_call(&putchar_fn, vec![newline], "putchar");
+    builder.build_call(&putchar_fn, &vec![newline], "putchar");
 
     builder.build_return(None);
 }

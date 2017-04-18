@@ -1,11 +1,12 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction, LLVMVerifyFunction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress};
 use self::llvm_sys::LLVMLinkage::LLVMCommonLinkage;
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData, LLVM_InitializeNativeDisassembler};
+use self::llvm_sys::transforms::scalar::{LLVMAddMemCpyOptPass};
 use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate, LLVMTypeKind};
 
 use std::ffi::{CString, CStr};
@@ -69,7 +70,7 @@ impl Context {
         Type::new(void_type)
     }
 
-    fn bool_type(&self) -> Type {
+    pub fn bool_type(&self) -> Type {
         let bool_type = unsafe {
             LLVMInt1TypeInContext(self.context)
         };
@@ -165,7 +166,7 @@ impl Builder {
         Value::new(value)
     }
 
-    pub fn build_call(&self, function: &FunctionValue, args: Vec<Value>, name: &str) -> Value {
+    pub fn build_call<V: Into<Value> + Copy>(&self, function: &FunctionValue, args: &Vec<V>, name: &str) -> Value {
         // LLVM gets upset when void calls are named because they don't return anything
         let name = unsafe {
             match LLVMGetTypeKind(LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(function.fn_value)))) {
@@ -176,10 +177,22 @@ impl Builder {
 
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
+        let mut arg_values: Vec<Value> = Vec::with_capacity(args.len());
+
+        for int_or_value in args {
+            // REVIEW: Had to make Value Copy + Clone to get this to work...
+            // Is this safe, given Value is a raw ptr wrapper?
+            // I suppose in theory LLVM should never delete the values in the scope of this call, but still
+            arg_values.push(match int_or_value {
+                &Value => (*int_or_value).into(),
+                &int => int.into(),
+            });
+        }
+
         // WARNING: transmute will no longer work correctly if Value gains more fields
         // We're avoiding reallocation by telling rust Vec<Value> is identical to Vec<LLVMValueRef>
         let mut args: Vec<LLVMValueRef> = unsafe {
-            transmute(args)
+            transmute(arg_values)
         };
 
         let value = unsafe {
@@ -266,11 +279,22 @@ impl Builder {
         Value::new(value)
     }
 
+    // TODO: Rename to "build_heap_allocated_aRray" + stack version?
     pub fn build_array_heap_allocation<V: Into<Value> + Copy>(&self, type_: &Type, size: &V, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildArrayMalloc(self.builder, type_.type_, (*size).into().value, c_string.as_ptr())
+        };
+
+        Value::new(value)
+    }
+
+    pub fn build_stack_allocated_array<V: Into<Value> + Copy>(&self, type_: &Type, size: &V, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMBuildArrayAlloca(self.builder, type_.type_, (*size).into().value, c_string.as_ptr())
         };
 
         Value::new(value)
@@ -504,6 +528,22 @@ impl Module {
         PassManager::new(pass_manager)
     }
 
+    pub fn add_global(&self, type_: &Type, init_value: &Option<Value>, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMAddGlobal(self.module, type_.type_, c_string.as_ptr())
+        };
+
+        if let &Some(ref init_val) = init_value {
+            unsafe {
+                LLVMSetInitializer(value, init_val.value)
+            }
+        }
+
+        Value::new(value)
+    }
+
     pub fn verify(&self, print: bool) -> bool {
         let err_str: *mut *mut i8 = unsafe { zeroed() };
 
@@ -669,6 +709,12 @@ impl PassManager {
         // return true means some pass modified the module, not an error occurred
         unsafe {
             LLVMInitializeFunctionPassManager(self.pass_manager) == 1
+        }
+    }
+
+    pub fn add_optimize_memcpy_pass(&self) {
+        unsafe {
+            LLVMAddMemCpyOptPass(self.pass_manager)
         }
     }
 
@@ -1004,6 +1050,12 @@ impl Value {
 
         Value {
             value: value
+        }
+    }
+
+    pub fn set_global_constant(&self, num: i32) { // REVIEW: Need better name for this arg
+        unsafe {
+            LLVMSetGlobalConstant(self.value, num)
         }
     }
 
