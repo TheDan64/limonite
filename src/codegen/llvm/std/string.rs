@@ -4,11 +4,10 @@ use codegen::llvm::core::{Builder, Context, Module, Type};
 use self::llvm_sys::LLVMIntPredicate; // TODO: Remove
 
 pub fn string_type(context: &Context) -> Type {
-    // TODO: I think real Strings have another field for capacity,
-    // so it knows when to reallocate
     let field_types = vec![
         context.i8_type().ptr_type(0),
-        context.i64_type(),
+        context.i64_type(), // len
+        context.i64_type(), // cap
     ];
 
     context.struct_type(field_types)
@@ -52,11 +51,8 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
     // the following is less manual?
     let str_ptr_ptr = builder.build_gep(&param.as_value(), &vec![0, 0], "strptrptr");
     let str_ptr = builder.build_load(&str_ptr_ptr, "str_ptr");
-    let len = builder.build_gep(&param.as_value(), &vec![0, 1], "len_ptr");
-    let len = builder.build_load(&len, "len");
-
-    // let str_ptr = builder.build_extract_value(&param, 0, "strptr");
-    // let len = builder.build_extract_value(&param, 1, "len");
+    let len_ptr = builder.build_gep(&param.as_value(), &vec![0, 1], "len_ptr");
+    let len = builder.build_load(&len_ptr, "len");
 
     let cmp = builder.build_int_compare(op, &len, &i64_zero, "cmp");
 

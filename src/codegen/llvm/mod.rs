@@ -149,7 +149,6 @@ impl LLVMGenerator {
                         let bool_false = bool_type.const_int(0, false);
 
                         let len = i64_type.const_int(val.len() as u64, false);
-                        // TODO: Get capacity too
 
                         let mut chars = Vec::with_capacity(val.len());
 
@@ -165,10 +164,10 @@ impl LLVMGenerator {
 
                         let str_ptr = self.builder.build_gep(&stack_struct, &vec![0, 0], "str_ptr");
                         let len_ptr = self.builder.build_gep(&stack_struct, &vec![0, 1], "len_ptr");
-                        // TODO:
-                        // let cap_ptr = self.builder.build_gep(&stack_struct, &vec![0, 2], "cap_ptr");
+                        let cap_ptr = self.builder.build_gep(&stack_struct, &vec![0, 2], "cap_ptr");
 
                         self.builder.build_store(&len, &len_ptr);
+                        self.builder.build_store(&len, &cap_ptr);
 
                         let i8_heap_array = self.builder.build_array_heap_allocation(&i8_array_type, &(val.len() as u64), "i8_heap_array");
                         let i8_heap_ptr = self.builder.build_pointer_cast(&i8_heap_array, &i8_ptr_type, "i8_heap_ptr");
