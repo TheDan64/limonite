@@ -1,11 +1,10 @@
 mod core;
 mod std;
 
-extern crate llvm_sys; // TODO: Remove
-
+use codegen::llvm::std::string::{print_function_definition, string_type};
 use syntax::expr::{Expr, ExprWrapper};
 use syntax::literals::Literals;
-use codegen::llvm::std::string::{print_function_definition, string_type};
+use syntax::op::{InfixOp, UnaryOp};
 
 pub struct LLVMGenerator {
     context: core::Context,
@@ -191,7 +190,50 @@ impl LLVMGenerator {
 
                         Some(stack_struct)
                     },
-                    _ => unimplemented!()
+                    &Literals::I32Num(ref val) => Some(self.context.i32_type().const_int(*val as u64, true)),
+                    &Literals::I64Num(ref val) => Some(self.context.i64_type().const_int(*val as u64, true)),
+                    &Literals::U32Num(ref val) => Some(self.context.i32_type().const_int(*val as u64, false)),
+                    &Literals::U64Num(ref val) => Some(self.context.i64_type().const_int(*val as u64, false)),
+                    &Literals::F32Num(ref val) => Some(self.context.f32_type().const_float(*val as f64)),
+                    &Literals::F64Num(ref val) => Some(self.context.f64_type().const_float(*val as f64)),
+                    &Literals::Bool(ref val) => Some(self.context.bool_type().const_int(*val as u64, false)),
+                    &Literals::_None => panic!("LLVMGenError: Unimplemented for NoneType")
+                }
+            },
+            &Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
+                let (lhs_val, rhs_val) =  match (self.generate_ir(module, lhs_exprwrapper), self.generate_ir(module, rhs_exprwrapper)) {
+                    (Some(val1), Some(val2)) => (val1, val2),
+                    (Some(_), None) => unreachable!("LLVMGenError: InfixOp only LHS contains value"),
+                    (None, Some(_)) => unreachable!("LLVMGenError: InfixOp only RHS contains value"),
+                    (None, None) => unreachable!("LLVMGenError: InfixOp has no values")
+                };
+
+                // Adding different types should never happen if SA is doing it's job, right?
+                match op {
+                    &InfixOp::Add => Some(self.builder.build_add(&lhs_val, &rhs_val, "add")),
+                    &InfixOp::Sub => Some(self.builder.build_sub(&lhs_val, &rhs_val, "sub")),
+                    &InfixOp::Mul => Some(self.builder.build_mul(&lhs_val, &rhs_val, "mul")),
+                    &InfixOp::Div => match (lhs_val, rhs_val) {
+                        // LLVMBuildFDiv, LLVMBuildSDiv, LLVMBuildUDiv
+                        _ => panic!("LLVMGenError: Unimplemented infix operator div")
+                    },
+                    &InfixOp::Mod => match (lhs_val, rhs_val) {
+                        _ => panic!("LLVMGenError: Unimplemented infix operator mod")
+                    },
+                    &InfixOp::Pow => match (lhs_val, rhs_val) {
+                        _ => panic!("LLVMGenError: Unimplemented infix operator pow")
+                    },
+                    &InfixOp::Equ => match (lhs_val, rhs_val) {
+                        // LLVMBuildICmp, LLVMBuildFCmp?
+                        _ => panic!("LLVMGenError: Unimplemented infix operator equ")
+                    }
+                }
+            },
+            // Needs further testing
+            &Expr::UnaryOp(ref op, ref expr) => {
+                match op {
+                    &UnaryOp::Negate => self.generate_ir(module, expr).map(|val| self.builder.build_neg(&val, "neg")),
+                    &UnaryOp::Not => self.generate_ir(module, expr).map(|val| self.builder.build_not(&val, "not")),
                 }
             },
             &Expr::FnDecl(ref name, ref arg_defs, ref return_type, ref body_expr) => {
@@ -217,7 +259,7 @@ impl LLVMGenerator {
                 match return_type_expr {
                     &Some(ref return_type) => match self.generate_ir(module, return_type) {
                         Some(t) => Some(self.builder.build_return(Some(t))),
-                        None => panic!("LLVMGenError: Could not generate return type IR"),
+                        None => unreachable!("LLVMGenError: Hit unreachable return type generation")
                     },
                     &None => Some(self.builder.build_return(None)),
                 }
