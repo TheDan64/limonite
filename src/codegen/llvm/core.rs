@@ -621,8 +621,8 @@ impl ExecutionEngine {
         }
     }
 
-    fn get_function_address(&self, name: &str) -> Option<u64> {
-        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+    pub fn get_function_address(&self, fn_name: &str) -> Option<u64> {
+        let c_string = CString::new(fn_name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMGetFunctionAddress(self.execution_engine, c_string.as_ptr())
@@ -925,6 +925,13 @@ impl FunctionValue {
 
         Type::new(type_)
     }
+
+    pub fn params(&self) -> ParamValueIter {
+        ParamValueIter {
+            param_iter_value: self.fn_value,
+            start: true,
+        }
+    }
 }
 
 impl fmt::Debug for FunctionValue {
@@ -946,24 +953,6 @@ impl fmt::Debug for FunctionValue {
         };
 
         write!(f, "FunctionValue {{\n    name: {:?}\n    address: {:?}\n    is_const: {:?}\n    is_null: {:?}\n    llvm_value: {:?}\n    llvm_type: {:?}\n}}", name, self.fn_value, is_const, is_null, llvm_value, llvm_type)
-    }
-}
-
-impl Iterator for FunctionValue {
-    type Item = ParamValue;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // LLVMGetFirstParam(self.value)
-
-        let next_value = unsafe {
-            LLVMGetNextParam(self.fn_value)
-        };
-
-        if next_value.is_null() {
-            return None;
-        }
-
-        Some(ParamValue { param_value: next_value })
     }
 }
 
@@ -1060,6 +1049,45 @@ impl fmt::Debug for ParamValue {
     }
 }
 
+pub struct ParamValueIter {
+    param_iter_value: LLVMValueRef,
+    start: bool,
+}
+
+impl Iterator for ParamValueIter {
+    type Item = ParamValue;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start == true {
+            let first_value = unsafe {
+                LLVMGetFirstParam(self.param_iter_value)
+            };
+
+            if first_value.is_null() {
+                return None;
+            }
+
+            self.start = false;
+
+            self.param_iter_value = first_value;
+
+            return Some(ParamValue::new(first_value));
+        }
+
+        let next_value = unsafe {
+            LLVMGetNextParam(self.param_iter_value)
+        };
+
+        if next_value.is_null() {
+            return None;
+        }
+
+        self.param_iter_value = next_value;
+
+        Some(ParamValue::new(next_value))
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Value {
     pub value: LLVMValueRef, // TEMP: pub
@@ -1085,6 +1113,12 @@ impl Value {
 
         unsafe {
             LLVMSetValueName(self.value, c_string.as_ptr());
+        }
+    }
+
+    pub fn get_name(&self) -> &CStr {
+        unsafe {
+            CStr::from_ptr(LLVMGetValueName(self.value))
         }
     }
 

@@ -2,19 +2,21 @@ mod core;
 mod std;
 
 use codegen::llvm::std::string::{print_function_definition, string_type};
+use self::core::{Builder, Context, Module, Type, Value};
+use std::collections::HashMap;
 use syntax::expr::{Expr, ExprWrapper};
 use syntax::literals::Literals;
 use syntax::op::{InfixOp, UnaryOp};
 
 pub struct LLVMGenerator {
-    context: core::Context,
-    builder: core::Builder,
-    main_module: Option<core::Module>,
+    context: Context,
+    builder: Builder,
+    main_module: Option<Module>,
 }
 
 impl LLVMGenerator {
     pub fn new() -> Self {
-        let context = core::Context::new();
+        let context = Context::new();
         let builder = context.create_builder();
 
         LLVMGenerator {
@@ -41,7 +43,7 @@ impl LLVMGenerator {
 
         print_function_definition(&self.builder, &self.context, &main_module);
 
-        self.generate_ir(&main_module, &ast);
+        self.generate_ir(&main_module, &ast, &mut HashMap::new());
 
         self.main_module = Some(main_module);
     }
@@ -54,6 +56,20 @@ impl LLVMGenerator {
 
     pub fn save_binary(&self) -> () {
         // TODO
+    }
+
+    pub fn get_function_address(&self, fn_name: &str) -> Option<u64> {
+        // REVIEW: Will the function still work if EE drops?
+        let main_module = self.main_module.as_ref().expect("Could not find a main module");
+
+        assert!(main_module.verify(true)); // TODO: print param as cli flag
+
+        let execution_engine = match main_module.create_execution_engine() {
+            Ok(ee) => ee,
+            Err(s) => panic!("LLVMExecutionError: Failed to initialize execution_engine: {}", s),
+        };
+
+        execution_engine.get_function_address(fn_name)
     }
 
     pub fn run(&self) {
@@ -86,13 +102,15 @@ impl LLVMGenerator {
         execution_engine.run_function_as_main(main);
     }
 
-    pub fn generate_ir(&self, module: &core::Module, ast: &ExprWrapper) -> Option<core::Value> { // TODO: Result makes more sense. Maybe Result<Value, Enum(Error, ErrorVec)>?
+    pub fn generate_ir(&self, module: &Module, ast: &ExprWrapper, scoped_variables: &mut HashMap<String, Value>) -> Option<Value> { // TODO: Result makes more sense. Maybe Result<Value, Enum(Error, ErrorVec)>?
+        // REVIEW: Should scoped_variables take a COW keys?
+
         match ast.get_expr() {
             &Expr::Block(ref exprs) => {
                 let mut last_value = None;
 
                 for expr in exprs {
-                    last_value = self.generate_ir(module, expr);
+                    last_value = self.generate_ir(module, expr, scoped_variables);
                 }
 
                 last_value
@@ -118,7 +136,7 @@ impl LLVMGenerator {
                 let mut arg_values = Vec::with_capacity(num_params);
 
                 for arg in args {
-                    let value = self.generate_ir(module, arg).unwrap();
+                    let value = self.generate_ir(module, arg, scoped_variables).unwrap();
 
                     arg_values.push(value);
                 }
@@ -201,7 +219,7 @@ impl LLVMGenerator {
                 }
             },
             &Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
-                let (lhs_val, rhs_val) =  match (self.generate_ir(module, lhs_exprwrapper), self.generate_ir(module, rhs_exprwrapper)) {
+                let (lhs_val, rhs_val) =  match (self.generate_ir(module, lhs_exprwrapper, scoped_variables), self.generate_ir(module, rhs_exprwrapper, scoped_variables)) {
                     (Some(val1), Some(val2)) => (val1, val2),
                     (Some(_), None) => unreachable!("LLVMGenError: InfixOp only LHS contains value"),
                     (None, Some(_)) => unreachable!("LLVMGenError: InfixOp only RHS contains value"),
@@ -232,18 +250,29 @@ impl LLVMGenerator {
             // Needs further testing
             &Expr::UnaryOp(ref op, ref expr) => {
                 match op {
-                    &UnaryOp::Negate => self.generate_ir(module, expr).map(|val| self.builder.build_neg(&val, "neg")),
-                    &UnaryOp::Not => self.generate_ir(module, expr).map(|val| self.builder.build_not(&val, "not")),
+                    &UnaryOp::Negate => self.generate_ir(module, expr, scoped_variables).map(|val| self.builder.build_neg(&val, "neg")),
+                    &UnaryOp::Not => self.generate_ir(module, expr, scoped_variables).map(|val| self.builder.build_not(&val, "not")),
                 }
             },
             &Expr::FnDecl(ref name, ref arg_defs, ref return_type, ref body_expr) => {
+                let mut fn_variable_scope = HashMap::new(); // REVIEW: This should exclude globals
+                let mut arg_types: Vec<Type> = arg_defs.iter().map(|&(_, ref type_string)| self.string_to_type(&type_string[..])).collect();
+
                 // TODO: Support args types and return types
                 let return_type = match return_type {
-                    &Some(ref t) => panic!("TODO: Return types"),
-                    &None => self.context.void_type().fn_type(&mut vec![], false),
+                    &Some(ref type_string) => self.string_to_type(&type_string[..]),
+                    &None => self.context.void_type(),
                 };
 
-                let function = module.add_function(name, return_type);
+                let function = module.add_function(name, return_type.fn_type(&mut arg_types, false));
+
+                // REVIEW: This can be unclear zipping "function" will get the iterator of it's params
+                let name_value_data = arg_defs.iter().map(|&(ref name, _)| name).zip(function.params());
+
+                for (name, mut param_value) in name_value_data {
+                    param_value.set_name(&name);
+                    fn_variable_scope.insert(name.to_string(), param_value.as_value()); // REVIEW: Cow?
+                }
 
                 let bb_enter = self.context.append_basic_block(&function, "enter");
 
@@ -253,18 +282,38 @@ impl LLVMGenerator {
                 // REVIEW: This will return the last generated value... is that what we want?
                 // Or should it go back to the global scope after generating ir?
                 // self.generate_ir(module, body_expr);
-                self.generate_ir(module, body_expr)
+                self.generate_ir(module, body_expr, &mut fn_variable_scope)
             },
             &Expr::Return(ref return_type_expr) => {
                 match return_type_expr {
-                    &Some(ref return_type) => match self.generate_ir(module, return_type) {
+                    &Some(ref return_type) => match self.generate_ir(module, return_type, scoped_variables) {
                         Some(t) => Some(self.builder.build_return(Some(t))),
                         None => unreachable!("LLVMGenError: Hit unreachable return type generation")
                     },
                     &None => Some(self.builder.build_return(None)),
                 }
             },
+            &Expr::Var(ref name) => {
+                match scoped_variables.get(name) {
+                    Some(val) => Some(*val),
+                    None => unreachable!("LLVMGenError: Unknown variable {} was uncaught", name)
+                }
+            },
             _ => unimplemented!()
+        }
+    }
+
+    fn string_to_type(&self, name: &str) -> Type {
+        match name {
+            "bool" => self.context.bool_type(),
+            "f32" => self.context.f32_type(),
+            "i32" => self.context.i32_type(),
+            "u32" => self.context.i32_type(),
+            "f64" => self.context.f64_type(),
+            "i64" => self.context.i64_type(),
+            "u64" => self.context.i64_type(),
+            "void" => self.context.void_type(), // TODO: Not use name "void"
+            _ => unimplemented!() // LLVMGetTypeByName()?
         }
     }
 }
