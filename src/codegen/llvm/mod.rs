@@ -2,6 +2,7 @@ mod core;
 mod std;
 
 use codegen::llvm::std::string::{print_function_definition, string_type};
+use lexical::types::Types;
 use self::core::{Builder, Context, Module, Type, Value, PassManager, ExecutionEngine};
 use std::collections::HashMap;
 use syntax::expr::{Expr, ExprWrapper};
@@ -33,7 +34,7 @@ impl LLVMGenerator {
 
     pub fn add_module(&mut self, mut ast: ExprWrapper, as_main: bool, include_std: bool) {
         // TODO: Better non main module support. This should be split into add_main_module (required)
-        // which is used to initialize the EE and add_module (optional) which can be added to the main EE
+        // which is used to initialize the EE and add_module (optional) which will be added to the EE
 
         if self.main_module.is_some() {
             panic!("Cannot override main module");
@@ -117,11 +118,11 @@ impl LLVMGenerator {
         }
 
         if self.execution_engine.is_none() {
-            return Err("LLVMGeneratorError: Not initialized".into())
+            return Err("LLVMGeneratorError: Execution engine must be initialized".into())
         }
 
         let main_module = self.main_module.as_ref().unwrap();
-        let execution_engine = self.execution_engine.as_ref().expect("LLVMGenerator must be initialized");
+        let execution_engine = self.execution_engine.as_ref().unwrap();
 
         let main = match main_module.get_function("main") {
             Some(main) => main,
@@ -322,6 +323,26 @@ impl LLVMGenerator {
                 match scoped_variables.get(name) {
                     Some(val) => Some(*val),
                     None => unreachable!("LLVMGenError: Unknown variable {} was uncaught", name)
+                }
+            },
+            &Expr::VarDecl(_, ref name, ref val_type, ref expr) => {
+                assert!(val_type.is_some(), "LLVMGenError: Variable declaration not given a type by codegen phase");
+
+                // Assign to a literal
+                match val_type.as_ref().unwrap().parse::<Types>() {
+                    Ok(_) => {
+                        match self.generate_ir(module, expr, scoped_variables) {
+                            Some(val) => {
+                                // Couldn't figure out how to not clone this string
+                                scoped_variables.insert(name.clone(), val);
+
+                                Some(val)
+                            },
+                            None => None
+                        }
+                    },
+                    // Assign from a custom type
+                    Err(_) => panic!("LLVMGenError: Unimplemented var declaration for {}", name)
                 }
             },
             _ => unimplemented!()
