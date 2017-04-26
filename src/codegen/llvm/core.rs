@@ -879,7 +879,7 @@ impl fmt::Debug for Type {
 }
 
 pub struct FunctionValue {
-    pub fn_value: LLVMValueRef, // TEMP: pub
+    fn_value: LLVMValueRef,
 }
 
 impl FunctionValue {
@@ -1017,7 +1017,7 @@ pub struct ParamValue {
 }
 
 impl ParamValue {
-    pub fn new(param_value: LLVMValueRef) -> ParamValue { // FIXME: should not be pub
+    fn new(param_value: LLVMValueRef) -> ParamValue {
         assert!(!param_value.is_null());
 
         ParamValue {
@@ -1110,7 +1110,7 @@ impl Iterator for ParamValueIter {
 
 #[derive(Clone, Copy)]
 pub struct Value {
-    pub value: LLVMValueRef, // TEMP: pub
+    value: LLVMValueRef,
 }
 
 impl Value {
