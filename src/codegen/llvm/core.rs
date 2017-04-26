@@ -11,7 +11,6 @@ use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate, LLVMTypeKind};
 
 use std::ffi::{CString, CStr};
 use std::fmt;
-use std::marker::PhantomData;
 use std::mem::{transmute, uninitialized, zeroed};
 use std::os::raw::c_char;
 
@@ -86,7 +85,7 @@ impl Context {
         Type::new(i8_type)
     }
 
-    fn i16_type(&self) -> Type {
+    pub fn i16_type(&self) -> Type {
         let i16_type = unsafe {
             LLVMInt16TypeInContext(self.context)
         };

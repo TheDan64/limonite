@@ -236,8 +236,12 @@ impl LLVMGenerator {
 
                         Some(stack_struct)
                     },
+                    &Literals::I8Num(ref val) => Some(self.context.i8_type().const_int(*val as u64, true)),
+                    &Literals::I16Num(ref val) => Some(self.context.i16_type().const_int(*val as u64, true)),
                     &Literals::I32Num(ref val) => Some(self.context.i32_type().const_int(*val as u64, true)),
                     &Literals::I64Num(ref val) => Some(self.context.i64_type().const_int(*val as u64, true)),
+                    &Literals::U8Num(ref val) => Some(self.context.i8_type().const_int(*val as u64, false)),
+                    &Literals::U16Num(ref val) => Some(self.context.i16_type().const_int(*val as u64, false)),
                     &Literals::U32Num(ref val) => Some(self.context.i32_type().const_int(*val as u64, false)),
                     &Literals::U64Num(ref val) => Some(self.context.i64_type().const_int(*val as u64, false)),
                     &Literals::F32Num(ref val) => Some(self.context.f32_type().const_float(*val as f64)),
@@ -415,6 +419,10 @@ impl LLVMGenerator {
     fn string_to_type(&self, name: &str) -> Type {
         match name {
             "bool" => self.context.bool_type(),
+            "i8" => self.context.i8_type(),
+            "u8" => self.context.i8_type(),
+            "i16" => self.context.i16_type(),
+            "u16" => self.context.i16_type(),
             "f32" => self.context.f32_type(),
             "i32" => self.context.i32_type(),
             "u32" => self.context.i32_type(),
