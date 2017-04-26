@@ -1,6 +1,8 @@
 mod core;
 mod std;
 
+extern crate llvm_sys; // TODO: Remove
+
 use codegen::llvm::std::string::{print_function_definition, string_type};
 use lexical::types::Types;
 use self::core::{Builder, Context, Module, Type, Value, PassManager, ExecutionEngine};
@@ -8,6 +10,7 @@ use std::collections::HashMap;
 use syntax::expr::{Expr, ExprWrapper};
 use syntax::literals::Literals;
 use syntax::op::{InfixOp, UnaryOp};
+use self::llvm_sys::LLVMIntPredicate; // TODO: Remove
 
 /// WARNING: Drop order can be imporant, so context is placed last intentionally
 pub struct LLVMGenerator {
@@ -106,7 +109,6 @@ impl LLVMGenerator {
             return Err("LLVMGeneratorError: Not initialized".into())
         }
 
-        let main_module = self.main_module.as_ref().expect("Could not find a main module");
         let execution_engine = self.execution_engine.as_ref().expect("LLVMGenerator must be initialized");
 
         execution_engine.get_function_address(fn_name)
@@ -345,7 +347,68 @@ impl LLVMGenerator {
                     Err(_) => panic!("LLVMGenError: Unimplemented var declaration for {}", name)
                 }
             },
-            _ => unimplemented!()
+            &Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
+                // Need to know value type (float or int?)
+
+                let cond_val = match self.generate_ir(module, cond_expr, scoped_variables) {
+                    Some(val) => val,
+                    None => return None
+                };
+
+                let type_ = self.context.i64_type(); // TODO: Support other types
+
+                let zero = type_.const_int(0, false);
+                let op = LLVMIntPredicate::LLVMIntEQ;
+
+                let block = self.builder.get_insert_block();
+
+                let cond_cmp = self.builder.build_int_compare(op, &cond_val, &zero, "ifcond");
+
+                let parent_fn = block.get_parent();
+
+                let body_block = self.context.append_basic_block(&parent_fn, "if");
+                let else_block = self.context.append_basic_block(&parent_fn, "else");
+                let merge_block = self.context.append_basic_block(&parent_fn, "merge");
+
+                // If the condition is true:
+                self.builder.build_conditional_branch(&cond_cmp, &body_block, &else_block);
+                self.builder.position_at_end(&body_block);
+
+                let mut body_val = match self.generate_ir(module, body_expr, scoped_variables) {
+                    Some(val) => val,
+                    None => return None
+                };
+
+                // Merge into the above layer when done
+                self.builder.build_unconditional_branch(&merge_block);
+
+                // Call else codegen if it exists
+                let mut body_end_block = self.builder.get_insert_block();
+
+                self.builder.position_at_end(&else_block);
+
+                // Optional, doesn't need to return on None
+                let opt_else_val = match opt_else_expr {
+                    &Some(ref expr) => self.generate_ir(module, expr, scoped_variables),
+                    &None => None
+                };
+
+                let else_br = self.builder.build_unconditional_branch(&merge_block);
+                let mut else_end_block = self.builder.get_insert_block();
+
+                // Finish up
+                self.builder.position_at_end(&merge_block);
+
+                let phi = self.builder.build_phi(&type_, "phi");
+
+                phi.add_incoming(&mut body_val, &mut body_end_block, 1);
+                phi.add_incoming(&mut opt_else_val.unwrap_or(else_br), &mut else_end_block, 1);
+
+                Some(phi)
+            },
+            &Expr::WhileLoop(_, _) => unimplemented!(),
+            &Expr::Assign(_, _) => unimplemented!(),
+            &Expr::NoOp => None,
         }
     }
 

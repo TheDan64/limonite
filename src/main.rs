@@ -98,7 +98,7 @@ fn main() {
             generator.dump_ir();
         }
 
-        generator.run();
+        generator.run().unwrap_or_else(|msg| panic!("{}", msg));
     }
 }
 

@@ -238,7 +238,7 @@ impl Builder {
         Value::new(value)
     }
 
-    fn build_phi(&self, type_: Type, name: &str) -> Value {
+    pub fn build_phi(&self, type_: &Type, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
@@ -313,7 +313,7 @@ impl Builder {
         }
     }
 
-    fn get_insert_block(&self) -> BasicBlock {
+    pub fn get_insert_block(&self) -> BasicBlock {
         let bb = unsafe {
             LLVMGetInsertBlock(self.builder)
         };
@@ -381,7 +381,7 @@ impl Builder {
         Value::new(value)
     }
 
-    fn build_unconditional_branch(&self, destination_block: BasicBlock) -> Value {
+    pub fn build_unconditional_branch(&self, destination_block: &BasicBlock) -> Value {
         let value = unsafe {
             LLVMBuildBr(self.builder, destination_block.basic_block)
         };
@@ -489,8 +489,10 @@ impl Module {
         let mut execution_engine = unsafe { uninitialized() };
         let mut err_str = unsafe { zeroed() };
 
-        unsafe {
-            LLVMLinkInMCJIT();
+        if jit_mode {
+            unsafe {
+                LLVMLinkInMCJIT();
+            }
         }
 
         // TODO: Check that these calls are even needed
@@ -1141,7 +1143,7 @@ impl Value {
         }
     }
 
-    fn add_incoming(&self, mut incoming_values: Value, mut incoming_basic_block: BasicBlock, count: u32) { // PhiValue (self) only?
+    pub fn add_incoming(&self, mut incoming_values: &mut Value, mut incoming_basic_block: &mut BasicBlock, count: u32) { // REVIEW: PhiValue (self) only?
         unsafe {
             LLVMAddIncoming(self.value, &mut incoming_values.value, &mut incoming_basic_block.basic_block, count);
         }
@@ -1216,12 +1218,12 @@ impl BasicBlock {
         }
     }
 
-    fn get_parent(&self) -> Value { // REVIEW: Should this return FunctionValue instead?
+    pub fn get_parent(&self) -> FunctionValue {
         let value = unsafe {
             LLVMGetBasicBlockParent(self.basic_block)
         };
 
-        Value::new(value)
+        FunctionValue::new(value)
     }
 
     fn get_terminator(&self) -> Option<Value> {

@@ -58,9 +58,10 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                 for expr_wrapper in vec {
                     debug!("Looping over expr {:?}!", expr_wrapper);
 
+                    let opt_current_type = self.analyze(expr_wrapper);
+
                     if let Return(_) = *expr_wrapper.get_expr() {
                         let mut set_last_seen_type = false;
-                        let opt_current_type = self.analyze(expr_wrapper);
 
                         match (&last_seen_type, &opt_current_type) {
                             (&Some(ref last_type), &Some(ref current_type)) => {
@@ -119,7 +120,7 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                 None => Some("None".into()) // None type?
             },
             UnaryOp(ref op, ref mut expr_wrapper) => self.analyze(expr_wrapper),
-            Var(ref name) => None, // FIXME: Lookup VarDecl type
+            Var(ref name) => unimplemented!(), // FIXME: Lookup VarDecl type
             VarDecl(ref const_, ref name, ref mut opt_type, ref mut expr_wrapper) => {
                 let rhs_type = self.analyze(expr_wrapper).unwrap();
 
