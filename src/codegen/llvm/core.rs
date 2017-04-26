@@ -2,7 +2,7 @@ extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction, LLVMVerifyFunction};
 use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMBuildSub, LLVMBuildMul, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal, LLVMFloatTypeInContext, LLVMDoubleTypeInContext};
-use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress};
+use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress, LLVMLinkInMCJIT, LLVMAddModule};
 use self::llvm_sys::LLVMLinkage::LLVMCommonLinkage;
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData, LLVM_InitializeNativeDisassembler};
@@ -11,6 +11,7 @@ use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate, LLVMTypeKind};
 
 use std::ffi::{CString, CStr};
 use std::fmt;
+use std::marker::PhantomData;
 use std::mem::{transmute, uninitialized, zeroed};
 use std::os::raw::c_char;
 
@@ -174,9 +175,14 @@ pub struct Builder {
 
 impl Builder {
     pub fn build_return(&self, value: Option<Value>) -> Value {
-        let value = unsafe {
-            value.map_or(LLVMBuildRetVoid(self.builder), |value| LLVMBuildRet(self.builder, value.value))
-        };
+        // let value = unsafe {
+        //     value.map_or(LLVMBuildRetVoid(self.builder), |value| LLVMBuildRet(self.builder, value.value))
+        // };
+
+        let value = unsafe { match value {
+            Some(v) => LLVMBuildRet(self.builder, v.value),
+            None => LLVMBuildRetVoid(self.builder),
+        }};
 
         Value::new(value)
     }
@@ -479,9 +485,13 @@ impl Module {
         Some(FunctionValue::new(value))
     }
 
-    pub fn create_execution_engine(&self) -> Result<ExecutionEngine, String> {
+    pub fn create_execution_engine(&self, jit_mode: bool) -> Result<ExecutionEngine, String> {
         let mut execution_engine = unsafe { uninitialized() };
         let mut err_str = unsafe { zeroed() };
+
+        unsafe {
+            LLVMLinkInMCJIT();
+        }
 
         // TODO: Check that these calls are even needed
         let code = unsafe {
@@ -536,9 +546,7 @@ impl Module {
             return Err(rust_str);
         }
 
-        let ee = ExecutionEngine::new(execution_engine);
-
-        Ok(ee)
+        Ok(ExecutionEngine::new(execution_engine, jit_mode))
     }
 
     pub fn create_function_pass_manager(&self) -> PassManager {
@@ -578,7 +586,7 @@ impl Module {
             LLVMVerifyModule(self.module, action, err_str)
         };
 
-        if code == 1 {
+        if code == 1 && !err_str.is_null() {
             unsafe {
                 if print {
                     let rust_str = CStr::from_ptr(*err_str).to_str().unwrap();
@@ -610,29 +618,43 @@ impl Module {
 
 pub struct ExecutionEngine {
     execution_engine: LLVMExecutionEngineRef,
+    jit_mode: bool,
 }
 
 impl ExecutionEngine {
-    fn new(execution_engine: LLVMExecutionEngineRef) -> ExecutionEngine {
+    fn new(execution_engine: LLVMExecutionEngineRef, jit_mode: bool) -> ExecutionEngine {
         assert!(!execution_engine.is_null());
 
         ExecutionEngine {
-            execution_engine: execution_engine
+            execution_engine: execution_engine,
+            jit_mode: jit_mode,
         }
     }
 
-    pub fn get_function_address(&self, fn_name: &str) -> Option<u64> {
+    pub fn add_module(&mut self, module: &Module) {
+        unsafe {
+            LLVMAddModule(self.execution_engine, module.module)
+        }
+    }
+
+    /// WARNING: The returned address *will* be invalid if the EE drops first
+    pub fn get_function_address(&self, fn_name: &str) -> Result<u64, String> {
+
+        if !self.jit_mode {
+            return Err("ExecutionEngineError: Cannot use get_function_address in non jit_mode".into());
+        }
+
         let c_string = CString::new(fn_name).expect("Conversion to CString failed unexpectedly");
 
-        let value = unsafe {
+        let address = unsafe {
             LLVMGetFunctionAddress(self.execution_engine, c_string.as_ptr())
         };
 
-        if value == 0 { // REVIEW: Need to test if 0 is actually returned
-            return None;
+        if address == 0 {
+            return Err(format!("ExecutionEngineError: Could not find function {}", fn_name));
         }
 
-        Some(value)
+        Ok(address)
     }
 
     pub fn get_target_data(&self) -> TargetData {
@@ -768,8 +790,6 @@ impl Type {
     }
 
     pub fn dump_type(&self) {
-        println!("DEBUG: ");
-
         unsafe {
             LLVMDumpType(self.type_);
         }
@@ -871,7 +891,6 @@ impl FunctionValue {
                 assert!(!LLVMIsAFunction(value).is_null())
             }
         }
-
 
         FunctionValue {
             fn_value: value

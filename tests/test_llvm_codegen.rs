@@ -5,6 +5,8 @@ use limonite::syntax::expr::{Expr, ExprWrapper};
 use limonite::syntax::op::InfixOp;
 use limonite::syntax::literals::Literals;
 
+use std::mem::transmute;
+
 #[test]
 fn test_sum_function() {
     // Creates a limonite function that looks like:
@@ -21,17 +23,14 @@ fn test_sum_function() {
     let ast = ExprWrapper::default(Expr::FnDecl("add_two_ints".into(), fn_args, Some("u64".into()), ast_body));
 
     let mut llvm_generator = LLVMGenerator::new();
-    llvm_generator.add_main_module(ast);
+
+    llvm_generator.add_module(ast, false, false);
+    llvm_generator.initialize(true);
 
     let address = llvm_generator.get_function_address("add_two_ints").expect("Could not find function address");
 
-    println!("{:?}", address);
-    // 999888
+    let add_two_ints: extern "C" fn(u64, u64) -> u64 = unsafe { transmute(address) };
 
-    panic!("asd");
+    assert!(add_two_ints(456, 987) == 1443);
+
 }
-
-// #[test]
-// fn test_order_of_operations() {
-//
-// }

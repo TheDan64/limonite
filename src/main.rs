@@ -91,7 +91,8 @@ fn main() {
     {
         let mut generator = LLVMGenerator::new();
 
-        generator.add_main_module(ast_root);
+        generator.add_module(ast_root, true, true);
+        generator.initialize(false);
 
         if args.flag_dump {
             generator.dump_ir();

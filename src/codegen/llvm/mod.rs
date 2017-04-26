@@ -2,16 +2,19 @@ mod core;
 mod std;
 
 use codegen::llvm::std::string::{print_function_definition, string_type};
-use self::core::{Builder, Context, Module, Type, Value};
+use self::core::{Builder, Context, Module, Type, Value, PassManager, ExecutionEngine};
 use std::collections::HashMap;
 use syntax::expr::{Expr, ExprWrapper};
 use syntax::literals::Literals;
 use syntax::op::{InfixOp, UnaryOp};
 
+/// WARNING: Drop order can be imporant, so context is placed last intentionally
 pub struct LLVMGenerator {
-    context: Context,
     builder: Builder,
-    main_module: Option<Module>,
+    main_module: Option<Module>, // REVIEW: Maybe modules: HashMap<module_name, (Module, PassManager)> instead?
+    execution_engine: Option<ExecutionEngine>,
+    pass_manager: Option<PassManager>,
+    context: Context,
 }
 
 impl LLVMGenerator {
@@ -20,13 +23,18 @@ impl LLVMGenerator {
         let builder = context.create_builder();
 
         LLVMGenerator {
-            context: context,
             builder: builder,
+            context: context,
+            execution_engine: None,
             main_module: None,
+            pass_manager: None,
         }
     }
 
-    pub fn add_main_module(&mut self, mut ast: ExprWrapper) {
+    pub fn add_module(&mut self, mut ast: ExprWrapper, as_main: bool, include_std: bool) {
+        // TODO: Better non main module support. This should be split into add_main_module (required)
+        // which is used to initialize the EE and add_module (optional) which can be added to the main EE
+
         if self.main_module.is_some() {
             panic!("Cannot override main module");
         }
@@ -39,9 +47,13 @@ impl LLVMGenerator {
             blocks.push(ExprWrapper::default(Expr::Return(None)));
         }
 
-        let ast = ExprWrapper::default(Expr::FnDecl("main".into(), vec![], None, ast));
+        if as_main {
+            ast = ExprWrapper::default(Expr::FnDecl("main".into(), vec![], None, ast));
+        }
 
-        print_function_definition(&self.builder, &self.context, &main_module);
+        if include_std {
+            print_function_definition(&self.builder, &self.context, &main_module);
+        }
 
         self.generate_ir(&main_module, &ast, &mut HashMap::new());
 
@@ -58,26 +70,12 @@ impl LLVMGenerator {
         // TODO
     }
 
-    pub fn get_function_address(&self, fn_name: &str) -> Option<u64> {
-        // REVIEW: Will the function still work if EE drops?
+    pub fn initialize(&mut self, jit_mode: bool) {
         let main_module = self.main_module.as_ref().expect("Could not find a main module");
 
         assert!(main_module.verify(true)); // TODO: print param as cli flag
 
-        let execution_engine = match main_module.create_execution_engine() {
-            Ok(ee) => ee,
-            Err(s) => panic!("LLVMExecutionError: Failed to initialize execution_engine: {}", s),
-        };
-
-        execution_engine.get_function_address(fn_name)
-    }
-
-    pub fn run(&self) {
-        let main_module = self.main_module.as_ref().unwrap();
-
-        assert!(main_module.verify(true)); // TODO: print param as cli flag
-
-        let execution_engine = match main_module.create_execution_engine() {
+        let execution_engine = match main_module.create_execution_engine(jit_mode) {
             Ok(ee) => ee,
             Err(s) => panic!("LLVMExecutionError: Failed to initialize execution_engine: {}", s),
         };
@@ -94,12 +92,45 @@ impl LLVMGenerator {
 
         pass_manager.initialize();
 
+        self.pass_manager = Some(pass_manager);
+        self.execution_engine = Some(execution_engine);
+    }
+
+    pub fn get_function_address(&self, fn_name: &str) -> Result<u64, String> {
+        if self.main_module.is_none() {
+            return Err("LLVMGeneratorError: A main module was not created".into());
+        }
+
+        if self.execution_engine.is_none() {
+            return Err("LLVMGeneratorError: Not initialized".into())
+        }
+
+        let main_module = self.main_module.as_ref().expect("Could not find a main module");
+        let execution_engine = self.execution_engine.as_ref().expect("LLVMGenerator must be initialized");
+
+        execution_engine.get_function_address(fn_name)
+    }
+
+    pub fn run(&self) -> Result<(), String> {
+        if self.main_module.is_none() {
+            return Err("LLVMGeneratorError: A main module was not created".into());
+        }
+
+        if self.execution_engine.is_none() {
+            return Err("LLVMGeneratorError: Not initialized".into())
+        }
+
+        let main_module = self.main_module.as_ref().unwrap();
+        let execution_engine = self.execution_engine.as_ref().expect("LLVMGenerator must be initialized");
+
         let main = match main_module.get_function("main") {
             Some(main) => main,
             None => panic!("LLVMExecutionError: Could not find main function to run")
         };
 
         execution_engine.run_function_as_main(main);
+
+        Ok(())
     }
 
     pub fn generate_ir(&self, module: &Module, ast: &ExprWrapper, scoped_variables: &mut HashMap<String, Value>) -> Option<Value> { // TODO: Result makes more sense. Maybe Result<Value, Enum(Error, ErrorVec)>?
@@ -140,12 +171,6 @@ impl LLVMGenerator {
 
                     arg_values.push(value);
                 }
-
-                // REVIEW:
-                // let is_void_return_type = function.get_return_type() == self.context.void_type();
-                // Original impl checked if return_type.is_none() to set name to empty string...
-                // Apparently void functions don't get saved return values. Maybe this check could be
-                // baked into the build call?
 
                 Some(self.builder.build_call(&function, &arg_values, name)) // REVIEW: maybe tmp_ + name? Unclear if same name as fn is bad..
             },
