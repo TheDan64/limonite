@@ -349,6 +349,8 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
             }
         }
 
+        // TODO: Support no type param which means void/none
+
         // Get right arrow ->
         tok = self.next_token();
         if !tok.expect(Symbol(Symbols::RightThinArrow)) {
@@ -456,11 +458,25 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
             Keywords::Function => self.parse_fn(),
             Keywords::While => self.parse_while(),
             Keywords::If => self.parse_if(),
+            Keywords::Return => self.parse_return(),
             _ => {
                 self.write_error(&format!("Unsupported keyword {:?}.", keyword));
                 None
             }
         }
+    }
+
+    fn parse_return(&mut self) -> Option<ExprWrapper> {
+        self.next_token();
+
+        let wrapper = match self.parse_expression(0) {
+            Some(exprwrapper) => exprwrapper,
+            None => return None,
+        };
+
+        Some(ExprWrapper::default(Expr::Return(Some(wrapper))))
+
+        // TODO: Expect newline?
     }
 
     fn parse_if(&mut self) -> Option<ExprWrapper> {

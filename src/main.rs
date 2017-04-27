@@ -17,7 +17,7 @@ use syntax::parser::Parser;
 use semantic::analyzer::SemanticAnalyzer;
 use semantic::analyzer_trait::ASTAnalyzer;
 #[cfg(feature="llvm-backend")]
-use codegen::llvm::codegen::codegen; // REVIEW: better codegen name convention + class?
+use codegen::llvm::LLVMGenerator;
 
 pub mod lexical;
 pub mod syntax;
@@ -31,7 +31,7 @@ Usage: limonite <file>
        limonite (-v | --version)
 
 Options:
-    -d, --dump      Dumps LLVM IR
+    -d, --dump      Dumps backend IR
     -h, --help      Display this message
     -s, --stdin     Read input from stdin
     -v, --version   Displays current version
@@ -88,8 +88,17 @@ fn main() {
 
     // Run Code Gen
     #[cfg(feature="llvm-backend")]
-    unsafe {
-        codegen("module1", &ast_root, args.flag_dump);
+    {
+        let mut generator = LLVMGenerator::new();
+
+        generator.add_module(ast_root, true, true);
+        generator.initialize(false);
+
+        if args.flag_dump {
+            generator.dump_ir();
+        }
+
+        generator.run().unwrap_or_else(|msg| panic!("{}", msg));
     }
 }
 
