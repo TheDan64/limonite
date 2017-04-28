@@ -276,7 +276,16 @@ impl LLVMGenerator {
                     &InfixOp::Equ => match (lhs_val, rhs_val) {
                         // LLVMBuildICmp, LLVMBuildFCmp?
                         _ => panic!("LLVMGenError: Unimplemented infix operator equ")
-                    }
+                    },
+                    &InfixOp::Lt => {
+                        // TODO: Float support, signed int support
+                        let op = LLVMIntPredicate::LLVMIntULT;
+
+                        Some(self.builder.build_int_compare(op, &lhs_val, &rhs_val, "icmp"))
+                    },
+                    &InfixOp::Lte => unimplemented!(),
+                    &InfixOp::Gt => unimplemented!(),
+                    &InfixOp::Gte => unimplemented!(),
                 }
             },
             // Needs further testing
@@ -335,7 +344,7 @@ impl LLVMGenerator {
                 assert!(val_type.is_some(), "LLVMGenError: Variable declaration not given a type by codegen phase");
 
                 // Assign to a literal
-                match val_type.as_ref().unwrap().parse::<Types>() {
+                match val_type.as_ref().unwrap().parse::<Types>() { // REVIEW: This is a lexer method, maybe replace with string_to_type?
                     Ok(_) => {
                         match self.generate_ir(module, expr, scoped_variables) {
                             Some(val) => {
@@ -359,7 +368,7 @@ impl LLVMGenerator {
                     None => return None
                 };
 
-                let type_ = self.context.i64_type(); // TODO: Support other types
+                let type_ = self.context.bool_type();
 
                 let zero = type_.const_int(0, false);
                 let op = LLVMIntPredicate::LLVMIntEQ;
@@ -410,8 +419,72 @@ impl LLVMGenerator {
 
                 Some(phi)
             },
-            &Expr::WhileLoop(_, _) => unimplemented!(),
-            &Expr::Assign(_, _) => unimplemented!(),
+            &Expr::WhileLoop(ref condition, ref body) => {
+                // cond_check:
+                // if condition is False:
+                //     goto end
+                // else:
+                //     goto loop
+                // loop:
+                //     loop code
+                //     goto enter
+                //
+                // end:
+                //
+                let cond_val = match self.generate_ir(module, condition, scoped_variables) {
+                    Some(val) => val,
+                    None => return None
+                };
+
+                let one = self.context.bool_type().const_int(1, false);
+
+                let mut cond_check_block = self.builder.get_insert_block();
+
+                // If the current block is not empty, dont use it
+                // REVIEW: if the block would cause a fall through to the next label, does
+                // that mean it still have a terminator? Could be an incomplete check if so
+                if cond_check_block.get_terminator().is_some() {
+                    cond_check_block = self.context.insert_basic_block_after(&cond_check_block, "cond_check");
+                }
+
+                let loop_block = self.context.insert_basic_block_after(&cond_check_block, "loop");
+                let end_block = self.context.insert_basic_block_after(&loop_block, "end");
+
+                self.builder.position_at_end(&cond_check_block);
+
+                let op = LLVMIntPredicate::LLVMIntEQ;
+                let cond = self.generate_ir(module, condition, scoped_variables);
+                let cond_cmp = self.builder.build_int_compare(op, &cond_val, &one, "cmp");
+
+                self.builder.build_conditional_branch(&cond_cmp, &loop_block, &end_block);
+                self.builder.position_at_end(&loop_block);
+
+                let body = self.generate_ir(module, body, scoped_variables);
+
+                self.builder.build_unconditional_branch(&cond_check_block);
+
+                self.builder.position_at_end(&end_block);
+
+                body
+            },
+            &Expr::Assign(ref lhs_exprwrapper, ref rhs_exprwrapper) => { // REVIEW: Should we assume SA would stop us from mutating an immutable?
+                // REVIEW: Does it ever make sense for the lhs to be anything other than a string?
+                // We could just look it up in the hash table directly...
+                // if let &Expr::Var(ref string) = lhs_exprwrapper.get_expr() {
+                //     scoped_variables.get(string);
+                // }
+
+                let (lhs_val, rhs_val) =  match (self.generate_ir(module, lhs_exprwrapper, scoped_variables), self.generate_ir(module, rhs_exprwrapper, scoped_variables)) {
+                    (Some(val1), Some(val2)) => (val1, val2),
+                    (Some(_), None) => unreachable!("LLVMGenError: Assign only LHS contains value"),
+                    (None, Some(_)) => unreachable!("LLVMGenError: Assign only RHS contains value"),
+                    (None, None) => unreachable!("LLVMGenError: Assign has no values")
+                };
+
+                // let lhs_val = self.builder.build_gep(&lhs_val, &vec![0], "gep");
+
+                Some(self.builder.build_store(&rhs_val, &lhs_val))
+            },
             &Expr::NoOp => None,
         }
     }

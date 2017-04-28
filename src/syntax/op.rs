@@ -13,7 +13,15 @@ pub enum InfixOp {
     // A ^ B
     Pow,
     // A equals B (traditionally A == B)
-    Equ
+    Equ,
+    // A < B
+    Lt,
+    // A <= B
+    Lte,
+    // A > B
+    Gt,
+    // A >= B
+    Gte,
 }
 
 impl InfixOp {
@@ -34,6 +42,10 @@ impl InfixOp {
             InfixOp::Mod => 7,
             InfixOp::Add => 6,
             InfixOp::Sub => 6,
+            InfixOp::Lt  => 5,
+            InfixOp::Lte => 5,
+            InfixOp::Gt  => 5,
+            InfixOp::Gte => 5,
             InfixOp::Equ => 4,
             InfixOp::Pow => 3 // Not sure about this one
         }

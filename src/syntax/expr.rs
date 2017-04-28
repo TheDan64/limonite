@@ -57,12 +57,12 @@ pub enum Expr {
     UnaryOp(UnaryOp, ExprWrapper),
     // Literals such as numbers and strings
     Literal(Literals),
-    // Run expression while conditional is true
+    // While conditional is true, run expression
     WhileLoop(ExprWrapper, ExprWrapper),
     // If condition true, run expression, optional elif, else
     If(ExprWrapper, ExprWrapper, Option<ExprWrapper>),
     // Assign an expression to an existing variable
-    Assign(ExprWrapper, ExprWrapper),
+    Assign(ExprWrapper, ExprWrapper), // REVIEW: Shouldn't the first param just be a string?
     // Fn call with name and args.
     FnCall(String, Vec<ExprWrapper>),
     // Declare a function with a name, args(name, type), return type, and body expr
