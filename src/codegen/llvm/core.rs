@@ -1,11 +1,11 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction, LLVMVerifyFunction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMBuildSub, LLVMBuildMul, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetNextBasicBlock, LLVMGetLastBasicBlock, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal, LLVMFloatTypeInContext, LLVMDoubleTypeInContext};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMBuildSub, LLVMBuildMul, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetNextBasicBlock, LLVMGetFirstBasicBlock, LLVMGetLastBasicBlock, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal, LLVMFloatTypeInContext, LLVMDoubleTypeInContext, LLVMStructGetTypeAtIndex, LLVMMoveBasicBlockAfter, LLVMMoveBasicBlockBefore, LLVMGetTypeByName};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress, LLVMLinkInMCJIT, LLVMAddModule};
 use self::llvm_sys::LLVMLinkage::LLVMCommonLinkage;
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
-use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData, LLVM_InitializeNativeDisassembler};
+use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData, LLVM_InitializeNativeDisassembler, LLVMSizeOfTypeInBits};
 use self::llvm_sys::transforms::scalar::{LLVMAddMemCpyOptPass};
 use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate, LLVMTypeKind};
 
@@ -495,6 +495,16 @@ impl Module {
         Some(FunctionValue::new(value))
     }
 
+    pub fn get_type(&self, name: &str) -> Type { // REVIEW: Option?
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let type_ = unsafe {
+            LLVMGetTypeByName(self.module, c_string.as_ptr())
+        };
+
+        Type::new(type_)
+    }
+
     pub fn create_execution_engine(&self, jit_mode: bool) -> Result<ExecutionEngine, String> {
         let mut execution_engine = unsafe { uninitialized() };
         let mut err_str = unsafe { zeroed() };
@@ -723,6 +733,12 @@ impl TargetData {
 
         DataLayout::new(data_layout)
     }
+
+    pub fn get_bit_size(&self, type_: &Type) -> u64 {
+        unsafe {
+            LLVMSizeOfTypeInBits(self.target_data, type_.type_)
+        }
+    }
 }
 
 pub struct DataLayout {
@@ -871,12 +887,26 @@ impl Type {
         Value::new(value)
     }
 
-    fn get_undef(&self, type_: Type) -> Value {
+    pub fn get_undef(&self, type_: Type) -> Value {
         let value = unsafe {
             LLVMGetUndef(self.type_)
         };
 
         Value::new(value)
+    }
+
+    /// LLVM 3.7+
+    pub fn get_type_at_struct_index(&self, index: u32) -> Option<Type> {
+        // REVIEW: This should only be used on Struct Types, so add a StructType?
+        let type_ = unsafe {
+            LLVMStructGetTypeAtIndex(self.type_, index)
+        };
+
+        if type_.is_null() {
+            return None;
+        }
+
+        Some(Type::new(type_))
     }
 }
 
@@ -935,6 +965,14 @@ impl FunctionValue {
         ParamValue::new(param)
     }
 
+    pub fn get_first_basic_block(&self) -> BasicBlock { // REVIEW: Option?
+        let bb = unsafe {
+            LLVMGetFirstBasicBlock(self.fn_value)
+        };
+
+        BasicBlock::new(bb)
+    }
+
     fn get_nth_param(&self, nth: u32) -> ParamValue { // REVIEW: Option?
         let param = unsafe {
             LLVMGetParam(self.fn_value, nth)
@@ -964,7 +1002,7 @@ impl FunctionValue {
         }
     }
 
-    fn get_last_basic_block(&self) -> BasicBlock {
+    pub fn get_last_basic_block(&self) -> BasicBlock {
         let bb = unsafe {
             LLVMGetLastBasicBlock(self.fn_value)
         };
@@ -1268,15 +1306,27 @@ impl BasicBlock {
         Some(Value::new(value))
     }
 
-    // fn prepend_basic_block(&self, name: &str) -> BasicBlock {
-    //     let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+    pub fn move_before(&self, basic_block: &BasicBlock) {
+        unsafe {
+            LLVMMoveBasicBlockBefore(self.basic_block, basic_block.basic_block)
+        }
+    }
 
-    //     let bb = unsafe {
-    //         LLVMInsertBasicBlock(self.basic_block, c_string.as_ptr())
-    //     };
+    pub fn move_after(&self, basic_block: &BasicBlock) {
+        unsafe {
+            LLVMMoveBasicBlockAfter(self.basic_block, basic_block.basic_block)
+        }
+    }
 
-    //     BasicBlock::new(bb)
-    // }
+    pub fn prepend_basic_block(&self, name: &str) -> BasicBlock {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let bb = unsafe {
+            LLVMInsertBasicBlock(self.basic_block, c_string.as_ptr())
+        };
+
+        BasicBlock::new(bb)
+    }
 }
 
 impl fmt::Debug for BasicBlock {
