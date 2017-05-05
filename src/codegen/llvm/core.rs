@@ -1,13 +1,13 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction, LLVMVerifyFunction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMBuildSub, LLVMBuildMul, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetNextBasicBlock, LLVMGetFirstBasicBlock, LLVMGetLastBasicBlock, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal, LLVMFloatTypeInContext, LLVMDoubleTypeInContext, LLVMStructGetTypeAtIndex, LLVMMoveBasicBlockAfter, LLVMMoveBasicBlockBefore, LLVMGetTypeByName};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMBuildSub, LLVMBuildMul, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetNextBasicBlock, LLVMGetFirstBasicBlock, LLVMGetLastBasicBlock, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal, LLVMFloatTypeInContext, LLVMDoubleTypeInContext, LLVMStructGetTypeAtIndex, LLVMMoveBasicBlockAfter, LLVMMoveBasicBlockBefore, LLVMGetTypeByName, LLVMBuildFree, LLVMGetParamTypes, LLVMGetBasicBlocks, LLVMIsUndef, LLVMBuildAnd, LLVMBuildOr, LLVMBuildFAdd, LLVMBuildFMul, LLVMBuildXor, LLVMBuildFCmp, LLVMBuildFNeg, LLVMBuildFSub, LLVMBuildUnreachable, LLVMBuildFence};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress, LLVMLinkInMCJIT, LLVMAddModule};
 use self::llvm_sys::LLVMLinkage::LLVMCommonLinkage;
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
 use self::llvm_sys::target::{LLVMOpaqueTargetData, LLVMTargetDataRef, LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeAsmParser, LLVMCopyStringRepOfTargetData, LLVMAddTargetData, LLVM_InitializeNativeDisassembler, LLVMSizeOfTypeInBits};
 use self::llvm_sys::transforms::scalar::{LLVMAddMemCpyOptPass};
-use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate, LLVMTypeKind};
+use self::llvm_sys::{LLVMOpcode, LLVMIntPredicate, LLVMTypeKind, LLVMRealPredicate, LLVMAtomicOrdering};
 
 use std::ffi::{CString, CStr};
 use std::fmt;
@@ -317,6 +317,15 @@ impl Builder {
         Value::new(value)
     }
 
+    /// REVIEW: Untested
+    pub fn build_free(&self, ptr: &Value) -> Value { // REVIEW: Why does free return? Seems like original pointer? Ever useful?
+        let val = unsafe {
+            LLVMBuildFree(self.builder, ptr.value)
+        };
+
+        Value::new(val)
+    }
+
     pub fn insert_instruction(&self, value: Value) {
         unsafe {
             LLVMInsertIntoBuilder(self.builder, value.value);
@@ -341,6 +350,51 @@ impl Builder {
         Value::new(value)
     }
 
+    /// REVIEW: Untested
+    pub fn build_float_add(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMBuildFAdd(self.builder, left_value.value, right_value.value, c_string.as_ptr())
+        };
+
+        Value::new(value)
+    }
+
+    /// REVIEW: Untested
+    pub fn build_xor(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMBuildXor(self.builder, left_value.value, right_value.value, c_string.as_ptr())
+        };
+
+        Value::new(value)
+    }
+
+    /// REVIEW: Untested
+    pub fn build_and(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMBuildAnd(self.builder, left_value.value, right_value.value, c_string.as_ptr())
+        };
+
+        Value::new(value)
+    }
+
+    /// REVIEW: Untested
+    pub fn build_or(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMBuildOr(self.builder, left_value.value, right_value.value, c_string.as_ptr())
+        };
+
+        Value::new(value)
+    }
+
+    /// REVIEW: Untested
     pub fn build_sub(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
@@ -351,6 +405,18 @@ impl Builder {
         Value::new(value)
     }
 
+    /// REVIEW: Untested
+    pub fn build_float_sub(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMBuildFSub(self.builder, left_value.value, right_value.value, c_string.as_ptr())
+        };
+
+        Value::new(value)
+    }
+
+    /// REVIEW: Untested
     pub fn build_mul(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
@@ -361,7 +427,21 @@ impl Builder {
         Value::new(value)
     }
 
-    fn build_cast(&self, op: LLVMOpcode, from_value: &Value, to_type: &Type, name: &str) -> Value {
+
+    /// REVIEW: Untested
+    pub fn build_float_mul(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMBuildFMul(self.builder, left_value.value, right_value.value, c_string.as_ptr())
+        };
+
+        Value::new(value)
+    }
+
+
+    /// REVIEW: Untested
+    pub fn build_cast(&self, op: LLVMOpcode, from_value: &Value, to_type: &Type, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
@@ -385,7 +465,17 @@ impl Builder {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
-            LLVMBuildICmp(self.builder, op, (*left_val).value, (*right_val).value, c_string.as_ptr())
+            LLVMBuildICmp(self.builder, op, left_val.value, right_val.value, c_string.as_ptr())
+        };
+
+        Value::new(value)
+    }
+
+    pub fn build_float_compare(&self, op: LLVMRealPredicate, left_val: &Value, right_val: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMBuildFCmp(self.builder, op, left_val.value, right_val.value, c_string.as_ptr())
         };
 
         Value::new(value)
@@ -407,11 +497,25 @@ impl Builder {
         Value::new(value)
     }
 
+    /// REVIEW: Combine with float neg?
+    /// REVIEW: Untested
     pub fn build_neg(&self, value: &Value, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
             LLVMBuildNeg(self.builder, value.value, c_string.as_ptr())
+        };
+
+        Value::new(value)
+    }
+
+    /// REVIEW: Combine with int neg?
+    /// REVIEW: Untested
+    pub fn build_float_neg(&self, value: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let value = unsafe {
+            LLVMBuildFNeg(self.builder, value.value, c_string.as_ptr())
         };
 
         Value::new(value)
@@ -451,6 +555,27 @@ impl Builder {
         };
 
         Value::new(value)
+    }
+
+    /// REVIEW: Untested
+    pub fn build_unreachable(&self) -> Value {
+        let val = unsafe {
+            LLVMBuildUnreachable(self.builder)
+        };
+
+        Value::new(val)
+    }
+
+    /// REVIEW: Untested
+    // TODO: Better name for num?
+    pub fn build_fence(&self, atmoic_ordering: LLVMAtomicOrdering, num: i32, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let val = unsafe {
+            LLVMBuildFence(self.builder, atmoic_ordering, num, c_string.as_ptr())
+        };
+
+        Value::new(val)
     }
 }
 
@@ -940,8 +1065,6 @@ impl FunctionValue {
     }
 
     pub fn verify(&self, print: bool) {
-        let err_str: *mut *mut i8 = unsafe { zeroed() };
-
         let action = if print == true {
             LLVMVerifierFailureAction::LLVMPrintMessageAction
         } else {
@@ -973,7 +1096,8 @@ impl FunctionValue {
         BasicBlock::new(bb)
     }
 
-    fn get_nth_param(&self, nth: u32) -> ParamValue { // REVIEW: Option?
+    /// REVIEW: Untested
+    pub fn get_nth_param(&self, nth: u32) -> ParamValue { // REVIEW: Option?
         let param = unsafe {
             LLVMGetParam(self.fn_value, nth)
         };
@@ -984,6 +1108,17 @@ impl FunctionValue {
     pub fn count_params(&self) -> u32 {
         unsafe {
             LLVMCountParams(self.fn_value)
+        }
+    }
+
+    /// REVIEW: Untested
+    pub fn get_basic_blocks(&self) -> Vec<BasicBlock> {
+        let mut blocks = vec![];
+
+        unsafe {
+            LLVMGetBasicBlocks(self.fn_value, blocks.as_mut_ptr());
+
+            transmute(blocks)
         }
     }
 
@@ -1052,9 +1187,21 @@ impl FunctionType {
         }
     }
 
-    fn is_var_arg(&self) -> bool {
+    /// REVIEW: Untested
+    pub fn is_var_arg(&self) -> bool {
         unsafe {
             LLVMIsFunctionVarArg(self.fn_type) == 1
+        }
+    }
+
+    /// REVIEW: Untested
+    pub fn get_param_types(&self) -> Vec<Type> {
+        let mut types = vec![];
+
+        unsafe {
+            LLVMGetParamTypes(self.fn_type, types.as_mut_ptr());
+
+            transmute(types)
         }
     }
 }
@@ -1202,6 +1349,13 @@ impl Value {
     pub fn add_incoming(&self, mut incoming_values: &mut Value, mut incoming_basic_block: &mut BasicBlock, count: u32) { // REVIEW: PhiValue (self) only?
         unsafe {
             LLVMAddIncoming(self.value, &mut incoming_values.value, &mut incoming_basic_block.basic_block, count);
+        }
+    }
+
+    /// REVIEW: Untested
+    pub fn is_undef(&self) -> bool {
+        unsafe {
+            LLVMIsUndef(self.value) == 1
         }
     }
 }

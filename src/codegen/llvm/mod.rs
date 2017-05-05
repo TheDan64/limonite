@@ -420,22 +420,6 @@ impl LLVMGenerator {
                 Some(phi)
             },
             &Expr::WhileLoop(ref condition, ref body) => {
-                // cond_check:
-                // if condition is False:
-                //     goto end
-                // else:
-                //     goto loop
-                // loop:
-                //     loop code
-                //     goto enter
-                //
-                // end:
-                //
-                let cond_val = match self.generate_ir(module, condition, scoped_variables) {
-                    Some(val) => val,
-                    None => return None
-                };
-
                 let one = self.context.bool_type().const_int(1, false);
 
                 let mut cond_check_block = self.builder.get_insert_block();
@@ -453,7 +437,10 @@ impl LLVMGenerator {
                 self.builder.position_at_end(&cond_check_block);
 
                 let op = LLVMIntPredicate::LLVMIntEQ;
-                let cond = self.generate_ir(module, condition, scoped_variables);
+                let cond_val = match self.generate_ir(module, condition, scoped_variables) {
+                    Some(val) => val,
+                    None => return None
+                };
                 let cond_cmp = self.builder.build_int_compare(op, &cond_val, &one, "cmp");
 
                 self.builder.build_conditional_branch(&cond_cmp, &loop_block, &end_block);
@@ -503,7 +490,7 @@ impl LLVMGenerator {
             "i64" => self.context.i64_type(),
             "u64" => self.context.i64_type(),
             "void" => self.context.void_type(), // TODO: Not use name "void"
-            _ => unimplemented!() // LLVMGetTypeByName()?
+            _ => self.main_module.as_ref().unwrap().get_type(name),
         }
     }
 }
