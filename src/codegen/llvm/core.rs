@@ -1039,6 +1039,12 @@ impl Type {
 
         Some(Type::new(type_))
     }
+
+    pub fn get_kind(&self) -> LLVMTypeKind {
+        unsafe {
+            LLVMGetTypeKind(self.type_)
+        }
+    }
 }
 
 impl fmt::Debug for Type {
@@ -1216,7 +1222,7 @@ impl FunctionType {
     /// FIXME: Not working correctly
     fn get_param_types(&self) -> Vec<Type> {
         let count = self.count_param_types();
-        let mut raw_vec = unsafe { uninitialized() };
+        let raw_vec = unsafe { uninitialized() };
 
         unsafe {
             LLVMGetParamTypes(self.fn_type, raw_vec);
@@ -1385,12 +1391,78 @@ impl Value {
         }
     }
 
+    pub fn get_type_kind(&self) -> LLVMTypeKind {
+        let type_ = unsafe {
+            LLVMTypeOf(self.value)
+        };
+
+        Type::new(type_).get_kind()
+    }
+
     pub fn is_pointer(&self) -> bool {
-        unsafe {
-            match LLVMGetTypeKind(LLVMTypeOf(self.value)) {
-                LLVMTypeKind::LLVMPointerTypeKind => true,
-                _ => false,
-            }
+        match self.get_type_kind() {
+            LLVMTypeKind::LLVMPointerTypeKind => true,
+            _ => false,
+        }
+    }
+    pub fn is_int(&self) -> bool {
+        match self.get_type_kind() {
+            LLVMTypeKind::LLVMIntegerTypeKind => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_f32(&self) -> bool {
+        match self.get_type_kind() {
+            LLVMTypeKind::LLVMFloatTypeKind => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_f64(&self) -> bool {
+        match self.get_type_kind() {
+            LLVMTypeKind::LLVMDoubleTypeKind => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_f128(&self) -> bool {
+        match self.get_type_kind() {
+            LLVMTypeKind::LLVMFP128TypeKind => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_float(&self) -> bool {
+        match self.get_type_kind() {
+            LLVMTypeKind::LLVMHalfTypeKind => true,
+            LLVMTypeKind::LLVMFloatTypeKind => true,
+            LLVMTypeKind::LLVMDoubleTypeKind => true,
+            LLVMTypeKind::LLVMX86_FP80TypeKind => true,
+            LLVMTypeKind::LLVMFP128TypeKind => true,
+            LLVMTypeKind::LLVMPPC_FP128TypeKind => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_struct(&self) -> bool {
+        match self.get_type_kind() {
+            LLVMTypeKind::LLVMStructTypeKind => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_array(&self) -> bool {
+        match self.get_type_kind() {
+            LLVMTypeKind::LLVMArrayTypeKind => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_void(&self) -> bool {
+        match self.get_type_kind() {
+            LLVMTypeKind::LLVMVoidTypeKind => true,
+            _ => false,
         }
     }
 }
