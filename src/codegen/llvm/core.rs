@@ -1,7 +1,7 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction, LLVMVerifyFunction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMBuildSub, LLVMBuildMul, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetNextBasicBlock, LLVMGetFirstBasicBlock, LLVMGetLastBasicBlock, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal, LLVMFloatTypeInContext, LLVMDoubleTypeInContext, LLVMStructGetTypeAtIndex, LLVMMoveBasicBlockAfter, LLVMMoveBasicBlockBefore, LLVMGetTypeByName, LLVMBuildFree, LLVMGetParamTypes, LLVMGetBasicBlocks, LLVMIsUndef, LLVMBuildAnd, LLVMBuildOr, LLVMBuildFAdd, LLVMBuildFMul, LLVMBuildXor, LLVMBuildFCmp, LLVMBuildFNeg, LLVMBuildFSub, LLVMBuildUnreachable, LLVMBuildFence};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMBuildSub, LLVMBuildMul, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetNextBasicBlock, LLVMGetFirstBasicBlock, LLVMGetLastBasicBlock, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal, LLVMFloatTypeInContext, LLVMDoubleTypeInContext, LLVMStructGetTypeAtIndex, LLVMMoveBasicBlockAfter, LLVMMoveBasicBlockBefore, LLVMGetTypeByName, LLVMBuildFree, LLVMGetParamTypes, LLVMGetBasicBlocks, LLVMIsUndef, LLVMBuildAnd, LLVMBuildOr, LLVMBuildFAdd, LLVMBuildFMul, LLVMBuildXor, LLVMBuildFCmp, LLVMBuildFNeg, LLVMBuildFSub, LLVMBuildUnreachable, LLVMBuildFence, LLVMGetPointerAddressSpace, LLVMIsAConstantPointerNull, LLVMCountParamTypes};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress, LLVMLinkInMCJIT, LLVMAddModule};
 use self::llvm_sys::LLVMLinkage::LLVMCommonLinkage;
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
@@ -125,7 +125,7 @@ impl Context {
         Type::new(f64_type)
     }
 
-    pub fn struct_type(&self, field_types: Vec<Type>) -> Type {
+    pub fn struct_type(&self, field_types: Vec<Type>) -> Type { // REVIEW: StructType?
         // WARNING: transmute will no longer work correctly if Type gains more fields
         // We're avoiding reallocation by telling rust Vec<Type> is identical to Vec<LLVMTypeRef>
         let mut field_types: Vec<LLVMTypeRef> = unsafe {
@@ -620,14 +620,18 @@ impl Module {
         Some(FunctionValue::new(value))
     }
 
-    pub fn get_type(&self, name: &str) -> Type { // REVIEW: Option?
+    pub fn get_type(&self, name: &str) -> Option<Type> {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let type_ = unsafe {
             LLVMGetTypeByName(self.module, c_string.as_ptr())
         };
 
-        Type::new(type_)
+        if type_.is_null() {
+            return None;
+        }
+
+        Some(Type::new(type_))
     }
 
     pub fn create_execution_engine(&self, jit_mode: bool) -> Result<ExecutionEngine, String> {
@@ -1012,7 +1016,8 @@ impl Type {
         Value::new(value)
     }
 
-    pub fn get_undef(&self, type_: Type) -> Value {
+    /// REVIEW: Untested
+    pub fn get_undef(&self, type_: &Type) -> Value {
         let value = unsafe {
             LLVMGetUndef(self.type_)
         };
@@ -1021,6 +1026,7 @@ impl Type {
     }
 
     /// LLVM 3.7+
+    /// REVIEW: Untested
     pub fn get_type_at_struct_index(&self, index: u32) -> Option<Type> {
         // REVIEW: This should only be used on Struct Types, so add a StructType?
         let type_ = unsafe {
@@ -1080,29 +1086,42 @@ impl FunctionValue {
         }
     }
 
-    pub fn get_first_param(&self) -> ParamValue { // REVIEW: Option?
+    pub fn get_first_param(&self) -> Option<ParamValue> {
         let param = unsafe {
             LLVMGetFirstParam(self.fn_value)
         };
 
-        ParamValue::new(param)
+        if param.is_null() {
+            return None;
+        }
+
+        Some(ParamValue::new(param))
     }
 
-    pub fn get_first_basic_block(&self) -> BasicBlock { // REVIEW: Option?
+    pub fn get_first_basic_block(&self) -> Option<BasicBlock> {
         let bb = unsafe {
             LLVMGetFirstBasicBlock(self.fn_value)
         };
 
-        BasicBlock::new(bb)
+        if bb.is_null() {
+            return None;
+        }
+
+        Some(BasicBlock::new(bb))
     }
 
-    /// REVIEW: Untested
-    pub fn get_nth_param(&self, nth: u32) -> ParamValue { // REVIEW: Option?
+    pub fn get_nth_param(&self, nth: u32) -> Option<ParamValue> {
+        let count = self.count_params();
+
+        if nth + 1 > count {
+            return None;
+        }
+
         let param = unsafe {
             LLVMGetParam(self.fn_value, nth)
         };
 
-        ParamValue::new(param)
+        Some(ParamValue::new(param))
     }
 
     pub fn count_params(&self) -> u32 {
@@ -1194,14 +1213,21 @@ impl FunctionType {
         }
     }
 
-    /// REVIEW: Untested
-    pub fn get_param_types(&self) -> Vec<Type> {
-        let mut types = vec![];
+    /// FIXME: Not working correctly
+    fn get_param_types(&self) -> Vec<Type> {
+        let count = self.count_param_types();
+        let mut raw_vec = unsafe { uninitialized() };
 
         unsafe {
-            LLVMGetParamTypes(self.fn_type, types.as_mut_ptr());
+            LLVMGetParamTypes(self.fn_type, raw_vec);
 
-            transmute(types)
+            transmute(Vec::from_raw_parts(raw_vec, count as usize, count as usize))
+        }
+    }
+
+    pub fn count_param_types(&self) -> u32 {
+        unsafe {
+            LLVMCountParamTypes(self.fn_type)
         }
     }
 }
@@ -1356,6 +1382,15 @@ impl Value {
     pub fn is_undef(&self) -> bool {
         unsafe {
             LLVMIsUndef(self.value) == 1
+        }
+    }
+
+    pub fn is_pointer(&self) -> bool {
+        unsafe {
+            match LLVMGetTypeKind(LLVMTypeOf(self.value)) {
+                LLVMTypeKind::LLVMPointerTypeKind => true,
+                _ => false,
+            }
         }
     }
 }
