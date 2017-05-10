@@ -116,3 +116,37 @@ fn test_while_gt_decrement_u8() {
 
     assert_eq!(dec_until(), 0);
 }
+
+#[test]
+fn test_hello_world() {
+    // Creates a limonite function that looks like:
+    // fn hello_world(),
+    //     var s = "Hello, World!";
+    //     print(s)
+    //     return
+
+    let var_decl = ExprWrapper::default(Expr::VarDecl(false, "s".into(), Some("std.string.String".into()), ExprWrapper::default(Expr::Literal(Literals::UTF8String("Hello, World!".into())))));
+    let print_call = ExprWrapper::default(Expr::FnCall("print".into(), vec![ExprWrapper::default(Expr::Var("s".into()))]));
+    let ret = ExprWrapper::default(Expr::Return(None));
+
+    let body = ExprWrapper::default(Expr::Block(vec![
+        var_decl,
+        print_call,
+        ret,
+    ]));
+    let ast = ExprWrapper::default(Expr::FnDecl("hello_world".into(), Vec::new(), None, body));
+
+    let mut llvm_generator = LLVMGenerator::new();
+
+    llvm_generator.add_module(ast, false, true);
+    llvm_generator.dump_ir();
+    llvm_generator.initialize(true);
+
+    let address = llvm_generator.get_function_address("hello_world").expect("Could not find function address");
+
+    let hello_world: extern "C" fn() = unsafe { transmute(address) };
+
+    // REVIEW: Is there a way to capture stdout to ensure the right text is being printed?
+
+    hello_world();
+}

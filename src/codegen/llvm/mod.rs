@@ -441,23 +441,23 @@ impl LLVMGenerator {
                 assert!(val_type.is_some(), "LLVMGenError: Variable declaration not given a type by codegen phase");
 
                 // Assign to a literal
-                match self.string_to_type(val_type.as_ref().unwrap(), &module) {
-                    Some(type_) => {
-                        match self.generate_ir(module, expr, scoped_variables) {
-                            Some(val) => {
-                                let alloca = self.builder.build_stack_allocation(&type_, "stored_ptr");
-                                self.builder.build_store(&val, &alloca);
+                match self.generate_ir(module, expr, scoped_variables) {
+                    Some(val) => {
+                        let val = if !val.is_pointer() {
+                            let alloca = self.builder.build_stack_allocation(&val.get_type(), "stored_ptr");
+                            self.builder.build_store(&val, &alloca);
 
-                                // Couldn't figure out how to not clone this string
-                                scoped_variables.insert(name.clone(), alloca);
+                            alloca
+                        } else {
+                            val
+                        };
 
-                                Some(val)
-                            },
-                            None => None
-                        }
+                        // Couldn't figure out how to not clone this string
+                        scoped_variables.insert(name.clone(), val);
+
+                        Some(val)
                     },
-                    // Assign from a custom type
-                    None => panic!("LLVMGenError: Unimplemented var type {} for {}", val_type.as_ref().unwrap(), name)
+                    None => None
                 }
             },
             &Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
