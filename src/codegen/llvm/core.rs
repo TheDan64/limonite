@@ -340,7 +340,7 @@ impl Builder {
         BasicBlock::new(bb)
     }
 
-    pub fn build_add(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
+    pub fn build_int_add(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
@@ -395,7 +395,7 @@ impl Builder {
     }
 
     /// REVIEW: Untested
-    pub fn build_sub(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
+    pub fn build_int_sub(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {
@@ -417,7 +417,7 @@ impl Builder {
     }
 
     /// REVIEW: Untested
-    pub fn build_mul(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
+    pub fn build_int_mul(&self, left_value: &Value, right_value: &Value, name: &str) -> Value {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
         let value = unsafe {

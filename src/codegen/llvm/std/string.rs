@@ -88,7 +88,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     // Increment the offset
     let i64_one = i64_type.const_int(1, false);
-    let inc = builder.build_add(&offset, &i64_one, "inc");
+    let inc = builder.build_int_add(&offset, &i64_one, "inc");
 
     builder.build_store(&inc, &offset_ptr);
 

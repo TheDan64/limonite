@@ -271,9 +271,43 @@ impl LLVMGenerator {
 
                 // REVIEW: Adding different types should never happen if SA is doing it's job, right?
                 match op {
-                    &InfixOp::Add => Some(self.builder.build_add(&lhs_val, &rhs_val, "add")),
-                    &InfixOp::Sub => Some(self.builder.build_sub(&lhs_val, &rhs_val, "sub")),
-                    &InfixOp::Mul => Some(self.builder.build_mul(&lhs_val, &rhs_val, "mul")),
+                    &InfixOp::Add => {
+                        let add = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_add(&lhs_val, &rhs_val, "int_add"),
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_add(&lhs_val, &rhs_val, "f32_add"), // REVIEW: How is this different from LLVMRealUEQ??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_add(&lhs_val, &rhs_val, "f64_add"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_add(&lhs_val, &rhs_val, "f128_add"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct addition not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type addition: {:?} + {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(add)
+                    },
+                    &InfixOp::Sub => {
+                        let sub = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_sub(&lhs_val, &rhs_val, "int_sub"),
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f32_sub"),
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f64_sub"),
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f128_sub"),
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct addition not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type addition: {:?} + {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(sub)
+
+                    },
+                    &InfixOp::Mul => {
+                        let mul = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_mul(&lhs_val, &rhs_val, "int_mul"),
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f32_mul"),
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f64_mul"),
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f128_mul"),
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct addition not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type addition: {:?} + {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(mul)
+                    },
                     &InfixOp::Div => match (lhs_val, rhs_val) {
                         // LLVMBuildFDiv, LLVMBuildSDiv, LLVMBuildUDiv
                         _ => panic!("LLVMGenError: Unimplemented infix operator div")
@@ -297,15 +331,53 @@ impl LLVMGenerator {
                         Some(equ)
                     },
                     &InfixOp::Lt => {
-                        // TODO: Float support, signed int support
-                        Some(self.builder.build_int_compare(LLVMIntULT, &lhs_val, &rhs_val, "icmp"))
+                        let lt = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntULT, &lhs_val, &rhs_val, "int_lt"), // TODO: Signed compare
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOLT, &lhs_val, &rhs_val, "f32_lt"), // REVIEW: How is this different from LLVMRealULT??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOLT, &lhs_val, &rhs_val, "f64_lt"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOLT, &lhs_val, &rhs_val, "f128_lt"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct less than not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} < {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(lt)
                     },
-                    &InfixOp::Lte => unimplemented!(),
+                    &InfixOp::Lte => {
+                        let lte = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntULE, &lhs_val, &rhs_val, "int_lte"), // TODO: Signed compare
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOLE, &lhs_val, &rhs_val, "f32_lte"), // REVIEW: How is this different from LLVMRealULE??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOLE, &lhs_val, &rhs_val, "f64_lte"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOLE, &lhs_val, &rhs_val, "f128_lte"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct less than equal not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} <= {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(lte)
+                    },
                     &InfixOp::Gt => {
-                        // TODO: Float support, signed int support
-                        Some(self.builder.build_int_compare(LLVMIntUGT, &lhs_val, &rhs_val, "icmp"))
+                        let gt = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntUGT, &lhs_val, &rhs_val, "int_gt"), // TODO: Signed compare
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOGT, &lhs_val, &rhs_val, "f32_gt"), // REVIEW: How is this different from LLVMRealUGT??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOGT, &lhs_val, &rhs_val, "f64_gt"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOGT, &lhs_val, &rhs_val, "f128_gt"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct greater than not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} > {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(gt)
+                    },
+                    &InfixOp::Gte => {
+                        let gte = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntUGE, &lhs_val, &rhs_val, "int_gte"), // TODO: Signed compare
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOGE, &lhs_val, &rhs_val, "f32_gte"), // REVIEW: How is this different from LLVMRealUGE??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOGE, &lhs_val, &rhs_val, "f64_gte"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOGE, &lhs_val, &rhs_val, "f128_gte"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct greater than equal not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} >= {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(gte)
                     }
-                    &InfixOp::Gte => unimplemented!(),
                 }
             },
             // REVIEW: Needs further testing
