@@ -66,7 +66,6 @@ fn test_while_loop_increment() {
     let mut llvm_generator = LLVMGenerator::new();
 
     llvm_generator.add_module(ast, false, false);
-    llvm_generator.dump_ir();
     llvm_generator.initialize(true);
 
     let address = llvm_generator.get_function_address("inc_until").expect("Could not find function address");

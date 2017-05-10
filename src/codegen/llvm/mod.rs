@@ -269,7 +269,7 @@ impl LLVMGenerator {
                     rhs_val = self.builder.build_load(&rhs_val, "deref"); // Think this is like Rust's deref trait...
                 }
 
-                // Adding different types should never happen if SA is doing it's job, right?
+                // REVIEW: Adding different types should never happen if SA is doing it's job, right?
                 match op {
                     &InfixOp::Add => Some(self.builder.build_add(&lhs_val, &rhs_val, "add")),
                     &InfixOp::Sub => Some(self.builder.build_sub(&lhs_val, &rhs_val, "sub")),
@@ -307,7 +307,7 @@ impl LLVMGenerator {
                     &InfixOp::Gte => unimplemented!(),
                 }
             },
-            // Needs further testing
+            // REVIEW: Needs further testing
             &Expr::UnaryOp(ref op, ref expr) => {
                 match op {
                     &UnaryOp::Negate => self.generate_ir(module, expr, scoped_variables).map(|val| self.builder.build_neg(&val, "neg")),
@@ -315,7 +315,7 @@ impl LLVMGenerator {
                 }
             },
             &Expr::FnDecl(ref name, ref arg_defs, ref return_type, ref body_expr) => {
-                let mut fn_variable_scope = HashMap::new(); // REVIEW: This should exclude globals
+                let mut fn_variable_scope = HashMap::new(); // REVIEW: This will exclude globals
                 let mut arg_types: Vec<Type> = arg_defs.iter().map(|&(_, ref type_string)| self.string_to_type(&type_string[..], &module).expect("Did not find specified type")).collect();
 
                 // TODO: Support args types and return types
@@ -339,7 +339,6 @@ impl LLVMGenerator {
 
                 // REVIEW: This will return the last generated value... is that what we want?
                 // Or should it go back to the global scope after generating ir?
-                // self.generate_ir(module, body_expr);
                 self.generate_ir(module, body_expr, &mut fn_variable_scope)
             },
             &Expr::Return(ref return_type_expr) => {
@@ -389,8 +388,6 @@ impl LLVMGenerator {
                 }
             },
             &Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
-                // Need to know value type (float or int?)
-
                 let cond_val = match self.generate_ir(module, cond_expr, scoped_variables) {
                     Some(val) => val,
                     None => return None
@@ -450,26 +447,20 @@ impl LLVMGenerator {
             &Expr::WhileLoop(ref condition, ref body) => {
                 let one = self.context.bool_type().const_int(1, false);
 
-                let mut cond_check_block = self.builder.get_insert_block();
-
-                // If the current block is not empty, dont use it
-                // REVIEW: if the block would cause a fall through to the next label, does
-                // that mean it still have a terminator? Could be an incomplete check if so
-                if cond_check_block.get_terminator().is_some() {
-                    cond_check_block = self.context.insert_basic_block_after(&cond_check_block, "cond_check");
-                }
-
+                let start_block = self.builder.get_insert_block();
+                let cond_check_block = self.context.insert_basic_block_after(&start_block, "cond_check");
                 let loop_block = self.context.insert_basic_block_after(&cond_check_block, "loop");
                 let end_block = self.context.insert_basic_block_after(&loop_block, "end");
 
+                self.builder.position_at_end(&start_block);
+                self.builder.build_unconditional_branch(&cond_check_block);
                 self.builder.position_at_end(&cond_check_block);
 
-                let op = LLVMIntEQ;
                 let cond_val = match self.generate_ir(module, condition, scoped_variables) {
                     Some(val) => val,
                     None => return None
                 };
-                let cond_cmp = self.builder.build_int_compare(op, &cond_val, &one, "cmp");
+                let cond_cmp = self.builder.build_int_compare(LLVMIntEQ, &cond_val, &one, "cmp");
 
                 self.builder.build_conditional_branch(&cond_cmp, &loop_block, &end_block);
                 self.builder.position_at_end(&loop_block);

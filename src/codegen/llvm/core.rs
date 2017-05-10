@@ -1391,12 +1391,16 @@ impl Value {
         }
     }
 
-    pub fn get_type_kind(&self) -> LLVMTypeKind {
+    pub fn get_type(&self) -> Type {
         let type_ = unsafe {
             LLVMTypeOf(self.value)
         };
 
-        Type::new(type_).get_kind()
+        Type::new(type_)
+    }
+
+    pub fn get_type_kind(&self) -> LLVMTypeKind {
+        self.get_type().get_kind()
     }
 
     pub fn is_pointer(&self) -> bool {
