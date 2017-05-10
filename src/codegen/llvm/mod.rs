@@ -298,12 +298,13 @@ impl LLVMGenerator {
                     },
                     &InfixOp::Lt => {
                         // TODO: Float support, signed int support
-                        let op = LLVMIntULT;
-
-                        Some(self.builder.build_int_compare(op, &lhs_val, &rhs_val, "icmp"))
+                        Some(self.builder.build_int_compare(LLVMIntULT, &lhs_val, &rhs_val, "icmp"))
                     },
                     &InfixOp::Lte => unimplemented!(),
-                    &InfixOp::Gt => unimplemented!(),
+                    &InfixOp::Gt => {
+                        // TODO: Float support, signed int support
+                        Some(self.builder.build_int_compare(LLVMIntUGT, &lhs_val, &rhs_val, "icmp"))
+                    }
                     &InfixOp::Gte => unimplemented!(),
                 }
             },

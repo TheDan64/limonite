@@ -30,14 +30,14 @@ fn test_sum_function() {
 
     let add_two_ints: extern "C" fn(u64, u64) -> u64 = unsafe { transmute(address) };
 
-    assert!(add_two_ints(456, 987) == 1443);
+    assert_eq!(add_two_ints(456, 987), 1443);
 }
 
 #[test]
-fn test_while_loop_increment() {
+fn test_while_lt_increment_u8() {
     // Creates a limonite function that looks like:
     // fn inc_until() -> u8,
-    //     var i = 0;
+    //     var i = 0u8;
     //
     //     while i < 10,
     //         i += 1
@@ -72,5 +72,47 @@ fn test_while_loop_increment() {
 
     let inc_until: extern "C" fn() -> u8 = unsafe { transmute(address) };
 
-    assert!(inc_until() == 10);
+    assert_eq!(inc_until(), 10);
+}
+
+#[test]
+fn test_while_gt_decrement_u8() {
+    // Creates a limonite function that looks like:
+    // fn dec_until() -> u8,
+    //     var i = 10u8;
+    //
+    //     while i > 0,
+    //         i -= 1
+    //
+    //     return i
+
+    let var_decl = ExprWrapper::default(Expr::VarDecl(false, "i".into(), Some("u8".into()), ExprWrapper::default(Expr::Literal(Literals::U8Num(10)))));
+    let loop_cond = ExprWrapper::default(Expr::InfixOp(InfixOp::Gt,
+                                                       ExprWrapper::default(Expr::Var("i".into())),
+                                                       ExprWrapper::default(Expr::Literal(Literals::U8Num(0)))));
+    let loop_body = ExprWrapper::default(Expr::Block(vec![
+        ExprWrapper::default(Expr::Assign(ExprWrapper::default(Expr::Var("i".into())),
+                                          ExprWrapper::default(Expr::InfixOp(InfixOp::Sub,
+                                                                             ExprWrapper::default(Expr::Var("i".into())),
+                                                                             ExprWrapper::default(Expr::Literal(Literals::U8Num(1)))))))
+    ]));
+    let while_loop = ExprWrapper::default(Expr::WhileLoop(loop_cond, loop_body));
+    let ret = ExprWrapper::default(Expr::Return(Some(ExprWrapper::default(Expr::Var("i".into())))));
+    let body = ExprWrapper::default(Expr::Block(vec![
+        var_decl,
+        while_loop,
+        ret
+    ]));
+    let ast = ExprWrapper::default(Expr::FnDecl("dec_until".into(), Vec::new(), Some("u8".into()), body));
+
+    let mut llvm_generator = LLVMGenerator::new();
+
+    llvm_generator.add_module(ast, false, false);
+    llvm_generator.initialize(true);
+
+    let address = llvm_generator.get_function_address("dec_until").expect("Could not find function address");
+
+    let dec_until: extern "C" fn() -> u8 = unsafe { transmute(address) };
+
+    assert_eq!(dec_until(), 0);
 }
