@@ -139,7 +139,6 @@ fn test_hello_world() {
     let mut llvm_generator = LLVMGenerator::new();
 
     llvm_generator.add_module(ast, false, true);
-    llvm_generator.dump_ir();
     llvm_generator.initialize(true);
 
     let address = llvm_generator.get_function_address("hello_world").expect("Could not find function address");
