@@ -34,7 +34,7 @@ fn test_sum_function() {
 }
 
 #[test]
-fn test_while_loop() {
+fn test_while_loop_increment() {
     // Creates a limonite function that looks like:
     // fn inc_until() -> u8,
     //     var i = 0;
@@ -68,7 +68,6 @@ fn test_while_loop() {
     llvm_generator.add_module(ast, false, false);
     llvm_generator.dump_ir();
     llvm_generator.initialize(true);
-
 
     let address = llvm_generator.get_function_address("inc_until").expect("Could not find function address");
 

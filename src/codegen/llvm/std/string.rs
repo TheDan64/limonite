@@ -3,6 +3,8 @@ extern crate llvm_sys;
 use codegen::llvm::core::{Builder, Context, Module, Type};
 use self::llvm_sys::LLVMIntPredicate; // TODO: Remove
 
+// TODO: Change to put string def in module if not already there
+// use std.string.String
 pub fn string_type(context: &Context) -> Type {
     let field_types = vec![
         context.i8_type().ptr_type(0),
@@ -28,7 +30,7 @@ pub fn print_function_definition(builder: &Builder, context: &Context, module: &
 
     let print_fn = module.add_function("print", fn_type);
 
-    let mut param = print_fn.get_first_param();
+    let mut param = print_fn.get_first_param().expect("Print function should have at least one param");
 
     param.set_name("str");
 

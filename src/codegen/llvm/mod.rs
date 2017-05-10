@@ -4,13 +4,14 @@ mod std;
 extern crate llvm_sys; // TODO: Remove
 
 use codegen::llvm::std::string::{print_function_definition, string_type};
-use lexical::types::Types;
 use self::core::{Builder, Context, Module, Type, Value, PassManager, ExecutionEngine};
+use self::llvm_sys::LLVMIntPredicate::*; // TODO: Remove
+use self::llvm_sys::LLVMRealPredicate::*; // TODO: Remove
+use self::llvm_sys::LLVMTypeKind::*; // TODO: Remove
 use std::collections::HashMap;
 use syntax::expr::{Expr, ExprWrapper};
 use syntax::literals::Literals;
 use syntax::op::{InfixOp, UnaryOp};
-use self::llvm_sys::LLVMIntPredicate; // TODO: Remove
 
 /// WARNING: Drop order can be imporant, so context is placed last intentionally
 pub struct LLVMGenerator {
@@ -251,12 +252,22 @@ impl LLVMGenerator {
                 }
             },
             &Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
-                let (lhs_val, rhs_val) =  match (self.generate_ir(module, lhs_exprwrapper, scoped_variables), self.generate_ir(module, rhs_exprwrapper, scoped_variables)) {
+                let (mut lhs_val, mut rhs_val) = match (self.generate_ir(module, lhs_exprwrapper, scoped_variables), self.generate_ir(module, rhs_exprwrapper, scoped_variables)) {
                     (Some(val1), Some(val2)) => (val1, val2),
                     (Some(_), None) => unreachable!("LLVMGenError: InfixOp only LHS contains value"),
                     (None, Some(_)) => unreachable!("LLVMGenError: InfixOp only RHS contains value"),
                     (None, None) => unreachable!("LLVMGenError: InfixOp has no values")
                 };
+
+                // REVIEW: I'm wondering if auto deref should be handled by semantic analysis
+                // and insert a "deref" expr
+                if lhs_val.is_pointer() {
+                    lhs_val = self.builder.build_load(&lhs_val, "deref"); // Think this is like Rust's deref trait...
+                }
+
+                if rhs_val.is_pointer() {
+                    rhs_val = self.builder.build_load(&rhs_val, "deref"); // Think this is like Rust's deref trait...
+                }
 
                 // Adding different types should never happen if SA is doing it's job, right?
                 match op {
@@ -273,13 +284,21 @@ impl LLVMGenerator {
                     &InfixOp::Pow => match (lhs_val, rhs_val) {
                         _ => panic!("LLVMGenError: Unimplemented infix operator pow")
                     },
-                    &InfixOp::Equ => match (lhs_val, rhs_val) {
-                        // LLVMBuildICmp, LLVMBuildFCmp?
-                        _ => panic!("LLVMGenError: Unimplemented infix operator equ")
+                    &InfixOp::Equ => {
+                        let equ = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntEQ, &lhs_val, &rhs_val, "int_equ"),
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOEQ, &lhs_val, &rhs_val, "f32_equ"), // REVIEW: How is this different from LLVMRealUEQ??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOEQ, &lhs_val, &rhs_val, "f64_equ"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOEQ, &lhs_val, &rhs_val, "f128_equ"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct equality not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} == {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(equ)
                     },
                     &InfixOp::Lt => {
                         // TODO: Float support, signed int support
-                        let op = LLVMIntPredicate::LLVMIntULT;
+                        let op = LLVMIntULT;
 
                         Some(self.builder.build_int_compare(op, &lhs_val, &rhs_val, "icmp"))
                     },
@@ -297,17 +316,16 @@ impl LLVMGenerator {
             },
             &Expr::FnDecl(ref name, ref arg_defs, ref return_type, ref body_expr) => {
                 let mut fn_variable_scope = HashMap::new(); // REVIEW: This should exclude globals
-                let mut arg_types: Vec<Type> = arg_defs.iter().map(|&(_, ref type_string)| self.string_to_type(&type_string[..])).collect();
+                let mut arg_types: Vec<Type> = arg_defs.iter().map(|&(_, ref type_string)| self.string_to_type(&type_string[..], &module).expect("Did not find specified type")).collect();
 
                 // TODO: Support args types and return types
                 let return_type = match return_type {
-                    &Some(ref type_string) => self.string_to_type(&type_string[..]),
+                    &Some(ref type_string) => self.string_to_type(&type_string[..], &module).expect("Did not find speficied type"),
                     &None => self.context.void_type(),
                 };
 
                 let function = module.add_function(name, return_type.fn_type(&mut arg_types, false));
 
-                // REVIEW: This can be unclear zipping "function" will get the iterator of it's params
                 let name_value_data = arg_defs.iter().map(|&(ref name, _)| name).zip(function.params());
 
                 for (name, mut param_value) in name_value_data {
@@ -318,7 +336,6 @@ impl LLVMGenerator {
                 let bb_enter = self.context.append_basic_block(&function, "enter");
 
                 self.builder.position_at_end(&bb_enter);
-                // self.builder.insert_instruction(); // FIXME: unwrap
 
                 // REVIEW: This will return the last generated value... is that what we want?
                 // Or should it go back to the global scope after generating ir?
@@ -328,7 +345,15 @@ impl LLVMGenerator {
             &Expr::Return(ref return_type_expr) => {
                 match return_type_expr {
                     &Some(ref return_type) => match self.generate_ir(module, return_type, scoped_variables) {
-                        Some(t) => Some(self.builder.build_return(Some(t))),
+                        Some(mut t) => {
+                            // REVIEW: I'm wondering if auto deref should be handled by semantic analysis
+                            // and insert a "deref" expr
+                            if t.is_pointer() {
+                                t = self.builder.build_load(&t, "deref"); // Think this is like Rust's Deref Trait
+                            }
+
+                            Some(self.builder.build_return(Some(t)))
+                        }
                         None => unreachable!("LLVMGenError: Hit unreachable return type generation")
                     },
                     &None => Some(self.builder.build_return(None)),
@@ -344,12 +369,15 @@ impl LLVMGenerator {
                 assert!(val_type.is_some(), "LLVMGenError: Variable declaration not given a type by codegen phase");
 
                 // Assign to a literal
-                match val_type.as_ref().unwrap().parse::<Types>() { // REVIEW: This is a lexer method, maybe replace with string_to_type?
-                    Ok(_) => {
+                match self.string_to_type(val_type.as_ref().unwrap(), &module) {
+                    Some(type_) => {
                         match self.generate_ir(module, expr, scoped_variables) {
                             Some(val) => {
+                                let alloca = self.builder.build_stack_allocation(&type_, "stored_ptr");
+                                self.builder.build_store(&val, &alloca);
+
                                 // Couldn't figure out how to not clone this string
-                                scoped_variables.insert(name.clone(), val);
+                                scoped_variables.insert(name.clone(), alloca);
 
                                 Some(val)
                             },
@@ -357,7 +385,7 @@ impl LLVMGenerator {
                         }
                     },
                     // Assign from a custom type
-                    Err(_) => panic!("LLVMGenError: Unimplemented var declaration for {}", name)
+                    None => panic!("LLVMGenError: Unimplemented var type {} for {}", val_type.as_ref().unwrap(), name)
                 }
             },
             &Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
@@ -371,7 +399,7 @@ impl LLVMGenerator {
                 let type_ = self.context.bool_type();
 
                 let zero = type_.const_int(0, false);
-                let op = LLVMIntPredicate::LLVMIntEQ;
+                let op = LLVMIntEQ;
 
                 let block = self.builder.get_insert_block();
 
@@ -436,7 +464,7 @@ impl LLVMGenerator {
 
                 self.builder.position_at_end(&cond_check_block);
 
-                let op = LLVMIntPredicate::LLVMIntEQ;
+                let op = LLVMIntEQ;
                 let cond_val = match self.generate_ir(module, condition, scoped_variables) {
                     Some(val) => val,
                     None => return None
@@ -449,7 +477,6 @@ impl LLVMGenerator {
                 let body = self.generate_ir(module, body, scoped_variables);
 
                 self.builder.build_unconditional_branch(&cond_check_block);
-
                 self.builder.position_at_end(&end_block);
 
                 body
@@ -476,21 +503,21 @@ impl LLVMGenerator {
         }
     }
 
-    fn string_to_type(&self, name: &str) -> Type {
+    fn string_to_type(&self, name: &str, module: &Module) -> Option<Type> {
         match name {
-            "bool" => self.context.bool_type(),
-            "i8" => self.context.i8_type(),
-            "u8" => self.context.i8_type(),
-            "i16" => self.context.i16_type(),
-            "u16" => self.context.i16_type(),
-            "f32" => self.context.f32_type(),
-            "i32" => self.context.i32_type(),
-            "u32" => self.context.i32_type(),
-            "f64" => self.context.f64_type(),
-            "i64" => self.context.i64_type(),
-            "u64" => self.context.i64_type(),
-            "void" => self.context.void_type(), // TODO: Not use name "void"
-            _ => self.main_module.as_ref().unwrap().get_type(name),
+            "bool" => Some(self.context.bool_type()),
+            "i8" => Some(self.context.i8_type()),
+            "u8" => Some(self.context.i8_type()),
+            "i16" => Some(self.context.i16_type()),
+            "u16" => Some(self.context.i16_type()),
+            "f32" => Some(self.context.f32_type()),
+            "i32" => Some(self.context.i32_type()),
+            "u32" => Some(self.context.i32_type()),
+            "u64" => Some(self.context.i64_type()),
+            "i64" => Some(self.context.i64_type()),
+            "f64" => Some(self.context.f64_type()),
+            "void" => Some(self.context.void_type()), // TODO: Not use name "void"
+            _ => module.get_type(name),
         }
     }
 }
