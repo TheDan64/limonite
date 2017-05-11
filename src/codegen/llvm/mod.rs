@@ -585,10 +585,12 @@ impl LLVMGenerator {
             "f32" => Some(self.context.f32_type()),
             "i32" => Some(self.context.i32_type()),
             "u32" => Some(self.context.i32_type()),
-            "u64" => Some(self.context.i64_type()),
             "i64" => Some(self.context.i64_type()),
+            "u64" => Some(self.context.i64_type()),
             "f64" => Some(self.context.f64_type()),
             "f128" => Some(self.context.f128_type()),
+            "i128" => Some(self.context.i128_type()),
+            "u128" => Some(self.context.i128_type()),
             "void" => Some(self.context.void_type()), // TODO: Not use name "void"
             _ => module.get_type(name),
         }
