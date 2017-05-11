@@ -308,9 +308,17 @@ impl LLVMGenerator {
 
                         Some(mul)
                     },
-                    &InfixOp::Div => match (lhs_val, rhs_val) {
-                        // LLVMBuildFDiv, LLVMBuildSDiv, LLVMBuildUDiv
-                        _ => panic!("LLVMGenError: Unimplemented infix operator div")
+                    &InfixOp::Div => {
+                        let div = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_div(&lhs_val, &rhs_val, "int_div"), // TODO: Signed support
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f32_div"),
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f64_div"),
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f128_div"),
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct equality not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} == {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(div)
                     },
                     &InfixOp::Mod => match (lhs_val, rhs_val) {
                         _ => panic!("LLVMGenError: Unimplemented infix operator mod")
