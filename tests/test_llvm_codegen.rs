@@ -20,9 +20,12 @@ macro_rules! var {
 }
 
 macro_rules! ret {
+    () => {
+        ExprWrapper::default(Expr::Return(None))
+    };
     ($arg:expr) => {
-        ExprWrapper::default(Expr::Return($arg))
-    }
+        ExprWrapper::default(Expr::Return(Some($arg)))
+    };
 }
 
 macro_rules! u8 {
@@ -70,10 +73,9 @@ fn test_sum_function() {
     // fn add_two_ints(left: u64, right: u64) -> u64,
     //     return left + right;
 
-    let sum = op!(var!("left"), + var!("right"));
-    let ast_body = ret!(Some(sum));
+    let ret = ret!(op!(var!("left"), + var!("right")));
     let fn_args = vec![("left".into(), "u64".into()), ("right".into(), "u64".into())];
-    let ast = ExprWrapper::default(Expr::FnDecl("add_two_ints".into(), fn_args, Some("u64".into()), ast_body));
+    let ast = ExprWrapper::default(Expr::FnDecl("add_two_ints".into(), fn_args, Some("u64".into()), ret));
 
     let mut llvm_generator = LLVMGenerator::new();
 
@@ -102,7 +104,7 @@ fn test_while_lt_increment_u8() {
     let loop_cond = op!(var!("i"), < u8!(10));
     let loop_body = assign!(var!("i"), += u8!(1));
     let while_loop = ExprWrapper::default(Expr::WhileLoop(loop_cond, loop_body));
-    let ret = ret!(Some(var!("i")));
+    let ret = ret!(var!("i"));
     let body = block![
         var_decl,
         while_loop,
@@ -137,7 +139,7 @@ fn test_while_gt_decrement_u8() {
     let loop_cond = op!(var!("i"), > u8!(0));
     let loop_body = assign!(var!("i"), -= u8!(1));
     let while_loop = ExprWrapper::default(Expr::WhileLoop(loop_cond, loop_body));
-    let ret = ret!(Some(var!("i")));
+    let ret = ret!(var!("i"));
     let body = block![
         var_decl,
         while_loop,
@@ -167,12 +169,11 @@ fn test_hello_world() {
 
     let var_decl = ExprWrapper::default(Expr::VarDecl(false, "s".into(), Some("std.string.String".into()), string!("Hello, World!")));
     let print_call = ExprWrapper::default(Expr::FnCall("print".into(), vec![var!("s")]));
-    let ret = ret!(None);
 
     let body = block![
         var_decl,
         print_call,
-        ret,
+        ret!(),
     ];
     let ast = ExprWrapper::default(Expr::FnDecl("hello_world".into(), Vec::new(), None, body));
 
