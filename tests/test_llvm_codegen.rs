@@ -7,17 +7,71 @@ use limonite::syntax::literals::Literals;
 
 use std::mem::transmute;
 
+macro_rules! block {
+    ($($args:tt)*) => {
+        ExprWrapper::default(Expr::Block(vec![$($args)*]))
+    }
+}
+
+macro_rules! var {
+    ($arg:expr) => {
+        ExprWrapper::default(Expr::Var($arg.into()))
+    }
+}
+
+macro_rules! ret {
+    ($arg:expr) => {
+        ExprWrapper::default(Expr::Return($arg))
+    }
+}
+
+macro_rules! u8 {
+    ($arg:tt) => {
+        ExprWrapper::default(Expr::Literal(Literals::U8Num($arg)))
+    }
+}
+
+macro_rules! string {
+    ($arg:tt) => {
+        ExprWrapper::default(Expr::Literal(Literals::UTF8String($arg.into())))
+    }
+}
+
+macro_rules! op {
+    ($left_arg:expr, + $right_arg:expr) => {
+        ExprWrapper::default(Expr::InfixOp(InfixOp::Add, $left_arg, $right_arg))
+    };
+    ($left_arg:expr, = $right_arg:expr) => {
+        ExprWrapper::default(Expr::Assign($left_arg, $right_arg))
+    };
+    ($left_arg:expr, < $right_arg:expr) => {
+        ExprWrapper::default(Expr::InfixOp(InfixOp::Lt, $left_arg, $right_arg))
+    };
+    ($left_arg:expr, > $right_arg:expr) => {
+        ExprWrapper::default(Expr::InfixOp(InfixOp::Gt, $left_arg, $right_arg))
+    };
+}
+
+macro_rules! assign {
+    ($left_arg:expr, = $right_arg:expr) => {
+        ExprWrapper::default(Expr::Assign($left_arg, $right_arg))
+    };
+    ($left_arg:expr, += $right_arg:expr) => {
+        ExprWrapper::default(Expr::Assign($left_arg, ExprWrapper::default(Expr::InfixOp(InfixOp::Add, $left_arg, $right_arg))))
+    };
+    ($left_arg:expr, -= $right_arg:expr) => {
+        ExprWrapper::default(Expr::Assign($left_arg, ExprWrapper::default(Expr::InfixOp(InfixOp::Sub, $left_arg, $right_arg))))
+    };
+}
+
 #[test]
 fn test_sum_function() {
     // Creates a limonite function that looks like:
     // fn add_two_ints(left: u64, right: u64) -> u64,
     //     return left + right;
 
-    let left = ExprWrapper::default(Expr::Var("left".into()));
-    let right = ExprWrapper::default(Expr::Var("right".into()));
-
-    let sum = ExprWrapper::default(Expr::InfixOp(InfixOp::Add, left, right));
-    let ast_body = ExprWrapper::default(Expr::Return(Some(sum)));
+    let sum = op!(var!("left"), + var!("right"));
+    let ast_body = ret!(Some(sum));
     let fn_args = vec![("left".into(), "u64".into()), ("right".into(), "u64".into())];
     let ast = ExprWrapper::default(Expr::FnDecl("add_two_ints".into(), fn_args, Some("u64".into()), ast_body));
 
@@ -44,23 +98,16 @@ fn test_while_lt_increment_u8() {
     //
     //     return i
 
-    let var_decl = ExprWrapper::default(Expr::VarDecl(false, "i".into(), Some("u8".into()), ExprWrapper::default(Expr::Literal(Literals::U8Num(0)))));
-    let loop_cond = ExprWrapper::default(Expr::InfixOp(InfixOp::Lt,
-                                                       ExprWrapper::default(Expr::Var("i".into())),
-                                                       ExprWrapper::default(Expr::Literal(Literals::U8Num(10)))));
-    let loop_body = ExprWrapper::default(Expr::Block(vec![
-        ExprWrapper::default(Expr::Assign(ExprWrapper::default(Expr::Var("i".into())),
-                                          ExprWrapper::default(Expr::InfixOp(InfixOp::Add,
-                                                                             ExprWrapper::default(Expr::Var("i".into())),
-                                                                             ExprWrapper::default(Expr::Literal(Literals::U8Num(1)))))))
-    ]));
+    let var_decl = ExprWrapper::default(Expr::VarDecl(false, "i".into(), Some("u8".into()), u8!(0)));
+    let loop_cond = op!(var!("i"), < u8!(10));
+    let loop_body = assign!(var!("i"), += u8!(1));
     let while_loop = ExprWrapper::default(Expr::WhileLoop(loop_cond, loop_body));
-    let ret = ExprWrapper::default(Expr::Return(Some(ExprWrapper::default(Expr::Var("i".into())))));
-    let body = ExprWrapper::default(Expr::Block(vec![
+    let ret = ret!(Some(var!("i")));
+    let body = block![
         var_decl,
         while_loop,
         ret
-    ]));
+    ];
     let ast = ExprWrapper::default(Expr::FnDecl("inc_until".into(), Vec::new(), Some("u8".into()), body));
 
     let mut llvm_generator = LLVMGenerator::new();
@@ -86,23 +133,16 @@ fn test_while_gt_decrement_u8() {
     //
     //     return i
 
-    let var_decl = ExprWrapper::default(Expr::VarDecl(false, "i".into(), Some("u8".into()), ExprWrapper::default(Expr::Literal(Literals::U8Num(10)))));
-    let loop_cond = ExprWrapper::default(Expr::InfixOp(InfixOp::Gt,
-                                                       ExprWrapper::default(Expr::Var("i".into())),
-                                                       ExprWrapper::default(Expr::Literal(Literals::U8Num(0)))));
-    let loop_body = ExprWrapper::default(Expr::Block(vec![
-        ExprWrapper::default(Expr::Assign(ExprWrapper::default(Expr::Var("i".into())),
-                                          ExprWrapper::default(Expr::InfixOp(InfixOp::Sub,
-                                                                             ExprWrapper::default(Expr::Var("i".into())),
-                                                                             ExprWrapper::default(Expr::Literal(Literals::U8Num(1)))))))
-    ]));
+    let var_decl = ExprWrapper::default(Expr::VarDecl(false, "i".into(), Some("u8".into()), u8!(10)));
+    let loop_cond = op!(var!("i"), > u8!(0));
+    let loop_body = assign!(var!("i"), -= u8!(1));
     let while_loop = ExprWrapper::default(Expr::WhileLoop(loop_cond, loop_body));
-    let ret = ExprWrapper::default(Expr::Return(Some(ExprWrapper::default(Expr::Var("i".into())))));
-    let body = ExprWrapper::default(Expr::Block(vec![
+    let ret = ret!(Some(var!("i")));
+    let body = block![
         var_decl,
         while_loop,
         ret
-    ]));
+    ];
     let ast = ExprWrapper::default(Expr::FnDecl("dec_until".into(), Vec::new(), Some("u8".into()), body));
 
     let mut llvm_generator = LLVMGenerator::new();
@@ -125,15 +165,15 @@ fn test_hello_world() {
     //     print(s)
     //     return
 
-    let var_decl = ExprWrapper::default(Expr::VarDecl(false, "s".into(), Some("std.string.String".into()), ExprWrapper::default(Expr::Literal(Literals::UTF8String("Hello, World!".into())))));
-    let print_call = ExprWrapper::default(Expr::FnCall("print".into(), vec![ExprWrapper::default(Expr::Var("s".into()))]));
-    let ret = ExprWrapper::default(Expr::Return(None));
+    let var_decl = ExprWrapper::default(Expr::VarDecl(false, "s".into(), Some("std.string.String".into()), string!("Hello, World!")));
+    let print_call = ExprWrapper::default(Expr::FnCall("print".into(), vec![var!("s")]));
+    let ret = ret!(None);
 
-    let body = ExprWrapper::default(Expr::Block(vec![
+    let body = block![
         var_decl,
         print_call,
         ret,
-    ]));
+    ];
     let ast = ExprWrapper::default(Expr::FnDecl("hello_world".into(), Vec::new(), None, body));
 
     let mut llvm_generator = LLVMGenerator::new();
