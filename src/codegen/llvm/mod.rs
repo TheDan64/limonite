@@ -289,8 +289,8 @@ impl LLVMGenerator {
                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f32_sub"),
                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f64_sub"),
                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f128_sub"),
-                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct addition not yet implemented."),
-                            (_, _) => panic!("LLVMGenError: Unsupported type addition: {:?} + {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct subtraction not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type subtraction: {:?} - {:?}", lhs_val.get_name(), rhs_val.get_name()),
                         };
 
                         Some(sub)
@@ -302,8 +302,8 @@ impl LLVMGenerator {
                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f32_mul"),
                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f64_mul"),
                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f128_mul"),
-                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct addition not yet implemented."),
-                            (_, _) => panic!("LLVMGenError: Unsupported type addition: {:?} + {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct multiplication not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type multiplication: {:?} * {:?}", lhs_val.get_name(), rhs_val.get_name()),
                         };
 
                         Some(mul)
@@ -314,8 +314,8 @@ impl LLVMGenerator {
                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f32_div"),
                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f64_div"),
                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f128_div"),
-                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct equality not yet implemented."),
-                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} == {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct division not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type division: {:?} / {:?}", lhs_val.get_name(), rhs_val.get_name()),
                         };
 
                         Some(div)
