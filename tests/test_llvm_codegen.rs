@@ -44,9 +44,6 @@ macro_rules! op {
     ($left_arg:expr, + $right_arg:expr) => {
         ExprWrapper::default(Expr::InfixOp(InfixOp::Add, $left_arg, $right_arg))
     };
-    ($left_arg:expr, = $right_arg:expr) => {
-        ExprWrapper::default(Expr::Assign($left_arg, $right_arg))
-    };
     ($left_arg:expr, < $right_arg:expr) => {
         ExprWrapper::default(Expr::InfixOp(InfixOp::Lt, $left_arg, $right_arg))
     };
@@ -71,7 +68,7 @@ macro_rules! assign {
 fn test_sum_function() {
     // Creates a limonite function that looks like:
     // fn add_two_ints(left: u64, right: u64) -> u64,
-    //     return left + right;
+    //     return left + right
 
     let ret = ret!(op!(var!("left"), + var!("right")));
     let fn_args = vec![("left".into(), "u64".into()), ("right".into(), "u64".into())];
@@ -93,7 +90,7 @@ fn test_sum_function() {
 fn test_while_lt_increment_u8() {
     // Creates a limonite function that looks like:
     // fn inc_until() -> u8,
-    //     var i = 0u8;
+    //     var i = 0u8
     //
     //     while i < 10,
     //         i += 1
@@ -128,7 +125,7 @@ fn test_while_lt_increment_u8() {
 fn test_while_gt_decrement_u8() {
     // Creates a limonite function that looks like:
     // fn dec_until() -> u8,
-    //     var i = 10u8;
+    //     var i = 10u8
     //
     //     while i > 0,
     //         i -= 1
@@ -163,7 +160,7 @@ fn test_while_gt_decrement_u8() {
 fn test_hello_world() {
     // Creates a limonite function that looks like:
     // fn hello_world(),
-    //     var s = "Hello, World!";
+    //     var s = "Hello, World!"
     //     print(s)
     //     return
 
