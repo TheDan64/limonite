@@ -4,13 +4,14 @@ mod std;
 extern crate llvm_sys; // TODO: Remove
 
 use codegen::llvm::std::string::{print_function_definition, string_type};
-use lexical::types::Types;
 use self::core::{Builder, Context, Module, Type, Value, PassManager, ExecutionEngine};
+use self::llvm_sys::LLVMIntPredicate::*; // TODO: Remove
+use self::llvm_sys::LLVMRealPredicate::*; // TODO: Remove
+use self::llvm_sys::LLVMTypeKind::*; // TODO: Remove
 use std::collections::HashMap;
 use syntax::expr::{Expr, ExprWrapper};
 use syntax::literals::Literals;
 use syntax::op::{InfixOp, UnaryOp};
-use self::llvm_sys::LLVMIntPredicate; // TODO: Remove
 
 /// WARNING: Drop order can be imporant, so context is placed last intentionally
 pub struct LLVMGenerator {
@@ -251,21 +252,73 @@ impl LLVMGenerator {
                 }
             },
             &Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
-                let (lhs_val, rhs_val) =  match (self.generate_ir(module, lhs_exprwrapper, scoped_variables), self.generate_ir(module, rhs_exprwrapper, scoped_variables)) {
+                let (mut lhs_val, mut rhs_val) = match (self.generate_ir(module, lhs_exprwrapper, scoped_variables), self.generate_ir(module, rhs_exprwrapper, scoped_variables)) {
                     (Some(val1), Some(val2)) => (val1, val2),
                     (Some(_), None) => unreachable!("LLVMGenError: InfixOp only LHS contains value"),
                     (None, Some(_)) => unreachable!("LLVMGenError: InfixOp only RHS contains value"),
                     (None, None) => unreachable!("LLVMGenError: InfixOp has no values")
                 };
 
-                // Adding different types should never happen if SA is doing it's job, right?
+                // REVIEW: I'm wondering if auto deref should be handled by semantic analysis
+                // and insert a "deref" expr
+                if lhs_val.is_pointer() {
+                    lhs_val = self.builder.build_load(&lhs_val, "deref"); // Think this is like Rust's deref trait...
+                }
+
+                if rhs_val.is_pointer() {
+                    rhs_val = self.builder.build_load(&rhs_val, "deref"); // Think this is like Rust's deref trait...
+                }
+
+                // REVIEW: Adding different types should never happen if SA is doing it's job, right?
                 match op {
-                    &InfixOp::Add => Some(self.builder.build_add(&lhs_val, &rhs_val, "add")),
-                    &InfixOp::Sub => Some(self.builder.build_sub(&lhs_val, &rhs_val, "sub")),
-                    &InfixOp::Mul => Some(self.builder.build_mul(&lhs_val, &rhs_val, "mul")),
-                    &InfixOp::Div => match (lhs_val, rhs_val) {
-                        // LLVMBuildFDiv, LLVMBuildSDiv, LLVMBuildUDiv
-                        _ => panic!("LLVMGenError: Unimplemented infix operator div")
+                    &InfixOp::Add => {
+                        let add = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_add(&lhs_val, &rhs_val, "int_add"),
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_add(&lhs_val, &rhs_val, "f32_add"), // REVIEW: How is this different from LLVMRealUEQ??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_add(&lhs_val, &rhs_val, "f64_add"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_add(&lhs_val, &rhs_val, "f128_add"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct addition not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type addition: {:?} + {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(add)
+                    },
+                    &InfixOp::Sub => {
+                        let sub = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_sub(&lhs_val, &rhs_val, "int_sub"),
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f32_sub"),
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f64_sub"),
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f128_sub"),
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct subtraction not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type subtraction: {:?} - {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(sub)
+
+                    },
+                    &InfixOp::Mul => {
+                        let mul = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_mul(&lhs_val, &rhs_val, "int_mul"),
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f32_mul"),
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f64_mul"),
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f128_mul"),
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct multiplication not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type multiplication: {:?} * {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(mul)
+                    },
+                    &InfixOp::Div => {
+                        let div = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_div(&lhs_val, &rhs_val, "int_div"), // TODO: Signed support
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f32_div"),
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f64_div"),
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f128_div"),
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct division not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type division: {:?} / {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(div)
                     },
                     &InfixOp::Mod => match (lhs_val, rhs_val) {
                         _ => panic!("LLVMGenError: Unimplemented infix operator mod")
@@ -273,13 +326,69 @@ impl LLVMGenerator {
                     &InfixOp::Pow => match (lhs_val, rhs_val) {
                         _ => panic!("LLVMGenError: Unimplemented infix operator pow")
                     },
-                    &InfixOp::Equ => match (lhs_val, rhs_val) {
-                        // LLVMBuildICmp, LLVMBuildFCmp?
-                        _ => panic!("LLVMGenError: Unimplemented infix operator equ")
+                    &InfixOp::Equ => {
+                        let equ = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntEQ, &lhs_val, &rhs_val, "int_equ"),
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOEQ, &lhs_val, &rhs_val, "f32_equ"), // REVIEW: How is this different from LLVMRealUEQ??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOEQ, &lhs_val, &rhs_val, "f64_equ"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOEQ, &lhs_val, &rhs_val, "f128_equ"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct equality not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} == {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(equ)
+                    },
+                    &InfixOp::Lt => {
+                        let lt = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntULT, &lhs_val, &rhs_val, "int_lt"), // TODO: Signed compare
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOLT, &lhs_val, &rhs_val, "f32_lt"), // REVIEW: How is this different from LLVMRealULT??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOLT, &lhs_val, &rhs_val, "f64_lt"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOLT, &lhs_val, &rhs_val, "f128_lt"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct less than not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} < {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(lt)
+                    },
+                    &InfixOp::Lte => {
+                        let lte = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntULE, &lhs_val, &rhs_val, "int_lte"), // TODO: Signed compare
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOLE, &lhs_val, &rhs_val, "f32_lte"), // REVIEW: How is this different from LLVMRealULE??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOLE, &lhs_val, &rhs_val, "f64_lte"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOLE, &lhs_val, &rhs_val, "f128_lte"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct less than equal not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} <= {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(lte)
+                    },
+                    &InfixOp::Gt => {
+                        let gt = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntUGT, &lhs_val, &rhs_val, "int_gt"), // TODO: Signed compare
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOGT, &lhs_val, &rhs_val, "f32_gt"), // REVIEW: How is this different from LLVMRealUGT??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOGT, &lhs_val, &rhs_val, "f64_gt"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOGT, &lhs_val, &rhs_val, "f128_gt"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct greater than not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} > {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(gt)
+                    },
+                    &InfixOp::Gte => {
+                        let gte = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
+                            (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntUGE, &lhs_val, &rhs_val, "int_gte"), // TODO: Signed compare
+                            (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOGE, &lhs_val, &rhs_val, "f32_gte"), // REVIEW: How is this different from LLVMRealUGE??
+                            (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOGE, &lhs_val, &rhs_val, "f64_gte"), // ^
+                            (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOGE, &lhs_val, &rhs_val, "f128_gte"), // ^
+                            (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct greater than equal not yet implemented."),
+                            (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} >= {:?}", lhs_val.get_name(), rhs_val.get_name()),
+                        };
+
+                        Some(gte)
                     }
                 }
             },
-            // Needs further testing
+            // REVIEW: Needs further testing
             &Expr::UnaryOp(ref op, ref expr) => {
                 match op {
                     &UnaryOp::Negate => self.generate_ir(module, expr, scoped_variables).map(|val| self.builder.build_neg(&val, "neg")),
@@ -287,18 +396,17 @@ impl LLVMGenerator {
                 }
             },
             &Expr::FnDecl(ref name, ref arg_defs, ref return_type, ref body_expr) => {
-                let mut fn_variable_scope = HashMap::new(); // REVIEW: This should exclude globals
-                let mut arg_types: Vec<Type> = arg_defs.iter().map(|&(_, ref type_string)| self.string_to_type(&type_string[..])).collect();
+                let mut fn_variable_scope = HashMap::new(); // REVIEW: This will exclude globals
+                let mut arg_types: Vec<Type> = arg_defs.iter().map(|&(_, ref type_string)| self.string_to_type(&type_string[..], &module).expect("Did not find specified type")).collect();
 
                 // TODO: Support args types and return types
                 let return_type = match return_type {
-                    &Some(ref type_string) => self.string_to_type(&type_string[..]),
+                    &Some(ref type_string) => self.string_to_type(&type_string[..], &module).expect("Did not find speficied type"),
                     &None => self.context.void_type(),
                 };
 
                 let function = module.add_function(name, return_type.fn_type(&mut arg_types, false));
 
-                // REVIEW: This can be unclear zipping "function" will get the iterator of it's params
                 let name_value_data = arg_defs.iter().map(|&(ref name, _)| name).zip(function.params());
 
                 for (name, mut param_value) in name_value_data {
@@ -309,17 +417,23 @@ impl LLVMGenerator {
                 let bb_enter = self.context.append_basic_block(&function, "enter");
 
                 self.builder.position_at_end(&bb_enter);
-                // self.builder.insert_instruction(); // FIXME: unwrap
 
                 // REVIEW: This will return the last generated value... is that what we want?
                 // Or should it go back to the global scope after generating ir?
-                // self.generate_ir(module, body_expr);
                 self.generate_ir(module, body_expr, &mut fn_variable_scope)
             },
             &Expr::Return(ref return_type_expr) => {
                 match return_type_expr {
                     &Some(ref return_type) => match self.generate_ir(module, return_type, scoped_variables) {
-                        Some(t) => Some(self.builder.build_return(Some(t))),
+                        Some(mut t) => {
+                            // REVIEW: I'm wondering if auto deref should be handled by semantic analysis
+                            // and insert a "deref" expr
+                            if t.is_pointer() {
+                                t = self.builder.build_load(&t, "deref"); // Think this is like Rust's Deref Trait
+                            }
+
+                            Some(self.builder.build_return(Some(t)))
+                        }
                         None => unreachable!("LLVMGenError: Hit unreachable return type generation")
                     },
                     &None => Some(self.builder.build_return(None)),
@@ -335,34 +449,35 @@ impl LLVMGenerator {
                 assert!(val_type.is_some(), "LLVMGenError: Variable declaration not given a type by codegen phase");
 
                 // Assign to a literal
-                match val_type.as_ref().unwrap().parse::<Types>() {
-                    Ok(_) => {
-                        match self.generate_ir(module, expr, scoped_variables) {
-                            Some(val) => {
-                                // Couldn't figure out how to not clone this string
-                                scoped_variables.insert(name.clone(), val);
+                match self.generate_ir(module, expr, scoped_variables) {
+                    Some(val) => {
+                        let val = if !val.is_pointer() {
+                            let alloca = self.builder.build_stack_allocation(&val.get_type(), "stored_ptr");
+                            self.builder.build_store(&val, &alloca);
 
-                                Some(val)
-                            },
-                            None => None
-                        }
+                            alloca
+                        } else {
+                            val
+                        };
+
+                        // Couldn't figure out how to not clone this string
+                        scoped_variables.insert(name.clone(), val);
+
+                        Some(val)
                     },
-                    // Assign from a custom type
-                    Err(_) => panic!("LLVMGenError: Unimplemented var declaration for {}", name)
+                    None => None
                 }
             },
             &Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
-                // Need to know value type (float or int?)
-
                 let cond_val = match self.generate_ir(module, cond_expr, scoped_variables) {
                     Some(val) => val,
                     None => return None
                 };
 
-                let type_ = self.context.i64_type(); // TODO: Support other types
+                let type_ = self.context.bool_type();
 
                 let zero = type_.const_int(0, false);
-                let op = LLVMIntPredicate::LLVMIntEQ;
+                let op = LLVMIntEQ;
 
                 let block = self.builder.get_insert_block();
 
@@ -410,27 +525,74 @@ impl LLVMGenerator {
 
                 Some(phi)
             },
-            &Expr::WhileLoop(_, _) => unimplemented!(),
-            &Expr::Assign(_, _) => unimplemented!(),
+            &Expr::WhileLoop(ref condition, ref body) => {
+                let one = self.context.bool_type().const_int(1, false);
+
+                let start_block = self.builder.get_insert_block();
+                let cond_check_block = self.context.insert_basic_block_after(&start_block, "cond_check");
+                let loop_block = self.context.insert_basic_block_after(&cond_check_block, "loop");
+                let end_block = self.context.insert_basic_block_after(&loop_block, "end");
+
+                self.builder.position_at_end(&start_block);
+                self.builder.build_unconditional_branch(&cond_check_block);
+                self.builder.position_at_end(&cond_check_block);
+
+                let cond_val = match self.generate_ir(module, condition, scoped_variables) {
+                    Some(val) => val,
+                    None => return None
+                };
+                let cond_cmp = self.builder.build_int_compare(LLVMIntEQ, &cond_val, &one, "cmp");
+
+                self.builder.build_conditional_branch(&cond_cmp, &loop_block, &end_block);
+                self.builder.position_at_end(&loop_block);
+
+                let body = self.generate_ir(module, body, scoped_variables);
+
+                self.builder.build_unconditional_branch(&cond_check_block);
+                self.builder.position_at_end(&end_block);
+
+                body
+            },
+            &Expr::Assign(ref lhs_exprwrapper, ref rhs_exprwrapper) => { // REVIEW: Should we assume SA would stop us from mutating an immutable?
+                // REVIEW: Does it ever make sense for the lhs to be anything other than a string?
+                // We could just look it up in the hash table directly...
+                // if let &Expr::Var(ref string) = lhs_exprwrapper.get_expr() {
+                //     scoped_variables.get(string);
+                // }
+
+                let (lhs_val, rhs_val) =  match (self.generate_ir(module, lhs_exprwrapper, scoped_variables), self.generate_ir(module, rhs_exprwrapper, scoped_variables)) {
+                    (Some(val1), Some(val2)) => (val1, val2),
+                    (Some(_), None) => unreachable!("LLVMGenError: Assign only LHS contains value"),
+                    (None, Some(_)) => unreachable!("LLVMGenError: Assign only RHS contains value"),
+                    (None, None) => unreachable!("LLVMGenError: Assign has no values")
+                };
+
+                // let lhs_val = self.builder.build_gep(&lhs_val, &vec![0], "gep");
+
+                Some(self.builder.build_store(&rhs_val, &lhs_val))
+            },
             &Expr::NoOp => None,
         }
     }
 
-    fn string_to_type(&self, name: &str) -> Type {
+    fn string_to_type(&self, name: &str, module: &Module) -> Option<Type> {
         match name {
-            "bool" => self.context.bool_type(),
-            "i8" => self.context.i8_type(),
-            "u8" => self.context.i8_type(),
-            "i16" => self.context.i16_type(),
-            "u16" => self.context.i16_type(),
-            "f32" => self.context.f32_type(),
-            "i32" => self.context.i32_type(),
-            "u32" => self.context.i32_type(),
-            "f64" => self.context.f64_type(),
-            "i64" => self.context.i64_type(),
-            "u64" => self.context.i64_type(),
-            "void" => self.context.void_type(), // TODO: Not use name "void"
-            _ => unimplemented!() // LLVMGetTypeByName()?
+            "bool" => Some(self.context.bool_type()),
+            "i8" => Some(self.context.i8_type()),
+            "u8" => Some(self.context.i8_type()),
+            "i16" => Some(self.context.i16_type()),
+            "u16" => Some(self.context.i16_type()),
+            "f32" => Some(self.context.f32_type()),
+            "i32" => Some(self.context.i32_type()),
+            "u32" => Some(self.context.i32_type()),
+            "i64" => Some(self.context.i64_type()),
+            "u64" => Some(self.context.i64_type()),
+            "f64" => Some(self.context.f64_type()),
+            "f128" => Some(self.context.f128_type()),
+            "i128" => Some(self.context.i128_type()),
+            "u128" => Some(self.context.i128_type()),
+            "void" => Some(self.context.void_type()), // TODO: Not use name "void"
+            _ => module.get_type(name),
         }
     }
 }
