@@ -112,7 +112,11 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                 let lhs_type = self.analyze(lhs_expr_wrapper).unwrap();
                 let rhs_type = self.analyze(rhs_expr_wrapper).unwrap();
 
-                TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type)
+                match TypeChecker::cmp_lhs_rhs(lhs_type, rhs_type) {
+                    Some(_) if op.returns_bool() => Some("bool".into()),
+                    Some(t) => Some(t),
+                    None => None,
+                }
             },
             Literal(ref literal) => Some(literal.to_string()), // Done?
             Return(ref mut opt_ret_type) => match *opt_ret_type { // Done?
@@ -120,7 +124,7 @@ impl ASTAnalyzer<Option<String>> for TypeChecker {
                 None => Some("None".into()) // None type?
             },
             UnaryOp(ref op, ref mut expr_wrapper) => self.analyze(expr_wrapper),
-            Var(ref name) => unimplemented!(), // FIXME: Lookup VarDecl type
+            Var(ref name) => return Some("i32".into()), // FIXME: Lookup VarDecl type
             VarDecl(ref const_, ref name, ref mut opt_type, ref mut expr_wrapper) => {
                 let rhs_type = self.analyze(expr_wrapper).unwrap();
 

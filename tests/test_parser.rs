@@ -379,6 +379,27 @@ fn test_assign() {
         ))
     ];
     expect_test(tokens, desired_ast);
+
+    let tokens = vec![
+        Identifier("b".to_string()),
+        Symbol(Symbols::PlusEquals),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+    ];
+    let desired_ast = vec![
+        assign!(var!("b"), += u32!(123))
+    ];
+    expect_test(tokens, desired_ast);
+
+    let tokens = vec![
+        Identifier("b".to_string()),
+        Symbol(Symbols::MinusEquals),
+        Numeric("123".to_string(), Some(Types::UInt32Bit)),
+    ];
+    let desired_ast = vec![
+        assign!(var!("b"), -= u32!(123))
+
+    ];
+    expect_test(tokens, desired_ast);
 }
 
 #[test]

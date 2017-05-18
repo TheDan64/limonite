@@ -50,6 +50,17 @@ impl InfixOp {
             InfixOp::Pow => 3 // Not sure about this one
         }
     }
+
+    pub fn returns_bool(&self) -> bool {
+        match *self {
+            InfixOp::Lt  => true,
+            InfixOp::Lte => true,
+            InfixOp::Gt  => true,
+            InfixOp::Gte => true,
+            InfixOp::Equ => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

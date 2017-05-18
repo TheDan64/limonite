@@ -135,7 +135,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
 
         self.valid_ast = false;
 
-        println!("filename:{}:{} {}", start_line, start_column, msg);
+        println!("filename:{}:{} {}", start_line, start_column, msg); // REVIEW: Rust added eprintln!
 
         // This token seems to always be unused:
         Tokens::Error(format!("filename:{}:{} {}", start_line, start_column, msg))
@@ -258,6 +258,40 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
         None
     }
 
+    fn parse_add_assignment(&mut self, ident: String) -> Option<ExprWrapper> {
+        // Clear the greater than symbol
+        self.next_token();
+
+        if let Some(rvalue) = self.parse_expression(0) {
+            let ident_expr = ExprWrapper::default(Expr::Var(ident.clone()));
+            let ident_expr2 = ExprWrapper::default(Expr::Var(ident));
+            let add = ExprWrapper::default(Expr::InfixOp(InfixOp::Add, ident_expr, rvalue));
+
+            return Some(ExprWrapper::default(Expr::Assign(ident_expr2, add)));
+        } else {
+            self.write_expect_error("", "An expression", "None");
+        }
+
+        None
+    }
+
+    fn parse_sub_assignment(&mut self, ident: String) -> Option<ExprWrapper> {
+        // Clear the greater than symbol
+        self.next_token();
+
+        if let Some(rvalue) = self.parse_expression(0) {
+            let ident_expr = ExprWrapper::default(Expr::Var(ident.clone()));
+            let ident_expr2 = ExprWrapper::default(Expr::Var(ident));
+            let sub = ExprWrapper::default(Expr::InfixOp(InfixOp::Sub, ident_expr, rvalue));
+
+            return Some(ExprWrapper::default(Expr::Assign(ident_expr2, sub)));
+        } else {
+            self.write_expect_error("", "An expression", "None");
+        }
+
+        None
+    }
+
     fn parse_idents(&mut self, ident: String) -> Option<ExprWrapper> {
         self.next_token();
 
@@ -265,6 +299,8 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
         match tok {
             Symbol(Symbols::ParenOpen) => self.parse_fn_call(ident),
             Symbol(Symbols::Equals) => self.parse_assignment(ident),
+            Symbol(Symbols::PlusEquals) => self.parse_add_assignment(ident),
+            Symbol(Symbols::MinusEquals) => self.parse_sub_assignment(ident),
             _ => None,
         }
     }
@@ -512,6 +548,10 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
             Symbol(Symbols::Slash) => true,
             Symbol(Symbols::Percent) => true,
             Symbol(Symbols::Caret) => true,
+            Symbol(Symbols::LessThan) => true,
+            Symbol(Symbols::LessThanEqual) => true,
+            Symbol(Symbols::GreaterThan) => true,
+            Symbol(Symbols::GreaterThanEqual) => true,
             Keyword(Keywords::Equals) => true,
             _ => false
         }
@@ -559,6 +599,10 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
                     Symbol(Symbols::Slash) => InfixOp::Div,
                     Symbol(Symbols::Percent) => InfixOp::Mod,
                     Symbol(Symbols::Caret) => InfixOp::Pow,
+                    Symbol(Symbols::LessThan) => InfixOp::Lt,
+                    Symbol(Symbols::LessThanEqual) => InfixOp::Lte,
+                    Symbol(Symbols::GreaterThan) => InfixOp::Gt,
+                    Symbol(Symbols::GreaterThanEqual) => InfixOp::Gte,
                     Keyword(Keywords::Equals) => InfixOp::Equ,
                     _ => unreachable!("Expression parse")
                 };
@@ -807,7 +851,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
                                                      "a newline", &format!("{:?}", token));
                             return ExprWrapper::default(Expr::NoOp)
                         }
-                    },
+                    }
                 }
             }
             if outer_break {
