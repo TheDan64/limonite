@@ -4,4 +4,3 @@ target
 *.sublime-project
 src/*.o
 testinput*
-Cargo.lock

@@ -22,6 +22,8 @@ pub struct Context {
     context: LLVMContextRef,
 }
 
+// From Docs: A single context is not thread safe.
+// However, different contexts can execute on different threads simultaneously.
 impl Context {
     pub fn create() -> Self {
         let context = unsafe {
@@ -1139,6 +1141,7 @@ impl Type {
         }
     }
 
+    /// REVIEW: Untested
     pub fn get_alignment(&self) -> Value {
         let val = unsafe {
             LLVMAlignOf(self.type_)
@@ -1158,8 +1161,10 @@ impl Type {
         Value::new(val)
     }
 
-    /// REVIEW: May or may not make this public...
-    fn get_context(&self) -> Context { // REVIEW: Option<Context>? I believe types can be context-less
+    // FIXME: Not approved by the FDA, may cause segfaults
+    // If multiple Context objects are created, one is bound to be `Drop`ped at end of a scope
+    // Should create only a Context reference to avoid `Drop`
+    fn get_context(&self) -> Context { // REVIEW: Option<Context>? I believe types can be context-less (maybe not, it might auto assign the global context (if any??))
         let context = unsafe {
             LLVMGetTypeContext(self.type_)
         };
@@ -1601,9 +1606,11 @@ impl Value {
 
 impl From<u64> for Value {
     fn from(int: u64) -> Value {
-        unsafe {
-            Type::new(LLVMInt32Type()).const_int(int, false)
-        }
+        let type_ = unsafe {
+            LLVMInt32Type()
+        };
+
+        Type::new(type_).const_int(int, false)
     }
 }
 
