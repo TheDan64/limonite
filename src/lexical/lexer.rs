@@ -208,8 +208,7 @@ impl<'a> Lexer<'a> {
                                 Err(e) => return Error(e)
                             }
                         };
-                    },
-                    _ => return Error(format!("Invalid number type {:?}", self.next_char())),
+                    }
                 }
             },
             _ => {
