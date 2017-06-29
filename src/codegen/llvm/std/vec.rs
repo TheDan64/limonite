@@ -1,4 +1,7 @@
-use codegen::llvm::core::{Context, Type};
+extern crate inkwell;
+
+use self::inkwell::context::Context;
+use self::inkwell::types::Type;
 
 pub fn vec_type(context: &Context, t: Type, type_name: &str) {
     let field_types = vec![

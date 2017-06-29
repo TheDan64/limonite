@@ -1,10 +1,16 @@
-mod core;
 mod std;
 
+extern crate inkwell;
 extern crate llvm_sys; // TODO: Remove
 
 use codegen::llvm::std::string::{define_print_function, define_string_type};
-use self::core::{Builder, Context, Module, Type, Value, PassManager, ExecutionEngine};
+use self::inkwell::builder::Builder;
+use self::inkwell::context::Context;
+use self::inkwell::execution_engine::ExecutionEngine;
+use self::inkwell::module::Module;
+use self::inkwell::pass_manager::PassManager;
+use self::inkwell::types::Type;
+use self::inkwell::values::Value;
 use self::llvm_sys::LLVMIntPredicate::*; // TODO: Remove
 use self::llvm_sys::LLVMRealPredicate::*; // TODO: Remove
 use self::llvm_sys::LLVMTypeKind::*; // TODO: Remove
