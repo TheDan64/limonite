@@ -108,54 +108,10 @@ impl<'a> Lexer<'a> {
         Identifier(ident)
     }
 
-    // Find a sequence of 32 or 64
-    fn consume_32_64(&mut self, prefix: char) -> Result<String, String> {
-        // prefix is the starting character, ie i, u, f
-        let mut string = String::new();
-        string.push(prefix);
-
-        match self.next_char() {
-            Some('3') => {
-                string.push(self.consume_char().unwrap());
-
-                match self.next_char() {
-                    Some('2')  => {
-                        string.push(self.consume_char().unwrap());
-
-                        Ok(string)
-                    },
-                    Some('\n') | // NL & CR have pesky visual effects.
-                    Some('\r') => Err(format!("Invalid suffix {}. Did you mean {}32?", string, prefix)),
-                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}2?", string, self.consume_char().unwrap())),
-                    None       => Err(format!("Hit EOF when looking for suffix {}32.", prefix))
-                }
-            },
-            Some('6') => {
-                string.push(self.consume_char().unwrap());
-
-                match self.next_char() {
-                    Some('4')  => {
-                        string.push(self.consume_char().unwrap());
-
-                        Ok(string)
-                    },
-                    Some('\n') | // NL & CR have pesky visual effects.
-                    Some('\r') => Err(format!("Invalid suffix {}. Did you mean {}64?", string, prefix)),
-                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}4?", string, self.consume_char().unwrap())),
-                    None       => Err(format!("Hit EOF when looking for suffix {}64.", prefix))
-                }
-            },
-            Some('\n') | // NL & CR have pesky visual effects.
-            Some('\r') => Err(format!("Invalid suffix {}. Did you mean {1}32 or {1}64?", string, prefix)),
-            Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}32 or {0}64?", string, self.consume_char().unwrap())),
-            None       => Err(format!("Hit EOF when looking for a suffix {0}32 or {0}64.", prefix))
-        }
-    }
-
     // Determines what type of number it is and consume it
-    fn consume_numeric(&mut self) -> Tokens {
+    fn consume_numeric(&mut self) -> Tokens { // TODO: Change Error token to Result
         let mut number = String::new();
-        let mut suffix = String::new();
+        let mut suffix = None;
 
         match self.next_char() {
             Some('0') => {
@@ -181,28 +137,10 @@ impl<'a> Lexer<'a> {
                             return Error("No hexadecimal value was found.".to_string());
                         }
 
-                        // Attempt to find a suffix if one exists
-                        match self.next_char() {
-                            Some('u') |
-                            Some('i') => {
-                                let ch = self.consume_char().unwrap();
-
-                                match self.consume_32_64(ch) {
-                                    Ok(s)    => suffix.push_str(&s),
-                                    Err(err) => return Error(err)
-                                };
-                            },
-
-                            // Found some other suffix, ie 0x42o
-                            Some(c) if c.is_alphanumeric() => {
-                                let ch = self.consume_char().unwrap();
-                                let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
-
-                                return Error(err);
-                            },
-
-                            // If eof or other just return the numeric token without a suffix
-                            _ => ()
+                        match self.consume_numeric_suffix() {
+                            Ok(Some(t)) => suffix = Some(t),
+                            Ok(None) => (),
+                            Err(e) => return Error(e)
                         };
                     },
                     Some('b') => {
@@ -223,31 +161,54 @@ impl<'a> Lexer<'a> {
                             return Error("No binary value was found.".to_string());
                         }
 
-                        // Attempt to find a suffix if one exists
-                        match self.next_char() {
-                            Some('u') |
-                            Some('i') => {
-                                let ch = self.consume_char().unwrap();
-
-                                match self.consume_32_64(ch) {
-                                    Ok(s)    => suffix.push_str(&s),
-                                    Err(err) => return Error(err)
-                                };
-                            },
-
-                            // Found some other suffix, ie 0x42o
-                            Some(c) if c.is_alphabetic() => {
-                                let ch = self.consume_char().unwrap();
-                                let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
-
-                                return Error(err);
-                            },
-
-                            // If eof or other just return the numeric token without a suffix
-                            _ => ()
+                        match self.consume_numeric_suffix() {
+                            Ok(Some(t)) => suffix = Some(t),
+                            Ok(None) => (),
+                            Err(e) => return Error(e)
                         };
                     },
-                    _ => return Error(format!("Invalid number type {:?}", self.next_char())),
+                    _ => {
+                        // REVIEW: Better way to do this than two allocations?
+                        // Maybe a consume_while_append which adds to an existing string
+                        // instead of returning one? Happens elsewhere too
+                        number.push('0');
+                        number.push_str(&self.consume_while(&mut |ch| match ch {
+                            '0'...'9' |
+                            '_' => true,
+                             _  => false
+                        }));
+
+                        // Can be either float or int
+                        match self.next_char() {
+                            // Float decimal point:
+                            Some('.') => {
+                                number.push(self.consume_char().unwrap());
+
+                                let fractional = self.consume_while(&mut |ch| match ch {
+                                    '0'...'9' |
+                                    '_' => true,
+                                     _  => false
+                                });
+
+                                // Check if no decimal values were found
+                                match &fractional[..] {
+                                    "" => return Error("No numbers found after the decimal point.".to_string()),
+                                    _  => number.push_str(&fractional)
+                                }
+
+                                match self.consume_numeric_suffix() {
+                                    Ok(Some(t)) => suffix = Some(t),
+                                    Ok(None) => (),
+                                    Err(e) => return Error(e)
+                                };
+                            },
+                            _ => match self.consume_numeric_suffix() {
+                                Ok(Some(t)) => suffix = Some(t),
+                                Ok(None) => (),
+                                Err(e) => return Error(e)
+                            }
+                        };
+                    }
                 }
             },
             _ => {
@@ -276,57 +237,135 @@ impl<'a> Lexer<'a> {
                             _  => number.push_str(&fractional)
                         }
 
-                        // Find float suffixes
-                        match self.next_char() {
-                            Some('f') => {
-                                let ch = self.consume_char().unwrap();
-
-                                match self.consume_32_64(ch) {
-                                    Ok(s)    => suffix.push_str(&s),
-                                    Err(err) => return Error(err)
-                                };
-                            },
-
-                            // Found some other suffix, ie 0x42o
-                            Some(c) if c.is_alphabetic() => {
-                                let ch = self.consume_char().unwrap();
-                                let err = format!("Invalid suffix {}. Did you mean f32, f64?", ch);
-
-                                return Error(err);
-                            },
-
-                            // No suffix found, can hit symbols or other
-                            _ => ()
-                        }
-                    },
-
-                    // Int suffixes:
-                    Some('u') |
-                    Some('i') => {
-                        let ch = self.consume_char().unwrap();
-
-                        match self.consume_32_64(ch) {
-                            Ok(s)    => suffix.push_str(&s),
-                            Err(err) => return Error(err)
+                        match self.consume_numeric_suffix() {
+                            Ok(Some(t)) => suffix = Some(t),
+                            Ok(None) => (),
+                            Err(e) => return Error(e)
                         };
                     },
-
-                    // Found some other suffix, ie 0x42o
-                    Some(c) if c.is_alphabetic() => {
-                        let ch = self.consume_char().unwrap();
-                        let err = format!("Invalid suffix {}. Did you mean u32, u64, i32, or i64?", ch);
-
-                        return Error(err);
-                    },
-
-                    // Presumably any other remaining char is valid, ie symbols {,[ etc
-                    _ => ()
+                    _ => match self.consume_numeric_suffix() {
+                        Ok(Some(t)) => suffix = Some(t),
+                        Ok(None) => (),
+                        Err(e) => return Error(e)
+                    }
                 };
             },
         }
 
-        Numeric(number, suffix.parse::<Types>().ok())
+        Numeric(number, suffix)
      }
+
+    fn consume_numeric_suffix(&mut self) -> Result<Option<Types>, String> {
+        let mut suffix = String::with_capacity(4);
+
+        match self.next_char() {
+            Some('u') |
+            Some('i') => {
+                suffix.push(self.consume_char().unwrap());
+                self.consume_numeric_suffix_end(&mut suffix, true)?;
+
+                Ok(suffix.parse::<Types>().ok())
+            },
+            Some('f') => {
+                suffix.push(self.consume_char().unwrap());
+                self.consume_numeric_suffix_end(&mut suffix, false)?;
+
+                Ok(suffix.parse::<Types>().ok())
+            },
+            Some(c) if c.is_alphabetic() => {
+                let ch = self.consume_char().unwrap();
+                let err = format!("Invalid suffix {}. Did you mean u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, or f128?", ch);
+
+                Err(err)
+            },
+            Some(_) => Ok(None),
+            None => Ok(None)
+        }
+    }
+
+    // Find a sequence of 8, 16 (if allowed), 32, 64, or 128
+    fn consume_numeric_suffix_end(&mut self, buffer: &mut String, allow_8_16: bool) -> Result<(), String> {
+        // buffer should contain the starting character, ie i, u, f
+        match self.next_char() {
+            Some('8') if allow_8_16 => {
+                buffer.push(self.consume_char().unwrap());
+
+                Ok(())
+            },
+            Some('1') => {
+                buffer.push(self.consume_char().unwrap());
+
+                match self.next_char() {
+                    Some('6') if allow_8_16 => {
+                        buffer.push(self.consume_char().unwrap());
+
+                        Ok(())
+                    },
+                    Some('2') => {
+                        buffer.push(self.consume_char().unwrap());
+
+                        match self.next_char() {
+                            Some('8') => {
+                                buffer.push(self.consume_char().unwrap());
+
+                                Ok(())
+                            },
+                            Some('\n') | // NL & CR have pesky visual effects.
+                            Some('\r') => Err(format!("Invalid suffix {}. Did you mean {0}8?", buffer)),
+                            Some(_) => Err(format!("Invalid suffix {}{}. Did you mean {0}8?", buffer, self.consume_char().unwrap())),
+                            None => Err(format!("Hit EOF when looking for suffix {}8", buffer)),
+                        }
+                    },
+                    Some('\n') | // NL & CR have pesky visual effects.
+                    Some('\r') => Err(format!("Invalid suffix {}. Did you mean {0}6 or {0}28?", buffer)),
+                    Some(_) => if allow_8_16 {
+                        Err(format!("Invalid suffix {}{}. Did you mean {0}6 or {0}28?", buffer, self.consume_char().unwrap()))
+                    } else {
+                        Err(format!("Invalid suffix {}{}. Did you mean {0}28?", buffer, self.consume_char().unwrap()))
+                    },
+                    None => if allow_8_16 {
+                        Err(format!("Hit EOF when looking for suffix {}16 or {0}128.", buffer))
+                    } else {
+                        Err(format!("Hit EOF when looking for suffix {}128", buffer))
+                    }
+                }
+            },
+            Some('3') => {
+                buffer.push(self.consume_char().unwrap());
+
+                match self.next_char() {
+                    Some('2')  => {
+                        buffer.push(self.consume_char().unwrap());
+
+                        Ok(())
+                    },
+                    Some('\n') | // NL & CR have pesky visual effects.
+                    Some('\r') => Err(format!("Invalid suffix {}. Did you mean {0}2?", buffer)),
+                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}2?", buffer, self.consume_char().unwrap())),
+                    None       => Err(format!("Hit EOF when looking for suffix {}32.", buffer))
+                }
+            },
+            Some('6') => {
+                buffer.push(self.consume_char().unwrap());
+
+                match self.next_char() {
+                    Some('4')  => {
+                        buffer.push(self.consume_char().unwrap());
+
+                        Ok(())
+                    },
+                    Some('\n') | // NL & CR have pesky visual effects.
+                    Some('\r') => Err(format!("Invalid suffix {}. Did you mean {0}4?", buffer)),
+                    Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}4?", buffer, self.consume_char().unwrap())),
+                    None       => Err(format!("Hit EOF when looking for suffix {}64.", buffer))
+                }
+            },
+            Some('\n') | // NL & CR have pesky visual effects.
+            Some('\r') => Err(format!("Invalid suffix {}. Did you mean {0}32, {0}64, or {0}128?", buffer)),
+            Some(_)    => Err(format!("Invalid suffix {}{}. Did you mean {0}32, {0}64, or {0}128?", buffer, self.consume_char().unwrap())),
+            None       => Err(format!("Hit EOF when looking for a suffix {0}32, {0}64, or {0}128.", buffer))
+        }
+    }
 
     fn consume_comment(&mut self) -> Tokens {
         let mut result = String::new();

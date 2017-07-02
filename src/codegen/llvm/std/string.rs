@@ -1,28 +1,23 @@
 extern crate llvm_sys;
 
-use codegen::llvm::core::{Builder, Context, Module, Type};
+use codegen::llvm::core::{Builder, Context, Module};
 use self::llvm_sys::LLVMIntPredicate; // TODO: Remove
+use codegen::llvm::std::vec::vec_type;
 
-// TODO: Change to put string def in module if not already there
-// use std.string.String
-pub fn string_type(context: &Context) -> Type {
-    let field_types = vec![
-        context.i8_type().ptr_type(0),
-        context.i64_type(), // len
-        context.i64_type(), // cap
-    ];
+pub fn define_string_type(context: &Context) {
+    let i8_ptr_type = context.i8_type().ptr_type(0);
 
-    context.struct_type(field_types)
+    vec_type(&context, i8_ptr_type, "std.string.String")
 }
 
 // TODO: Move out of the string file:
-pub fn print_function_definition(builder: &Builder, context: &Context, module: &Module) {
+pub fn define_print_function(builder: &Builder, context: &Context, module: &Module) {
     // Types
     let void = context.void_type();
     let i32_type = context.i32_type();
     let i64_type = context.i64_type();
     let i32_ptr_type = i32_type.ptr_type(0);
-    let string_type_ptr = string_type(context).ptr_type(0);
+    let string_type_ptr = module.get_type("std.string.String").expect("LLVMGenError: Could not find String definition").ptr_type(0);
 
     let mut args = vec![string_type_ptr];
 

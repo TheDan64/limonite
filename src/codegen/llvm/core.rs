@@ -1,7 +1,7 @@
 extern crate llvm_sys;
 
 use self::llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction, LLVMVerifyFunction};
-use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMBuildSub, LLVMBuildMul, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetNextBasicBlock, LLVMGetFirstBasicBlock, LLVMGetLastBasicBlock, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal, LLVMFloatTypeInContext, LLVMDoubleTypeInContext, LLVMStructGetTypeAtIndex, LLVMMoveBasicBlockAfter, LLVMMoveBasicBlockBefore, LLVMGetTypeByName, LLVMBuildFree, LLVMGetParamTypes, LLVMGetBasicBlocks, LLVMIsUndef, LLVMBuildAnd, LLVMBuildOr, LLVMBuildSDiv, LLVMBuildUDiv, LLVMBuildFAdd, LLVMBuildFDiv, LLVMBuildFMul, LLVMBuildXor, LLVMBuildFCmp, LLVMBuildFNeg, LLVMBuildFSub, LLVMBuildUnreachable, LLVMBuildFence, LLVMGetPointerAddressSpace, LLVMIsAConstantPointerNull, LLVMCountParamTypes, LLVMFP128TypeInContext, LLVMIntTypeInContext};
+use self::llvm_sys::core::{LLVMContextCreate, LLVMCreateBuilderInContext, LLVMModuleCreateWithNameInContext, LLVMContextDispose, LLVMDisposeBuilder, LLVMVoidTypeInContext, LLVMDumpModule, LLVMInt1TypeInContext, LLVMInt8TypeInContext, LLVMInt16TypeInContext, LLVMInt32Type, LLVMInt32TypeInContext, LLVMInt64TypeInContext, LLVMBuildRet, LLVMBuildRetVoid, LLVMPositionBuilderAtEnd, LLVMBuildCall, LLVMBuildStore, LLVMPointerType, LLVMStructTypeInContext, LLVMAddFunction, LLVMFunctionType, LLVMSetValueName, LLVMGetValueName, LLVMCreatePassManager, LLVMBuildExtractValue, LLVMAppendBasicBlockInContext, LLVMBuildLoad, LLVMBuildGEP, LLVMBuildCondBr, LLVMBuildICmp, LLVMBuildCast, LLVMGetNamedFunction, LLVMBuildAdd, LLVMBuildSub, LLVMBuildMul, LLVMConstInt, LLVMGetFirstParam, LLVMGetNextParam, LLVMCountParams, LLVMDisposePassManager, LLVMCreateFunctionPassManagerForModule, LLVMInitializeFunctionPassManager, LLVMDisposeMessage, LLVMArrayType, LLVMGetReturnType, LLVMTypeOf, LLVMGetElementType, LLVMBuildNeg, LLVMBuildNot, LLVMGetNextBasicBlock, LLVMGetFirstBasicBlock, LLVMGetLastBasicBlock, LLVMGetInsertBlock, LLVMGetBasicBlockParent, LLVMConstReal, LLVMConstArray, LLVMBuildBr, LLVMBuildPhi, LLVMAddIncoming, LLVMBuildAlloca, LLVMBuildMalloc, LLVMBuildArrayMalloc, LLVMBuildArrayAlloca, LLVMGetUndef, LLVMSetDataLayout, LLVMGetBasicBlockTerminator, LLVMInsertIntoBuilder, LLVMIsABasicBlock, LLVMIsAFunction, LLVMIsFunctionVarArg, LLVMDumpType, LLVMPrintValueToString, LLVMPrintTypeToString, LLVMInsertBasicBlock, LLVMInsertBasicBlockInContext, LLVMGetParam, LLVMGetTypeKind, LLVMIsConstant, LLVMVoidType, LLVMSetLinkage, LLVMBuildInsertValue, LLVMIsNull, LLVMBuildIsNull, LLVMIsAConstantArray, LLVMIsAConstantDataArray, LLVMBuildPointerCast, LLVMSetGlobalConstant, LLVMSetInitializer, LLVMAddGlobal, LLVMFloatTypeInContext, LLVMDoubleTypeInContext, LLVMStructGetTypeAtIndex, LLVMMoveBasicBlockAfter, LLVMMoveBasicBlockBefore, LLVMGetTypeByName, LLVMBuildFree, LLVMGetParamTypes, LLVMGetBasicBlocks, LLVMIsUndef, LLVMBuildAnd, LLVMBuildOr, LLVMBuildSDiv, LLVMBuildUDiv, LLVMBuildFAdd, LLVMBuildFDiv, LLVMBuildFMul, LLVMBuildXor, LLVMBuildFCmp, LLVMBuildFNeg, LLVMBuildFSub, LLVMBuildUnreachable, LLVMBuildFence, LLVMGetPointerAddressSpace, LLVMIsAConstantPointerNull, LLVMCountParamTypes, LLVMFP128TypeInContext, LLVMIntTypeInContext, LLVMBuildIsNotNull, LLVMConstNamedStruct, LLVMStructCreateNamed, LLVMAlignOf, LLVMTypeIsSized, LLVMGetTypeContext, LLVMStructSetBody};
 use self::llvm_sys::execution_engine::{LLVMGetExecutionEngineTargetData, LLVMCreateExecutionEngineForModule, LLVMExecutionEngineRef, LLVMRunFunction, LLVMRunFunctionAsMain, LLVMDisposeExecutionEngine, LLVMLinkInInterpreter, LLVMGetFunctionAddress, LLVMLinkInMCJIT, LLVMAddModule};
 use self::llvm_sys::LLVMLinkage::LLVMCommonLinkage;
 use self::llvm_sys::prelude::{LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMTypeRef, LLVMValueRef, LLVMBasicBlockRef, LLVMPassManagerRef};
@@ -22,13 +22,19 @@ pub struct Context {
     context: LLVMContextRef,
 }
 
+// From Docs: A single context is not thread safe.
+// However, different contexts can execute on different threads simultaneously.
 impl Context {
-    pub fn new() -> Self {
+    pub fn create() -> Self {
         let context = unsafe {
             LLVMContextCreate()
         };
 
-        assert!(!context.is_null()); // TODO: All of these on debug only
+        Context::new(context)
+    }
+
+    fn new(context: LLVMContextRef) -> Self {
+        assert!(!context.is_null());
 
         Context {
             context: context
@@ -40,11 +46,7 @@ impl Context {
             LLVMCreateBuilderInContext(self.context)
         };
 
-        assert!(!builder.is_null());
-
-        Builder {
-            builder: builder
-        }
+        Builder::new(builder)
     }
 
     pub fn create_module(&self, name: &str) -> Module {
@@ -54,11 +56,7 @@ impl Context {
             LLVMModuleCreateWithNameInContext(c_string.as_ptr(), self.context)
         };
 
-        assert!(!module.is_null());
-
-        Module {
-            module: module
-        }
+        Module::new(module)
     }
 
     pub fn void_type(&self) -> Type {
@@ -152,15 +150,27 @@ impl Context {
         Type::new(f128_type)
     }
 
-    pub fn struct_type(&self, field_types: Vec<Type>) -> Type { // REVIEW: StructType?
+    pub fn struct_type(&self, field_types: Vec<Type>, packed: bool, name: &str) -> Type { // REVIEW: StructType?
         // WARNING: transmute will no longer work correctly if Type gains more fields
         // We're avoiding reallocation by telling rust Vec<Type> is identical to Vec<LLVMTypeRef>
         let mut field_types: Vec<LLVMTypeRef> = unsafe {
             transmute(field_types)
         };
 
-        let struct_type = unsafe {
-            LLVMStructTypeInContext(self.context, field_types.as_mut_ptr(), field_types.len() as u32, 0) // REVIEW: 0 is what? Safe to cast usize as u32?
+        let struct_type = if name.len() == 0 {
+            unsafe {
+                LLVMStructTypeInContext(self.context, field_types.as_mut_ptr(), field_types.len() as u32, packed as i32)
+            }
+        } else {
+            let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+            unsafe {
+                let struct_type = LLVMStructCreateNamed(self.context, c_string.as_ptr());
+
+                LLVMStructSetBody(struct_type, field_types.as_mut_ptr(), field_types.len() as u32, packed as i32);
+
+                struct_type
+            }
         };
 
         Type::new(struct_type)
@@ -211,6 +221,14 @@ pub struct Builder {
 }
 
 impl Builder {
+    fn new(builder: LLVMBuilderRef) -> Self {
+        assert!(!builder.is_null());
+
+        Builder {
+            builder: builder
+        }
+    }
+
     pub fn build_return(&self, value: Option<Value>) -> Value {
         // let value = unsafe {
         //     value.map_or(LLVMBuildRetVoid(self.builder), |value| LLVMBuildRet(self.builder, value.value))
@@ -626,6 +644,26 @@ impl Builder {
 
         Value::new(val)
     }
+
+    pub fn build_is_null(&self, value: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let val = unsafe {
+            LLVMBuildIsNull(self.builder, value.value, c_string.as_ptr())
+        };
+
+        Value::new(val)
+    }
+
+    pub fn build_is_not_null(&self, value: &Value, name: &str) -> Value {
+        let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
+
+        let val = unsafe {
+            LLVMBuildIsNotNull(self.builder, value.value, c_string.as_ptr())
+        };
+
+        Value::new(val)
+    }
 }
 
 impl Drop for Builder {
@@ -641,6 +679,14 @@ pub struct Module {
 }
 
 impl Module {
+    fn new(module: LLVMModuleRef) -> Self {
+        assert!(!module.is_null());
+
+        Module {
+            module: module
+        }
+    }
+
     pub fn add_function(&self, name: &str, return_type: FunctionType) -> FunctionValue {
         let c_string = CString::new(name).expect("Conversion to CString failed unexpectedly");
 
@@ -1066,7 +1112,7 @@ impl Type {
     }
 
     /// REVIEW: Untested
-    pub fn get_undef(&self, type_: &Type) -> Value {
+    pub fn get_undef(&self) -> Value {
         let value = unsafe {
             LLVMGetUndef(self.type_)
         };
@@ -1092,6 +1138,44 @@ impl Type {
     pub fn get_kind(&self) -> LLVMTypeKind {
         unsafe {
             LLVMGetTypeKind(self.type_)
+        }
+    }
+
+    /// REVIEW: Untested
+    pub fn get_alignment(&self) -> Value {
+        let val = unsafe {
+            LLVMAlignOf(self.type_)
+        };
+
+        Value::new(val)
+    }
+
+    /// REVIEW: Untested
+    pub fn const_struct(&self, value: &mut Value, num: u32) -> Value {
+        // REVIEW: What if not a struct? Need StructType?
+        // TODO: Better name for num. What's it for?
+        let val = unsafe {
+            LLVMConstNamedStruct(self.type_, &mut value.value, num)
+        };
+
+        Value::new(val)
+    }
+
+    // FIXME: Not approved by the FDA, may cause segfaults
+    // If multiple Context objects are created, one is bound to be `Drop`ped at end of a scope
+    // Should create only a Context reference to avoid `Drop`
+    fn get_context(&self) -> Context { // REVIEW: Option<Context>? I believe types can be context-less (maybe not, it might auto assign the global context (if any??))
+        let context = unsafe {
+            LLVMGetTypeContext(self.type_)
+        };
+
+        Context::new(context)
+    }
+
+    /// REVIEW: Untested
+    pub fn is_sized(&self) -> bool {
+        unsafe {
+            LLVMTypeIsSized(self.type_) == 1
         }
     }
 }
@@ -1522,9 +1606,11 @@ impl Value {
 
 impl From<u64> for Value {
     fn from(int: u64) -> Value {
-        unsafe {
-            Type::new(LLVMInt32Type()).const_int(int, false)
-        }
+        let type_ = unsafe {
+            LLVMInt32Type()
+        };
+
+        Type::new(type_).const_int(int, false)
     }
 }
 

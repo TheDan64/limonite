@@ -3,7 +3,7 @@ mod std;
 
 extern crate llvm_sys; // TODO: Remove
 
-use codegen::llvm::std::string::{print_function_definition, string_type};
+use codegen::llvm::std::string::{define_print_function, define_string_type};
 use self::core::{Builder, Context, Module, Type, Value, PassManager, ExecutionEngine};
 use self::llvm_sys::LLVMIntPredicate::*; // TODO: Remove
 use self::llvm_sys::LLVMRealPredicate::*; // TODO: Remove
@@ -24,7 +24,7 @@ pub struct LLVMGenerator {
 
 impl LLVMGenerator {
     pub fn new() -> Self {
-        let context = Context::new();
+        let context = Context::create();
         let builder = context.create_builder();
 
         LLVMGenerator {
@@ -57,7 +57,10 @@ impl LLVMGenerator {
         }
 
         if include_std {
-            print_function_definition(&self.builder, &self.context, &main_module);
+            // TODO: This should only be defined if they are referenced (ast knowledge?)
+            define_string_type(&self.context);
+
+            define_print_function(&self.builder, &self.context, &main_module);
         }
 
         self.generate_ir(&main_module, &ast, &mut HashMap::new());
@@ -182,7 +185,7 @@ impl LLVMGenerator {
                 match literal_type {
                     &Literals::UTF8Char(ref val) => Some(self.context.i32_type().const_int(*val as u64, false)),
                     &Literals::UTF8String(ref val) => {
-                        let string_type = string_type(&self.context);
+                        let string_type = module.get_type("std.string.String").expect("LLVMGenError: Could not find String definition");
                         let void_type = self.context.void_type();
                         let bool_type = self.context.bool_type();
                         let i8_type = self.context.i8_type();
