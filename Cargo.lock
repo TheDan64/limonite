@@ -4,7 +4,8 @@ version = "0.0.5"
 dependencies = [
  "docopt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "llvm-sys 37.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "inkwell 0.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "llvm-sys 37.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -56,6 +57,14 @@ version = "0.3.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "inkwell"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "llvm-sys 37.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "kernel32-sys"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -76,7 +85,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "llvm-sys"
-version = "37.0.1"
+version = "37.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -244,10 +253,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum docopt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ab32ea6e284d87987066f21a9e809a73c14720571ef34516f0890b3d355ccfd8"
 "checksum env_logger 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e3856f1697098606fc6cb97a93de88ca3f3bc35bb878c725920e6e82ecf05e83"
 "checksum gcc 0.3.45 (registry+https://github.com/rust-lang/crates.io-index)" = "40899336fb50db0c78710f53e87afc54d8c7266fb76262fecc78ca1a7f09deae"
+"checksum inkwell 0.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "adb2a6e70119646c2e2ed04677a1697dc3e441d685dfd03e87443dc1b9376735"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 "checksum lazy_static 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "7291b1dd97d331f752620b02dfdbc231df7fc01bf282a00769e1cdb963c460dc"
 "checksum libc 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)" = "88ee81885f9f04bff991e306fea7c1c60a5f0f9e409e99f6b40e3311a3363135"
-"checksum llvm-sys 37.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a99e94b03d620fee64729a1726e03e9b82a3f4ab28213a25492c4aaed69b4d86"
+"checksum llvm-sys 37.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "fa51915bdbbfd0de3f0a1044b51b7476b1046432d7f5e627ebc48f00c5c6a9cd"
 "checksum log 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "5141eca02775a762cc6cd564d8d2c50f67c0ea3a372cbf1c51592b3e029e10ad"
 "checksum memchr 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)" = "d8b629fb514376c675b98c1421e80b151d3817ac42d7c667717d282761418d20"
 "checksum memchr 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1dbccc0e46f1ea47b9f17e6d67c5a96bd27030519c519c9c91327e31275a47b4"

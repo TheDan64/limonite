@@ -1,6 +1,9 @@
-extern crate llvm_sys;
+extern crate llvm_sys; // TODO: Remove. Should fully rely on inkwell eventually
+extern crate inkwell;
 
-use codegen::llvm::core::{Builder, Context, Module};
+use self::inkwell::builder::Builder;
+use self::inkwell::context::Context;
+use self::inkwell::module::Module;
 use self::llvm_sys::LLVMIntPredicate; // TODO: Remove
 use codegen::llvm::std::vec::vec_type;
 
