@@ -671,5 +671,45 @@ fn test_nested_indent_then_dedent() {
         )),
     ];
     expect_test(tokens, desired_ast);
+}
 
+
+
+#[test]
+fn test_indented_comment() {
+    // while i,
+    //         >> C
+    //         i = i - 1
+    let tokens = vec![
+        Indent(0),
+        Keyword(Keywords::While),
+        Identifier("i".to_string()),
+        Symbol(Symbols::Comma),
+
+            Indent(1),
+            Comment("Example".to_string()),
+
+            Indent(1),
+            Identifier("i".to_string()),
+            Symbol(Symbols::Equals),
+            Identifier("i".to_string()),
+            Symbol(Symbols::Minus),
+            Numeric("1".to_string(), None),
+    ];
+    let desired_ast = vec![
+        ExprWrapper::default(Expr::WhileLoop(
+            ExprWrapper::default(Expr::Var("i".to_string())),
+            ExprWrapper::default(Expr::Block(vec![
+                ExprWrapper::default(Expr::Assign(
+                    ExprWrapper::default(Expr::Var("i".to_string())),
+                    ExprWrapper::default(Expr::InfixOp(
+                        InfixOp::Sub,
+                        ExprWrapper::default(Expr::Var("i".to_string())),
+                        ExprWrapper::default(Expr::Literal(Literals::I32Num(1))),
+                    )),
+                )),
+            ])),
+        )),
+    ];
+    expect_test(tokens, desired_ast);
 }

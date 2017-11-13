@@ -87,7 +87,9 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
                         return result;
                     }
                 },
-                Comment(_) => (),
+                Comment(_) => {
+                    self.last_depth = None;
+                },
                 Error(_) => {
                     // self.write_error(&err);
                     return result;
