@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use lexical::lexer::Tokenizer;
+use std::iter::Peekable;
 use lexical::tokens::Tokens;
 use lexical::tokens::Tokens::*;
 use lexical::keywords::Keywords;
@@ -9,8 +9,8 @@ use syntax::literals::*;
 use syntax::op::*;
 use lexical::types::*;
 
-pub struct Parser<TokType: Tokenizer> {
-    lexer: TokType,
+pub struct Parser<I: Iterator<Item=Tokens>> {
+    token_stream: Peekable<I>,
     ast_root: ExprWrapper,
     preview_token: Option<Tokens>,
     block_status: BlockStatus,
@@ -34,10 +34,10 @@ fn debunt(val: u64) -> String {
     return a;
 }
 
-impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
-    pub fn new(tokenizer: TokType) -> Parser<TokType> {
+impl <I: Iterator<Item=Tokens>> Parser<I> {
+    pub fn new(token_stream: I) -> Parser<I> {
         Parser {
-            lexer: tokenizer,
+            token_stream: token_stream.peekable(),
             ast_root: ExprWrapper::default(Expr::NoOp),
             indent_level: 0,
             valid_ast: true,
@@ -48,7 +48,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
         }
     }
 
-    /// Consume the next `Token` from the lexer
+    /// Consume the next `Token` from the token_stream
     /// - Ignores `Comment`s entirely
     /// - Smartly handlers `Indent`s by:
     ///    - When in blocks ignores them
@@ -57,7 +57,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
         loop {
             let result = match self.preview_token.take() {
                 Some(tok) => tok,
-                None => match self.lexer.next() {
+                None => match self.token_stream.next() {
                     Some(t) => t,
                     None => Tokens::EOF,
                 },
@@ -131,7 +131,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
         self._peek(true)
     }
 
-    /// Create an error from the current `Lexer`s state, with a message
+    /// Create an error from the current parser state, with a message
     fn write_error(&mut self, msg: &str) -> Tokens {
         let (start_line, start_column, _, _) = (0, 0, 0, 0);
 
@@ -195,8 +195,8 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
 
     fn collect_sequence<F, G>
         (&mut self, mut collect_arg: F, sequence_end: G) -> Vec<ExprWrapper>
-        where F: FnMut(&mut Parser<TokType>, Tokens) -> Option<ExprWrapper>,
-              G: Fn(&Parser<TokType>, Tokens) -> bool {
+        where F: FnMut(&mut Parser<I>, Tokens) -> Option<ExprWrapper>,
+              G: Fn(&Parser<I>, Tokens) -> bool {
         let mut args = Vec::new();
         loop {
             if let Some(new_arg) = collect_arg(self, Symbol(Symbols::Comma)) {
@@ -229,14 +229,14 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
             return Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), Vec::new())));
         }
 
-        let parse_args = |this: &mut Parser<TokType>, seperator: Tokens| {
+        let parse_args = |this: &mut Parser<I>, seperator: Tokens| {
             if !seperator.expect(Symbol(Symbols::Comma)) {
                 this.write_error("Missing a comma between arguments.");
             }
             this.parse_expression(0)
         };
 
-        let sequence_end = |this: &Parser<TokType>, current_token: Tokens| {
+        let sequence_end = |this: &Parser<I>, current_token: Tokens| {
             current_token.expect(Symbol(Symbols::ParenClose))
         };
 

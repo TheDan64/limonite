@@ -518,6 +518,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
+
 impl<'a> Iterator for Lexer<'a> {
     type Item = Tokens;
 
@@ -630,7 +631,3 @@ impl<'a> Iterator for Lexer<'a> {
         Some(tok)
     }
 }
-
-pub trait Tokenizer {}
-
-impl<'a> Tokenizer for Lexer<'a> {}

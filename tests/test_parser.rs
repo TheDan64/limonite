@@ -3,7 +3,6 @@ extern crate env_logger;
 
 use std::vec::IntoIter;
 
-use limonite::lexical::lexer::Tokenizer;
 use limonite::lexical::tokens::Tokens;
 use limonite::lexical::tokens::Tokens::*;
 use limonite::lexical::types::Types;
@@ -36,8 +35,6 @@ impl Iterator for MockLexer {
         }
     }
 }
-
-impl Tokenizer for MockLexer {}
 
 fn general_expect_test(tokens: Vec<Tokens>,
                        expected: Vec<ExprWrapper>,
