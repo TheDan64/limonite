@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/TheDan64/limonite.svg?branch=master)](https://travis-ci.org/TheDan64/limonite)
-[![Coverage Status](https://coveralls.io/repos/github/TheDan64/limonite/badge.svg?branch=master)](https://coveralls.io/github/TheDan64/limonite?branch=master)
+[![codecov](https://codecov.io/gh/TheDan64/limonite/branch/master/graph/badge.svg)](https://codecov.io/gh/TheDan64/limonite)
 
 Limonite
 ========
