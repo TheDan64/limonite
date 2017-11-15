@@ -11,6 +11,10 @@ matrix:
   allow_failures:
     - rust: nightly
 
+env:
+  global:
+    - RUSTFLAGS="-C link-dead-code"
+
 addons:
   apt:
     sources:
@@ -22,13 +26,27 @@ addons:
       - lib32z1-dev
       - libedit-dev
       - libdw-dev
+      - binutils-dev
+      - libiberty-dev
 
 before_install:
   - export PATH=/usr/lib/llvm-3.7/bin/:$HOME/.local/bin:$PATH
 
 after_success:
-  - pip install 'travis-cargo<0.2' --user # code coverage
-  - travis-cargo --only stable coveralls --no-sudo
+after_success: |
+  wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
+  tar xzf master.tar.gz &&
+  cd kcov-master &&
+  mkdir build &&
+  cd build &&
+  cmake .. &&
+  make &&
+  make install DESTDIR=../../kcov-build &&
+  cd ../.. &&
+  rm -rf kcov-master &&
+  for file in $(find . -regextype posix-extended -regex "./target/debug/test(\w|-)+"); do mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib,tests --verify "target/cov/$(basename $file)" "$file"; done &&
+  bash <(curl -s https://codecov.io/bash) &&
+  echo "Uploaded code coverage"
 
 notifications:
   email: false
