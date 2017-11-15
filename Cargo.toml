@@ -24,11 +24,12 @@ default = ["llvm-backend"]
 llvm-backend = ["llvm-sys"]
 
 [dependencies]
-docopt = "*"
+docopt = "0.8"
 env_logger = "*"
 llvm-sys = {version="37.0.1", optional=true}
 log = "*"
-rustc-serialize = "*"
+serde = "1.0"
+serde_derive = "1.0"
 
 [[test]]
 name = "tests"

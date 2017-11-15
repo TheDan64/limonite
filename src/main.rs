@@ -2,10 +2,11 @@
 #![crate_type = "bin"]
 
 extern crate docopt;
-extern crate rustc_serialize;
+extern crate env_logger;
 #[macro_use]
 extern crate log;
-extern crate env_logger;
+#[macro_use]
+extern crate serde_derive;
 
 use std::io::{BufReader, Read};
 use std::fs::File;
@@ -37,7 +38,7 @@ Options:
     -v, --version   Displays current version
 ";
 
-#[derive(RustcDecodable)]
+#[derive(Debug, Deserialize)]
 struct Args {
     pub arg_file: String,
     pub flag_dump: bool,
@@ -49,7 +50,7 @@ fn main() {
     env_logger::init().unwrap();
 
     let args: Args = Docopt::new(USAGE)
-                            .and_then(|d| d.decode())
+                            .and_then(|d| d.deserialize())
                             .unwrap_or_else(|e| e.exit());
 
     if args.flag_version {
