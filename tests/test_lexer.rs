@@ -3,7 +3,7 @@ extern crate limonite;
 use limonite::lexical::keywords::Keywords::{Def, Function, If, Is, Return, Var};
 use limonite::lexical::symbols::Symbols::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
 use limonite::lexical::tokens::Tokens;
-use limonite::lexical::tokens::Tokens::{BoolLiteral, CharLiteral, Comment, EOF, Error, Identifier, Indent, Keyword, Numeric, Symbol, StrLiteral};
+use limonite::lexical::tokens::Tokens::{BoolLiteral, CharLiteral, Comment, Error, Identifier, Indent, Keyword, Numeric, Symbol, StrLiteral};
 use limonite::lexical::types::Types::{Float32Bit, Float64Bit, Int32Bit, Int64Bit, UInt8Bit, UInt32Bit, UInt64Bit, Float128Bit, UInt128Bit};
 use limonite::lexical::lexer::{Lexer};
 
@@ -17,13 +17,6 @@ fn cmp_tokens(mut lexer: Lexer, vec: Vec<Tokens>) {
             panic!(format!("Unexpected token `{0:?}` found. Expected `{1:?}`.", tok, desired_tok));
         }
     }
-
-    let tok = lexer.next();
-    if let Some(tok) = tok {
-        if !tok.expect(EOF) {
-            panic!(format!("Unexpected token `{:?}` found. Expected `EOF`", tok));
-        }
-    }
 }
 
 #[test]
@@ -34,13 +27,14 @@ fn test_hello_world() {
 print(\"Hello World!\")";
 
     let lexer = Lexer::new(&input_string);
-    let desired_output = vec![Comment(" Hello World!".to_string()), Indent(0),
-                              Indent(0),
-                              Identifier("print".to_string()),
-                              Symbol(ParenOpen),
-                              StrLiteral("Hello World!".to_string()),
-                              Symbol(ParenClose),
-                              EOF];
+    let desired_output = vec![
+        Comment(" Hello World!".to_string()), Indent(0),
+        Indent(0),
+        Identifier("print".to_string()),
+        Symbol(ParenOpen),
+        StrLiteral("Hello World!".to_string()),
+        Symbol(ParenClose),
+    ];
 
     cmp_tokens(lexer, desired_output);
 }
@@ -59,13 +53,15 @@ if True,
 		func2()";
 
     let lexer = Lexer::new(&input_string);
-    let desired_output = vec![Comment("\n    Test of indentation and a few keywords.\n".to_string()), Indent(0),
-                              Indent(0),
-                              Keyword(If), BoolLiteral(true), Symbol(Comma), Indent(1),
-                              Identifier("func".to_string()), Symbol(ParenOpen), Symbol(ParenClose), Indent(0),
-                              Indent(1),
-                              Keyword(If), BoolLiteral(false), Symbol(Comma), Indent(2),
-                              Identifier("func2".to_string()), Symbol(ParenOpen), Symbol(ParenClose), EOF];
+    let desired_output = vec![
+        Comment("\n    Test of indentation and a few keywords.\n".to_string()), Indent(0),
+        Indent(0),
+        Keyword(If), BoolLiteral(true), Symbol(Comma), Indent(1),
+        Identifier("func".to_string()), Symbol(ParenOpen), Symbol(ParenClose), Indent(0),
+        Indent(1),
+        Keyword(If), BoolLiteral(false), Symbol(Comma), Indent(2),
+        Identifier("func2".to_string()), Symbol(ParenOpen), Symbol(ParenClose),
+    ];
 
     cmp_tokens(lexer, desired_output);
 }
@@ -131,7 +127,7 @@ fn test_valid_numerics() {
                               Numeric("0000_0000".to_string(), None), Indent(0),
                               Numeric("0000_0001".to_string(), Some(UInt8Bit)), Indent(0),
                               Numeric("1.0".to_string(), Some(Float128Bit)), Indent(0),
-                              Numeric("117".to_string(), Some(UInt128Bit)), EOF];
+                              Numeric("117".to_string(), Some(UInt128Bit))];
 
     cmp_tokens(lexer, desired_output);
 }
@@ -180,7 +176,7 @@ fn test_invalid_numerics() {
                               Error("Invalid suffix f3. Did you mean f32?".to_string()), Indent(0),
                               Error("Invalid suffix f31. Did you mean f32?".to_string()), Indent(0),
                               Error("Invalid suffix f8. Did you mean f32, f64, or f128?".to_string()), Indent(0),
-                              Error("Invalid suffix f16. Did you mean f128?".to_string()), EOF];
+                              Error("Invalid suffix f16. Did you mean f128?".to_string())];
 
     cmp_tokens(lexer, desired_output);
 }
@@ -206,7 +202,7 @@ fn basic_func() -> str
                               Keyword(If), Identifier("ch".to_string()), Keyword(Is), CharLiteral('g'), Symbol(Comma), Indent(2),
                               Identifier("string".to_string()), Symbol(PlusEquals), Identifier("ch".to_string()), Indent(0),
                               Indent(1),
-                              Keyword(Return), Identifier("string".to_string()), EOF];
+                              Keyword(Return), Identifier("string".to_string())];
 
     cmp_tokens(lexer, desired_output);
 }

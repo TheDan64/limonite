@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use lexical::lexer::Tokenizer;
+use std::iter::Peekable;
 use lexical::tokens::Tokens;
 use lexical::tokens::Tokens::*;
 use lexical::keywords::Keywords;
@@ -9,10 +9,10 @@ use syntax::literals::*;
 use syntax::op::*;
 use lexical::types::*;
 
-pub struct Parser<TokType: Tokenizer> {
-    lexer: TokType,
+pub struct Parser<I: Iterator<Item=Tokens>> {
+    token_stream: Peekable<I>,
     ast_root: ExprWrapper,
-    preview_token: Option<Tokens>,
+    preview_token: Option<Option<Tokens>>,
     block_status: BlockStatus,
     indent_level: u64,
     valid_ast: bool,
@@ -34,37 +34,33 @@ fn debunt(val: u64) -> String {
     return a;
 }
 
-impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
-    pub fn new(tokenizer: TokType) -> Parser<TokType> {
+impl <I: Iterator<Item=Tokens>> Parser<I> {
+    pub fn new(token_stream: I) -> Parser<I> {
         Parser {
-            lexer: tokenizer,
+            token_stream: token_stream.peekable(),
             ast_root: ExprWrapper::default(Expr::NoOp),
             indent_level: 0,
             valid_ast: true,
-            preview_token: Some(Indent(0)),
+            preview_token: Some(Some(Indent(0))),
             block_status: BlockStatus::Out,
             between_brackets: false,
             last_depth: None,
         }
     }
 
-    /// Consume the next `Token` from the lexer
+    /// Consume the next `Token` from the token_stream
     /// - Ignores `Comment`s entirely
     /// - Smartly handlers `Indent`s by:
     ///    - When in blocks ignores them
     ///    - Ensures correct indentation size, then gets the next token
-    fn _next_token(&mut self, allow_any: bool) -> Tokens {
+    fn _next_token(&mut self, allow_any: bool) -> Option<Tokens> {
         loop {
-            let result = match self.preview_token.take() {
-                Some(tok) => tok,
-                None => match self.lexer.next() {
-                    Some(t) => t,
-                    None => Tokens::EOF,
-                },
-            };
+            let token = self.preview_token
+                .take()
+                .unwrap_or_else(|| self.token_stream.next());
 
-            match result {
-                Indent(depth) => {
+            match token {
+                Some(Indent(depth)) => {
                     match self.block_status {
                         BlockStatus::Out => {
                             // If the new depth is smaller than the old depth, we've dedented
@@ -76,7 +72,7 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
                             if self.indent_level == depth {
                                 self.block_status = BlockStatus::In;
                             } else {
-                                return self.write_error("Invalid level of indentation");
+                                return Some(self.write_error("Invalid level of indentation"));
                             }
                         },
                         BlockStatus::In => {
@@ -84,36 +80,32 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
                         },
                     }
                     if !self.between_brackets && allow_any {
-                        return result;
+                        return token;
                     }
                 },
-                Comment(_) => {
+                Some(Comment(_)) => {
                     self.last_depth = None;
                 },
-                Error(_) => {
-                    // self.write_error(&err);
-                    return result;
-                },
-                _ => {
-                    return result;
-                },
+                _ => return token,
             }
         }
     }
 
     fn next_token(&mut self) -> Tokens {
         self._next_token(false)
+            .unwrap_or_else(|| Tokens::Error(format!("Unexpected end of stream.")))
     }
 
     fn next_token_any(&mut self) -> Tokens {
         self._next_token(true)
+            .unwrap_or_else(|| Tokens::Error(format!("Unexpected end of stream.")))
     }
 
     /// Returns a peek at the next `Token` without consuming it
     ///
     /// The next call to `next_token` will return the same `Token` returned
     /// by the last call to `peek`
-    fn _peek(&mut self, allow_any: bool) -> Tokens {
+    fn _peek(&mut self, allow_any: bool) -> Option<Tokens> {
         let tok = self._next_token(allow_any);
         self.preview_token = Some(tok.clone());
         tok
@@ -123,15 +115,17 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
     /// which most callers would not want to see.
     fn peek(&mut self) -> Tokens {
         self._peek(false)
+            .unwrap_or_else(|| Tokens::Error(format!("Unexpected end of stream.")))
     }
 
     /// Peeks the next token, but does not do any filtering
     /// on `Tokens`
     fn peek_any(&mut self) -> Tokens {
         self._peek(true)
+            .unwrap_or_else(|| Tokens::Error(format!("Unexpected end of stream.")))
     }
 
-    /// Create an error from the current `Lexer`s state, with a message
+    /// Create an error from the current parser state, with a message
     fn write_error(&mut self, msg: &str) -> Tokens {
         let (start_line, start_column, _, _) = (0, 0, 0, 0);
 
@@ -195,8 +189,8 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
 
     fn collect_sequence<F, G>
         (&mut self, mut collect_arg: F, sequence_end: G) -> Vec<ExprWrapper>
-        where F: FnMut(&mut Parser<TokType>, Tokens) -> Option<ExprWrapper>,
-              G: Fn(&Parser<TokType>, Tokens) -> bool {
+        where F: FnMut(&mut Parser<I>, Tokens) -> Option<ExprWrapper>,
+              G: Fn(&Parser<I>, Tokens) -> bool {
         let mut args = Vec::new();
         loop {
             if let Some(new_arg) = collect_arg(self, Symbol(Symbols::Comma)) {
@@ -229,14 +223,14 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
             return Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), Vec::new())));
         }
 
-        let parse_args = |this: &mut Parser<TokType>, seperator: Tokens| {
+        let parse_args = |this: &mut Parser<I>, seperator: Tokens| {
             if !seperator.expect(Symbol(Symbols::Comma)) {
                 this.write_error("Missing a comma between arguments.");
             }
             this.parse_expression(0)
         };
 
-        let sequence_end = |this: &Parser<TokType>, current_token: Tokens| {
+        let sequence_end = |this: &Parser<I>, current_token: Tokens| {
             current_token.expect(Symbol(Symbols::ParenClose))
         };
 
@@ -797,98 +791,97 @@ impl<TokType: Tokenizer + Iterator<Item=Tokens>> Parser<TokType> {
         let mut expr = Vec::new();
         let cur_level = self.indent_level;
         debug!("{}Beginning parse", debunt(cur_level));
-        loop {
+        'outer: loop {
             debug!("{}Beginning TLL at level: {:?}", debunt(cur_level + 1), cur_level);
 
             // This inner loop is used to repeatedly consume Indent(0) tokens
             // for as many lines as necessary until the next real line.
-            let mut outer_break = false;
             debug!("{}Start indent consumption loop", debunt(cur_level + 1));
-            loop {
+            'inner: loop {
                 debug!("{}Peek: {:?}", debunt(cur_level + 2), self.peek_any());
-                match self.peek_any() {
-                    Indent(this_depth) => {
-                        debug!("{}Hit an indent: {:?}", debunt(cur_level + 2), self.last_depth);
+                if let Some(token) = self._peek(true) {
+                    match token {
+                        Indent(this_depth) => {
+                            debug!("{}Hit an indent: {:?}", debunt(cur_level + 2), self.last_depth);
 
-                        // Indents / repeated indents are fine as long as the first of
-                        // the current indent and the directly previous indent is Indent(0).
-                        // The current one can be anything since it could be the last indent
-                        // before a new statement.
-                        if let Some(last_depth) = self.last_depth {
-                            if last_depth != 0 {
-                                self.write_error(&format!("There were two indents in a row, {} and {}",
-                                                 last_depth, this_depth));
-                                outer_break = true;
-                                break;
+                            // Indents / repeated indents are fine as long as the first of
+                            // the current indent and the directly previous indent is Indent(0).
+                            // The current one can be anything since it could be the last indent
+                            // before a new statement.
+                            if let Some(last_depth) = self.last_depth {
+                                if last_depth != 0 {
+                                    self.write_error(&format!("There were two indents in a row, {} and {}",
+                                                     last_depth, this_depth));
+                                    break 'outer;
+                                }
                             }
-                        }
-                        self.last_depth = Some(this_depth);
-                        self.next_token_any();
-                    },
-                    Error(_) | Tokens::EOF => {
-                        outer_break = true;
-                        break;
-                    },
-                    _ => {
-                        debug!("{}Not an indent: {:?}", debunt(cur_level + 2), self.last_depth);
+                            self.last_depth = Some(this_depth);
+                            self.next_token_any();
+                        },
+                        Error(_) => {
+                            break 'outer;
+                        },
+                        _ => {
+                            debug!("{}Not an indent: {:?}", debunt(cur_level + 2), self.last_depth);
 
-                        // A new non-Indent is only allowed after there has been an Indent
-                        // token. This forbids two statements (or any start of a block
-                        // and its subsequent statments) from being on the same line.
-                        if let Some(last_depth) = self.last_depth {
-                            if last_depth < cur_level {
-                                debug!("{}Not a dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
-                                self.indent_level = last_depth;
-                                self.last_depth = Some(last_depth);
-
-                                outer_break = true;
+                            // A new non-Indent is only allowed after there has been an Indent
+                            // token. This forbids two statements (or any start of a block
+                            // and its subsequent statments) from being on the same line.
+                            if let Some(last_depth) = self.last_depth {
+                                if last_depth < cur_level {
+                                    debug!("{}Not a dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
+                                    self.indent_level = last_depth;
+                                    self.last_depth = Some(last_depth);
+                                    break 'outer;
+                                } else {
+                                    debug!("{}A dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
+                                    break 'inner;
+                                }
                             } else {
-                                debug!("{}A dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
+                                let token = self.peek_any();
+                                self.write_expect_error("There should be at most one statement per line",
+                                                         "a newline", &format!("{:?}", token));
+                                return ExprWrapper::default(Expr::NoOp)
                             }
-                            debug!("{}Breaking out of indent loop", debunt(cur_level + 2));
-                            break;
-                        } else {
-                            let token = self.peek_any();
-                            self.write_expect_error("There should be at most one statement per line",
-                                                     "a newline", &format!("{:?}", token));
-                            return ExprWrapper::default(Expr::NoOp)
                         }
                     }
+                } else {
+                    break 'outer;
                 }
-            }
-            if outer_break {
-                debug!("{}Breaking out of TLL", debunt(cur_level));
-                break;
             }
 
             debug!("{}Last depth before TLL: {:?}", debunt(cur_level + 1), self.last_depth);
             self.last_depth = None;
-            match self.peek() {
-                Identifier(ident) => {
-                    debug!("{}TLL found an identifier: {:?}", debunt(cur_level + 1), self.peek());
-                    if let Some(exprwrapper) = self.parse_idents(ident) {
-                        expr.push(exprwrapper);
-                    }
-                },
-                Keyword(keyword) => {
-                    debug!("{}TLL found an keyword: {:?}", debunt(cur_level + 1), self.peek());
-                    if let Some(exprwrapper) = self.parse_keywords(keyword) {
-                        expr.push(exprwrapper);
-                    }
-                },
-                Error(err) => {
-                    self.write_error(&err);
-                    break
-                },
-                EOF => break,
 
-                // These tokens are all illegal in top level expressions
-                Symbol(_) | StrLiteral(_) | CharLiteral(_) | BoolLiteral(_) |
-                Numeric(_, _) | Comment(_) | Indent(_) => {
-                    let token = self.peek();
-                    self.write_error(&format!("Unimplemented top level token '{:?}'", token));
-                },
-            };
+            if let Some(token) = self._peek(false) {
+                match token {
+                    Identifier(ident) => {
+                        debug!("{}TLL found an identifier: {:?}", debunt(cur_level + 1), self.peek());
+                        if let Some(exprwrapper) = self.parse_idents(ident) {
+                            expr.push(exprwrapper);
+                        }
+                    },
+                    Keyword(keyword) => {
+                        debug!("{}TLL found an keyword: {:?}", debunt(cur_level + 1), self.peek());
+                        if let Some(exprwrapper) = self.parse_keywords(keyword) {
+                            expr.push(exprwrapper);
+                        }
+                    },
+                    Error(err) => {
+                        self.write_error(&err);
+                        break
+                    },
+
+                    // These tokens are all illegal in top level expressions
+                    Symbol(_) | StrLiteral(_) | CharLiteral(_) | BoolLiteral(_) |
+                    Numeric(_, _) | Comment(_) | Indent(_) => {
+                        let token = self.peek();
+                        self.write_error(&format!("Unimplemented top level token '{:?}'", token));
+                    },
+                };
+            } else {
+                break;
+            }
         }
 
         debug!("{}Returning from parse: {:?}", debunt(cur_level), expr);

@@ -3,7 +3,6 @@ extern crate env_logger;
 
 use std::vec::IntoIter;
 
-use limonite::lexical::lexer::Tokenizer;
 use limonite::lexical::tokens::Tokens;
 use limonite::lexical::tokens::Tokens::*;
 use limonite::lexical::types::Types;
@@ -36,8 +35,6 @@ impl Iterator for MockLexer {
         }
     }
 }
-
-impl Tokenizer for MockLexer {}
 
 fn general_expect_test(tokens: Vec<Tokens>,
                        expected: Vec<ExprWrapper>,
@@ -118,7 +115,6 @@ fn test_valid_fn_definition() {
         Symbol(Symbols::RightThinArrow),
         Identifier("int".to_string()),
         Indent(1),
-        EOF
     ];
     let desired_ast = vec![
         ExprWrapper::default(
@@ -138,7 +134,6 @@ fn test_valid_fn_definition() {
         Symbol(Symbols::RightThinArrow),
         Identifier("str".to_string()),
         Indent(1),
-        EOF
     ];
 
     // One arg: foo(bar: i32) -> str
@@ -169,7 +164,6 @@ fn test_valid_fn_definition() {
         Symbol(Symbols::RightThinArrow),
         Identifier("None".to_string()),
         Indent(1),
-        EOF
     ];
     //
     // Multiple args: foo(bar: i32, left: Obj, right: Obj) -> None

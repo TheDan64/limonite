@@ -518,6 +518,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
+
 impl<'a> Iterator for Lexer<'a> {
     type Item = Tokens;
 
@@ -620,17 +621,9 @@ impl<'a> Iterator for Lexer<'a> {
 
             Some(ch) => Error(format!("Unknown character ({}).", ch)),
 
-            None => EOF
+            None => return None,
         };
-
-        if tok.expect(EOF) {
-            return None;
-        }
 
         Some(tok)
     }
 }
-
-pub trait Tokenizer {}
-
-impl<'a> Tokenizer for Lexer<'a> {}
