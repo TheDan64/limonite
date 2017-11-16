@@ -791,14 +791,13 @@ impl <I: Iterator<Item=Tokens>> Parser<I> {
         let mut expr = Vec::new();
         let cur_level = self.indent_level;
         debug!("{}Beginning parse", debunt(cur_level));
-        loop {
+        'outer: loop {
             debug!("{}Beginning TLL at level: {:?}", debunt(cur_level + 1), cur_level);
 
             // This inner loop is used to repeatedly consume Indent(0) tokens
             // for as many lines as necessary until the next real line.
-            let mut outer_break = false;
             debug!("{}Start indent consumption loop", debunt(cur_level + 1));
-            loop {
+            'inner: loop {
                 debug!("{}Peek: {:?}", debunt(cur_level + 2), self.peek_any());
                 if let Some(token) = self._peek(true) {
                     match token {
@@ -813,16 +812,14 @@ impl <I: Iterator<Item=Tokens>> Parser<I> {
                                 if last_depth != 0 {
                                     self.write_error(&format!("There were two indents in a row, {} and {}",
                                                      last_depth, this_depth));
-                                    outer_break = true;
-                                    break;
+                                    break 'outer;
                                 }
                             }
                             self.last_depth = Some(this_depth);
                             self.next_token_any();
                         },
                         Error(_) => {
-                            outer_break = true;
-                            break;
+                            break 'outer;
                         },
                         _ => {
                             debug!("{}Not an indent: {:?}", debunt(cur_level + 2), self.last_depth);
@@ -835,13 +832,11 @@ impl <I: Iterator<Item=Tokens>> Parser<I> {
                                     debug!("{}Not a dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
                                     self.indent_level = last_depth;
                                     self.last_depth = Some(last_depth);
-
-                                    outer_break = true;
+                                    break 'outer;
                                 } else {
                                     debug!("{}A dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
+                                    break 'inner;
                                 }
-                                debug!("{}Breaking out of indent loop", debunt(cur_level + 2));
-                                break;
                             } else {
                                 let token = self.peek_any();
                                 self.write_expect_error("There should be at most one statement per line",
@@ -851,13 +846,8 @@ impl <I: Iterator<Item=Tokens>> Parser<I> {
                         }
                     }
                 } else {
-                    outer_break = true;
-                    break;
+                    break 'outer;
                 }
-            }
-            if outer_break {
-                debug!("{}Breaking out of TLL", debunt(cur_level));
-                break;
             }
 
             debug!("{}Last depth before TLL: {:?}", debunt(cur_level + 1), self.last_depth);
