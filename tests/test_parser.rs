@@ -115,7 +115,6 @@ fn test_valid_fn_definition() {
         Symbol(Symbols::RightThinArrow),
         Identifier("int".to_string()),
         Indent(1),
-        EOF
     ];
     let desired_ast = vec![
         ExprWrapper::default(
@@ -135,7 +134,6 @@ fn test_valid_fn_definition() {
         Symbol(Symbols::RightThinArrow),
         Identifier("str".to_string()),
         Indent(1),
-        EOF
     ];
 
     // One arg: foo(bar: i32) -> str
@@ -166,7 +164,6 @@ fn test_valid_fn_definition() {
         Symbol(Symbols::RightThinArrow),
         Identifier("None".to_string()),
         Indent(1),
-        EOF
     ];
     //
     // Multiple args: foo(bar: i32, left: Obj, right: Obj) -> None

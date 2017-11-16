@@ -621,12 +621,8 @@ impl<'a> Iterator for Lexer<'a> {
 
             Some(ch) => Error(format!("Unknown character ({}).", ch)),
 
-            None => EOF
+            None => return None,
         };
-
-        if tok.expect(EOF) {
-            return None;
-        }
 
         Some(tok)
     }

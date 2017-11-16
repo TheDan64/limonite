@@ -24,8 +24,6 @@ pub enum Tokens {
     Comment(String),
     // Error message
     Error(String),
-    // End of File
-    EOF,
 }
 
 impl Tokens {
