@@ -24,7 +24,7 @@ default = ["llvm-backend"]
 llvm-backend = ["llvm-sys", "inkwell"]
 
 [dependencies]
-docopt = "0.8"
+docopt = "1.0"
 env_logger = "*"
 llvm-sys = {version="37.0.3", optional=true} # TODO: Remove. Should fully rely on inkwell eventually
 inkwell = {version="0.0.0", optional=true}
