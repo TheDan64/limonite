@@ -76,7 +76,7 @@ fn unexpect_test(tokens: Vec<Tokens>, expected: Vec<ExprWrapper>) {
 
 #[test]
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 }
 
 #[test]
