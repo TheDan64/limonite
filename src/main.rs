@@ -1,10 +1,3 @@
-#![crate_name = "limonite"]
-#![crate_type = "bin"]
-
-extern crate docopt;
-extern crate env_logger;
-#[macro_use]
-extern crate log;
 #[macro_use]
 extern crate serde_derive;
 
@@ -13,12 +6,12 @@ use std::fs::File;
 use std::path::Path;
 use docopt::Docopt;
 
-use lexical::lexer::Lexer;
-use syntax::parser::Parser;
-use semantic::analyzer::SemanticAnalyzer;
-use semantic::analyzer_trait::ASTAnalyzer;
-#[cfg(feature="llvm-backend")]
-use codegen::llvm::LLVMGenerator;
+// use lexical::lexer::Lexer;
+// use syntax::parser::Parser;
+// use semantic::analyzer::SemanticAnalyzer;
+// use semantic::analyzer_trait::ASTAnalyzer;
+// #[cfg(feature="llvm-backend")]
+// use codegen::llvm::LLVMGenerator;
 
 pub mod lexical;
 pub mod syntax;
@@ -73,34 +66,34 @@ fn main() {
     };
 
     // Tokanize the input
-    let lexer = Lexer::new(&input_string);
+    // let lexer = Lexer::new(&input_string);
 
-    // Parse & Build an AST
-    let mut parser = Parser::new(lexer);
+    // // Parse & Build an AST
+    // let mut parser = Parser::new(lexer);
 
-    let mut ast_root = match parser.parse() {
-        Some(ast) => ast,
-        None => return,
-    };
+    // let mut ast_root = match parser.parse() {
+    //     Some(ast) => ast,
+    //     None => return,
+    // };
 
-    // TODO: Semantic Analysis
-    let mut semantic_analyzer = SemanticAnalyzer::new();
-    semantic_analyzer.analyze(&mut ast_root);
+    // // TODO: Semantic Analysis
+    // let mut semantic_analyzer = SemanticAnalyzer::new();
+    // semantic_analyzer.analyze(&mut ast_root);
 
-    // Run Code Gen
-    #[cfg(feature="llvm-backend")]
-    {
-        let mut generator = LLVMGenerator::new();
+    // // Run Code Gen
+    // #[cfg(feature="llvm-backend")]
+    // {
+    //     let mut generator = LLVMGenerator::new();
 
-        generator.add_module(ast_root, true, true);
-        generator.initialize(false);
+    //     generator.add_module(ast_root, true, true);
+    //     generator.initialize(false);
 
-        if args.flag_dump {
-            generator.dump_ir();
-        }
+    //     if args.flag_dump {
+    //         generator.dump_ir();
+    //     }
 
-        generator.run().unwrap_or_else(|msg| panic!("{}", msg));
-    }
+    //     generator.run().unwrap_or_else(|msg| panic!("{}", msg));
+    // }
 }
 
 fn readable_to_string<R: Read>(mut readable: R) -> String {
