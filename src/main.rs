@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate serde_derive;
-
 use structopt::clap::ArgGroup;
 use structopt::StructOpt;
 
@@ -34,14 +31,6 @@ struct Opt {
     /// Read from stdin rather than file
     #[structopt(short, long, group = "file_or_stdin")]
     stdin: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct Args {
-    pub arg_file: String,
-    pub flag_dump: bool,
-    pub flag_stdin: bool,
-    pub flag_version: bool
 }
 
 fn main() {
