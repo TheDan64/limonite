@@ -6,12 +6,14 @@ use std::fs::File;
 use std::path::PathBuf;
 
 use lexical::lexer_new::Lexer;
+use interner::Interner;
 // use syntax::parser::Parser;
 // use semantic::analyzer::SemanticAnalyzer;
 // use semantic::analyzer_trait::ASTAnalyzer;
 // #[cfg(feature="llvm-backend")]
 // use codegen::llvm::LLVMGenerator;
 
+pub mod interner;
 pub mod lexical;
 pub mod span;
 pub mod syntax;
@@ -51,8 +53,16 @@ fn main() {
         readable_to_string(std::io::stdin())
     };
 
+    // Create a string interner and insert the filename
+    let mut interner = Interner::with_capacity(2);
+    let file_id = if let Some(file_name) = opt.file {
+        interner.intern(&file_name.to_string_lossy())
+    } else {
+        interner.intern("stdin")
+    };
+
     // Tokanize the input
-    let lexer = Lexer::new(&input_string);
+    let lexer = Lexer::new(&input_string, file_id);
 
     // Parse & Build an AST
     // let mut parser = Parser::new(lexer);

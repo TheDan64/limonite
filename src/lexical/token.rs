@@ -1,16 +1,16 @@
 use crate::lexical::types::Type;
 use crate::span::Spanned;
 
-pub type Token = Spanned<Type>;
+pub type Token<'s> = Spanned<TokenKind<'s>>;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum TokenKind {
+pub enum TokenKind<'s> {
     // 42, 42, 0x2A, 0b101010, -42.0, 42 ... and a suffix
     Numeric(String, Option<Type>),
     // Variables, fn names
     Identifier(String),
     // Count the number of tabs after a newline
-    Indent(u64),
+    Indent(Spanned<&'s str>, u64),
     // True, False
     BoolLiteral(bool),
     // 'c'
@@ -22,7 +22,14 @@ pub enum TokenKind {
     // (,),[,],:,:,>,<, ...
     // Symbol(Symbols),
     // >> Singleline and >>> \nMultiline comments\n <<<
-    Comment(String),
+    Comment(CommentKind<'s>),
     // Error message
     // Error(String),
+}
+
+// TODO: Move elsewhere?
+#[derive(Debug, PartialEq, Clone)]
+pub enum CommentKind<'s> {
+    Single(Spanned<&'s str>),
+    Multi(String),
 }

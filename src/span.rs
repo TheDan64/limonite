@@ -1,3 +1,5 @@
+use crate::interner::StrId;
+
 #[derive(Debug, PartialEq)]
 pub struct Spanned<T> {
     node: T,
@@ -5,10 +7,10 @@ pub struct Spanned<T> {
 }
 
 impl<T> Spanned<T> {
-    pub(crate) fn new(node: T, start_idx: usize, end_idx: usize) -> Self {
+    pub(crate) fn new(node: T, span: Span) -> Self {
         Spanned {
             node,
-            span: Span::new(start_idx, end_idx),
+            span,
         }
     }
 
@@ -16,8 +18,21 @@ impl<T> Spanned<T> {
         self.span
     }
 
+    pub fn get_span_mut(&mut self) -> &mut Span {
+        &mut self.span
+    }
+
     pub fn get_node(&self) -> &T {
         &self.node
+    }
+}
+
+impl<'s> Spanned<&'s str> {
+    pub fn new_start(&mut self, start_idx: usize, input: &'s str) {
+        debug_assert!(start_idx < self.span.end_idx);
+
+        self.span.new_start(start_idx);
+        self.node = &input[start_idx..=self.span.end_idx];
     }
 }
 
@@ -36,6 +51,15 @@ impl<T: Default> Default for Spanned<T> {
     }
 }
 
+impl<T: Default> Spanned<T> {
+    pub(crate) fn default_with_file_id(file_id: StrId) -> Self {
+        let mut spanned = Spanned::default();
+
+        spanned.span.file_id = file_id;
+        spanned
+    }
+}
+
 impl<T: Copy> Copy for Spanned<T> {}
 impl<T: Clone> Clone for Spanned<T> {
     fn clone(&self) -> Self {
@@ -48,19 +72,30 @@ impl<T: Clone> Clone for Spanned<T> {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Span {
-    start_idx: usize,
-    end_idx: usize,
+    file_id: StrId,
+    pub(crate) start_idx: usize,
+    pub(crate) end_idx: usize,
 }
 
 impl Span {
-    pub(crate) fn new(start_idx: usize, end_idx: usize) -> Self {
-        Span { start_idx, end_idx }
+    pub(crate) fn new(file_id: StrId, start_idx: usize, end_idx: usize) -> Self {
+        Span { file_id, start_idx, end_idx }
+    }
+
+    pub fn new_start(&mut self, start_idx: usize) {
+        self.start_idx = start_idx;
+    }
+
+    #[cfg(test)]
+    pub fn indexes(&self) -> (usize, usize) {
+        (self.start_idx, self.end_idx)
     }
 }
 
 impl Default for Span {
     fn default() -> Self {
         Span {
+            file_id: StrId::DUMMY,
             start_idx: 0,
             end_idx: 0,
         }
