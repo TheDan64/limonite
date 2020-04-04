@@ -25,6 +25,10 @@ impl<T> Spanned<T> {
     pub fn get_node(&self) -> &T {
         &self.node
     }
+
+    pub fn map<F: FnOnce(&T) -> R, R>(&self, f: F) -> Spanned<R> {
+        Spanned::new(f(&self.node), self.span)
+    }
 }
 
 impl<'s> Spanned<&'s str> {

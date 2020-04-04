@@ -1,3 +1,4 @@
+use crate::lexical::keywords::Keyword;
 use crate::lexical::types::Type;
 use crate::span::Spanned;
 
@@ -8,7 +9,7 @@ pub enum TokenKind<'s> {
     // 42, 42, 0x2A, 0b101010, -42.0, 42 ... and a suffix
     Numeric(String, Option<Type>),
     // Variables, fn names
-    Identifier(String),
+    Identifier(&'s str),
     // Count the number of tabs after a newline
     Indent(Spanned<&'s str>, u64),
     // True, False
@@ -18,7 +19,7 @@ pub enum TokenKind<'s> {
     // "This is a string"
     StrLiteral(String),
     // Reserved words
-    // Keyword(Keywords),
+    Keyword(Keyword),
     // (,),[,],:,:,>,<, ...
     // Symbol(Symbols),
     // >> Singleline and >>> \nMultiline comments\n <<<

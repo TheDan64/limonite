@@ -1,4 +1,5 @@
 use crate::interner::StrId;
+use crate::lexical::keywords::Keyword;
 use crate::lexical::token::{CommentKind, Token, TokenKind};
 use crate::span::{Span, Spanned};
 
@@ -136,6 +137,30 @@ impl<'s> Lexer<'s> {
 
         Ok(Spanned::new(TokenKind::Indent(tabs, count), span))
     }
+
+    // Identifiers: [a-zA-Z_][a-zA-z0-9_]*
+    // Keywords are subsets of identifiers.
+    fn consume_identifier(&mut self) -> TokenResult<'s> {
+        // Lexer will only let you start with alpha or undescore,
+        // so there is no need to check for numeric start
+        let ident = self.consume_while(|ch| match ch {
+            a if a.is_alphanumeric() => true,
+            '_' => true,
+            _ => false,
+        });
+
+        match ident.node() {
+            "True" => return Ok(ident.map(|_| TokenKind::BoolLiteral(true))),
+            "False" => return Ok(ident.map(|_| TokenKind::BoolLiteral(false))),
+            _ => (),
+        };
+
+        if let Ok(keyword) = ident.node().parse::<Keyword>() {
+            return Ok(ident.map(|_| TokenKind::Keyword(keyword)));
+        }
+
+        Ok(ident.map(|s| TokenKind::Identifier(s)))
+    }
 }
 
 impl<'s> Iterator for Lexer<'s> {
@@ -159,6 +184,8 @@ impl<'s> Iterator for Lexer<'s> {
             },
             // Count tabs: \n\t*
             Some('\n') => self.consume_tabs(),
+            // Find Keywords and Identifiers
+            Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
             None => return None,
             Some(chr) => unimplemented!("{}", chr),
         };

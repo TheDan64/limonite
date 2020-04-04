@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 #[derive(Copy, Debug, PartialEq, Clone)]
-pub enum Keywords {
+pub enum Keyword {
     And,
     Or,
     Not,
@@ -27,34 +27,34 @@ pub enum Keywords {
     Pass
 }
 
-impl FromStr for Keywords {
+impl FromStr for Keyword {
     type Err = ();
 
-    fn from_str(s: &str) -> Result<Keywords, ()> {
+    fn from_str(s: &str) -> Result<Keyword, ()> {
         match s {
-            "and"      => Ok(Keywords::And),
-            "or"       => Ok(Keywords::Or),
-            "not"      => Ok(Keywords::Not),
-            "is"       => Ok(Keywords::Is),
-            "class"    => Ok(Keywords::Class),
-            "fn"       => Ok(Keywords::Function),
-            "var"      => Ok(Keywords::Var),
-            "def"      => Ok(Keywords::Def),
-            "assert"   => Ok(Keywords::Assert),
-            "else"     => Ok(Keywords::Else),
-            "if"       => Ok(Keywords::If),
-            "for"      => Ok(Keywords::For),
-            "while"    => Ok(Keywords::While),
-            "return"   => Ok(Keywords::Return),
-            "equals"   => Ok(Keywords::Equals),
-            "use"      => Ok(Keywords::Use),
-            "from"     => Ok(Keywords::From),
-            "as"       => Ok(Keywords::As),
-            "when"     => Ok(Keywords::When),
-            "throws"   => Ok(Keywords::Throws),
-            "break"    => Ok(Keywords::Break),
-            "continue" => Ok(Keywords::Continue),
-            "pass"     => Ok(Keywords::Pass),
+            "and"      => Ok(Keyword::And),
+            "or"       => Ok(Keyword::Or),
+            "not"      => Ok(Keyword::Not),
+            "is"       => Ok(Keyword::Is),
+            "class"    => Ok(Keyword::Class),
+            "fn"       => Ok(Keyword::Function),
+            "var"      => Ok(Keyword::Var),
+            "def"      => Ok(Keyword::Def),
+            "assert"   => Ok(Keyword::Assert),
+            "else"     => Ok(Keyword::Else),
+            "if"       => Ok(Keyword::If),
+            "for"      => Ok(Keyword::For),
+            "while"    => Ok(Keyword::While),
+            "return"   => Ok(Keyword::Return),
+            "equals"   => Ok(Keyword::Equals),
+            "use"      => Ok(Keyword::Use),
+            "from"     => Ok(Keyword::From),
+            "as"       => Ok(Keyword::As),
+            "when"     => Ok(Keyword::When),
+            "throws"   => Ok(Keyword::Throws),
+            "break"    => Ok(Keyword::Break),
+            "continue" => Ok(Keyword::Continue),
+            "pass"     => Ok(Keyword::Pass),
             _          => Err(())
         }
     }

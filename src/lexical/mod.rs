@@ -1,4 +1,4 @@
-// pub mod keywords;
+pub mod keywords;
 // pub mod lexer;
 pub mod lexer_new;
 // pub mod symbols;
