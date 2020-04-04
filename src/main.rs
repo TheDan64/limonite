@@ -1,10 +1,12 @@
 #[macro_use]
 extern crate serde_derive;
 
+use structopt::clap::ArgGroup;
+use structopt::StructOpt;
+
 use std::io::{BufReader, Read};
 use std::fs::File;
-use std::path::Path;
-use docopt::Docopt;
+use std::path::PathBuf;
 
 // use lexical::lexer::Lexer;
 // use syntax::parser::Parser;
@@ -18,18 +20,21 @@ pub mod syntax;
 pub mod semantic;
 pub mod codegen;
 
-static USAGE: &'static str = "\
-Usage: limonite <file>
-       limonite (-d | --dump) <file>
-       limonite (-s | --stdin)
-       limonite (-v | --version)
+#[derive(Debug, StructOpt)]
+#[structopt(name = "limc", group = ArgGroup::with_name("file_or_stdin").required(true))]
+struct Opt {
+    /// Input file
+    #[structopt(name = "FILE", parse(from_os_str), group = "file_or_stdin")]
+    file: Option<PathBuf>,
 
-Options:
-    -d, --dump      Dumps backend IR
-    -h, --help      Display this message
-    -s, --stdin     Read input from stdin
-    -v, --version   Displays current version
-";
+    /// Dumps internal info
+    #[structopt(short, long)]
+    dump: bool,
+
+    /// Read from stdin rather than file
+    #[structopt(short, long, group = "file_or_stdin")]
+    stdin: bool,
+}
 
 #[derive(Debug, Deserialize)]
 struct Args {
@@ -42,24 +47,15 @@ struct Args {
 fn main() {
     env_logger::init();
 
-    let args: Args = Docopt::new(USAGE)
-                            .and_then(|d| d.deserialize())
-                            .unwrap_or_else(|e| e.exit());
+    let opt = Opt::from_args();
 
-    if args.flag_version {
-        let version = env!("CARGO_PKG_VERSION");
+    dbg!(&opt);
 
-        return println!("limonite {}", version);
-    }
-
-    let input_string = if !args.flag_stdin {
-        let ref file_name = &args.arg_file;
-        let path = Path::new(file_name);
-        let file = match File::open(&path) {
+    let input_string = if !opt.stdin {
+        let file = match File::open(opt.file.as_ref().unwrap()) {
             Ok(f)  => f,
             Err(e) => panic!("Failed to open file: {}", e)
         };
-
         readable_to_string(BufReader::new(file))
     } else {
         readable_to_string(std::io::stdin())
