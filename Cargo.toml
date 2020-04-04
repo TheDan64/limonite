@@ -30,5 +30,12 @@ inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "llvm8-0", opt
 log = "*"
 structopt = "0.3"
 
+[dev-dependencies]
+criterion = "0.3"
+
 [[test]]
 name = "tests"
+
+[[bench]]
+name = "lexer"
+harness = false

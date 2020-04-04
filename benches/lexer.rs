@@ -1,0 +1,15 @@
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use limonite::lexical::Lexer;
+
+fn consume_while_benchmark(c: &mut Criterion) {
+    let s = "Hello, World!";
+
+    c.bench_function("consume_while", |b| b.iter(|| {
+        let mut lexer = Lexer::new(s);
+
+        lexer.consume_while(|c| c.is_alphanumeric()).node();
+    }));
+}
+
+criterion_group!(benches, consume_while_benchmark);
+criterion_main!(benches);

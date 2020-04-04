@@ -4,6 +4,10 @@ use crate::span::Spanned;
 use std::iter::{Iterator, Peekable};
 use std::str::CharIndices;
 
+// REVIEW: CharIndices may not be sufficient for unicode with modifiers?
+// For example, y̆ is y + \u{0306} modifier. I think the current approach
+// would treat them separately and likely fail early on the modifier
+// since it's not treated as the same "character".
 pub struct Lexer<'s> {
     line_number: usize,
     column_number: usize,
@@ -46,7 +50,7 @@ impl<'s> Lexer<'s> {
         None
     }
 
-    fn consume_while<F: FnMut(char) -> bool>(&mut self, mut test: F) -> Spanned<&'s str> {
+    pub fn consume_while<F: FnMut(char) -> bool>(&mut self, mut test: F) -> Spanned<&'s str> {
         let mut start_idx = None;
         let mut end_idx = 0;
 
