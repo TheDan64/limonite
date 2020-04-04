@@ -5,7 +5,7 @@ use std::io::{BufReader, Read};
 use std::fs::File;
 use std::path::PathBuf;
 
-// use lexical::lexer::Lexer;
+use lexical::lexer_new::Lexer;
 // use syntax::parser::Parser;
 // use semantic::analyzer::SemanticAnalyzer;
 // use semantic::analyzer_trait::ASTAnalyzer;
@@ -13,6 +13,7 @@ use std::path::PathBuf;
 // use codegen::llvm::LLVMGenerator;
 
 pub mod lexical;
+pub mod span;
 pub mod syntax;
 pub mod semantic;
 pub mod codegen;
@@ -51,9 +52,9 @@ fn main() {
     };
 
     // Tokanize the input
-    // let lexer = Lexer::new(&input_string);
+    let lexer = Lexer::new(&input_string);
 
-    // // Parse & Build an AST
+    // Parse & Build an AST
     // let mut parser = Parser::new(lexer);
 
     // let mut ast_root = match parser.parse() {
@@ -61,11 +62,11 @@ fn main() {
     //     None => return,
     // };
 
-    // // TODO: Semantic Analysis
+    // TODO: Semantic Analysis
     // let mut semantic_analyzer = SemanticAnalyzer::new();
     // semantic_analyzer.analyze(&mut ast_root);
 
-    // // Run Code Gen
+    // Run Code Gen
     // #[cfg(feature="llvm-backend")]
     // {
     //     let mut generator = LLVMGenerator::new();
