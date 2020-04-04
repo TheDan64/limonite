@@ -46,7 +46,7 @@ impl<'s> Lexer<'s> {
         None
     }
 
-    fn consume_while<F: FnMut(char) -> bool>(&mut self, mut test: F) -> &'s str {
+    fn consume_while<F: FnMut(char) -> bool>(&mut self, mut test: F) -> Spanned<&'s str> {
         let mut start_idx = None;
         let mut end_idx = 0;
 
@@ -70,9 +70,9 @@ impl<'s> Lexer<'s> {
         }
 
         if let Some(start_idx) = start_idx {
-            &self.input[start_idx..=end_idx]
+            Spanned::new(&self.input[start_idx..=end_idx], start_idx, end_idx)
         } else {
-            ""
+            Spanned::default()
         }
     }
 }
@@ -91,9 +91,9 @@ fn test_consume_while() {
     let s = "Hello, World!";
     let mut lexer = Lexer::new(s);
 
-    assert_eq!(lexer.consume_while(|c| c.is_alphanumeric()), "Hello");
-    assert_eq!(lexer.consume_while(|c| !c.is_alphanumeric()), ", ");
-    assert_eq!(lexer.consume_while(|c| c.is_alphanumeric()), "World");
-    assert_eq!(lexer.consume_while(|c| !c.is_alphanumeric()), "!");
-    assert_eq!(lexer.consume_while(|c| c.is_alphanumeric()), "");
+    assert_eq!(lexer.consume_while(|c| c.is_alphanumeric()).node(), "Hello");
+    assert_eq!(lexer.consume_while(|c| !c.is_alphanumeric()).node(), ", ");
+    assert_eq!(lexer.consume_while(|c| c.is_alphanumeric()).node(), "World");
+    assert_eq!(lexer.consume_while(|c| !c.is_alphanumeric()).node(), "!");
+    assert_eq!(lexer.consume_while(|c| c.is_alphanumeric()).node(), "");
 }
