@@ -1,5 +1,6 @@
 use crate::interner::StrId;
 use crate::lexical::keywords::Keyword;
+use crate::lexical::symbols::Symbol;
 use crate::lexical::token::{CommentKind, Token, TokenKind};
 use crate::span::{Span, Spanned};
 
@@ -12,6 +13,7 @@ pub type TokenResult<'s> = Result<Token<'s>, LexerError>;
 // For example, y̆ is y + \u{0306} modifier. I think the current approach
 // would treat them separately and likely fail early on the modifier
 // since it's not treated as the same "character".
+/// A zero-copy Lexer/Tokenizer.
 pub struct Lexer<'s> {
     file_id: StrId,
     line_number: usize,
@@ -132,10 +134,14 @@ impl<'s> Lexer<'s> {
             _ => false,
         });
 
-        let end_idx = tabs.span().end_idx;
+        let end_idx = if tabs.span().end_idx == 0 {
+            start_idx
+        } else {
+            tabs.span().end_idx
+        };
         let span = Span::new(self.file_id, start_idx, end_idx);
 
-        Ok(Spanned::new(TokenKind::Indent(tabs, count), span))
+        Ok(Spanned::new(TokenKind::Indent(count), span))
     }
 
     // Identifiers: [a-zA-Z_][a-zA-z0-9_]*
@@ -161,6 +167,65 @@ impl<'s> Lexer<'s> {
 
         Ok(ident.map(|s| TokenKind::Identifier(s)))
     }
+
+    // Single and multi char symbols: *, -, +=, -=, ...
+    fn symbols_token(&mut self) -> TokenResult<'s> {
+        let mut bail = false;
+        let mut count = 0;
+
+        let symbol = self.consume_while(|ch| {
+            if bail || count > 2 {
+                return false;
+            }
+
+            count += 1;
+
+            return match ch {
+                '(' | ')' | '[' | ']' | '{' | '}' | '.' | ',' | ':' | '^' | '~' | '=' => {
+                    bail = true;
+                    true
+                },
+                '+' | '-' | '*' | '/' | '>' | '<' | '%' => true,
+                _ => false
+            }
+        });
+
+        Ok(symbol.map(|s| TokenKind::Symbol(s.parse::<Symbol>().expect("Can't fail"))))
+    }
+
+    // This is currently set up to accept multi line strings
+    fn consume_string_literal(&mut self) -> TokenResult<'s> {
+        let mut last_char_escaped = false;
+        let mut unescaped_quotes = 0;
+        let string = self.consume_while(|ch| {
+            if unescaped_quotes == 2 {
+                return false;
+            }
+
+            match ch {
+                '\"' if !last_char_escaped => {
+                    unescaped_quotes += 1;
+                    last_char_escaped = false;
+                    true
+                },
+                '\\' => {
+                    last_char_escaped = true;
+                    true
+                },
+                _ => {
+                    last_char_escaped = false;
+                    true
+                }
+            }
+        });
+
+        // Hit eof before last quote
+        if &string.node()[string.node().len() - 1..] != "\"" {
+            unimplemented!("EOF error: {}", string.node());
+        }
+
+        Ok(string.map(|s| TokenKind::StrLiteral(s)))
+    }
 }
 
 impl<'s> Iterator for Lexer<'s> {
@@ -182,6 +247,20 @@ impl<'s> Iterator for Lexer<'s> {
                     _ => unimplemented!("self.symbols_token(\">\")"),
                 }
             },
+            // Find single-char symbols
+            Some('(') | Some(')') |
+            Some('[') | Some(']') |
+            Some('{') | Some('}') |
+            Some('.') |
+            Some(',') |
+            Some(':') |
+            Some('^') |
+            Some('~') |
+            Some('=') => {
+                self.symbols_token()
+            },
+            // Find string literals, "String"
+            Some('\"') => self.consume_string_literal(),
             // Count tabs: \n\t*
             Some('\n') => self.consume_tabs(),
             // Find Keywords and Identifiers
@@ -218,5 +297,24 @@ print(\"Hello, world!\")\n";
     let tokens: Result<Vec<Token>, _> = lexer.into_iter().collect();
     let tokens = tokens.unwrap();
 
-    assert_eq!(tokens[0].span().indexes(), (0, 20));
+    assert_eq!(&s[tokens[0].span()], ">> This is a comment");
+    assert_eq!(
+        tokens[0].node(),
+        TokenKind::Comment(CommentKind::Single(Spanned::new(" This is a comment", Span::new(StrId::DUMMY, 2, 19)))),
+    );
+
+    assert_eq!(&s[tokens[1].span()], "\n");
+    assert_eq!(tokens[1].node(), TokenKind::Indent(0));
+
+    assert_eq!(&s[tokens[2].span()], "print");
+    assert_eq!(tokens[2].node(), TokenKind::Identifier("print"));
+
+    assert_eq!(&s[tokens[3].span()], "(");
+    assert_eq!(tokens[3].node(), TokenKind::Symbol(Symbol::ParenOpen));
+
+    assert_eq!(&s[tokens[4].span()], "\"Hello, world!\"");
+    assert_eq!(tokens[4].node(), TokenKind::StrLiteral("\"Hello, world!\""));
+
+    assert_eq!(&s[tokens[5].span()], ")");
+    assert_eq!(tokens[5].node(), TokenKind::Symbol(Symbol::ParenClose));
 }

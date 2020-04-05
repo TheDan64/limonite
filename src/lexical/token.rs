@@ -1,36 +1,35 @@
 use crate::lexical::keywords::Keyword;
+use crate::lexical::symbols::Symbol;
 use crate::lexical::types::Type;
 use crate::span::Spanned;
 
 pub type Token<'s> = Spanned<TokenKind<'s>>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TokenKind<'s> {
     // 42, 42, 0x2A, 0b101010, -42.0, 42 ... and a suffix
-    Numeric(String, Option<Type>),
+    Numeric(&'s str, Option<Type>),
     // Variables, fn names
     Identifier(&'s str),
     // Count the number of tabs after a newline
-    Indent(Spanned<&'s str>, u64),
+    Indent(u64),
     // True, False
     BoolLiteral(bool),
     // 'c'
     CharLiteral(char),
     // "This is a string"
-    StrLiteral(String),
+    StrLiteral(&'s str),
     // Reserved words
     Keyword(Keyword),
     // (,),[,],:,:,>,<, ...
-    // Symbol(Symbols),
+    Symbol(Symbol),
     // >> Singleline and >>> \nMultiline comments\n <<<
     Comment(CommentKind<'s>),
-    // Error message
-    // Error(String),
 }
 
 // TODO: Move elsewhere?
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CommentKind<'s> {
     Single(Spanned<&'s str>),
-    Multi(String),
+    Multi(Spanned<&'s str>),
 }

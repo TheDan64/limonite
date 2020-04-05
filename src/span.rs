@@ -1,5 +1,7 @@
 use crate::interner::StrId;
 
+use std::ops::Index;
+
 #[derive(Debug, PartialEq)]
 pub struct Spanned<T> {
     node: T,
@@ -89,11 +91,6 @@ impl Span {
     pub fn new_start(&mut self, start_idx: usize) {
         self.start_idx = start_idx;
     }
-
-    #[cfg(test)]
-    pub fn indexes(&self) -> (usize, usize) {
-        (self.start_idx, self.end_idx)
-    }
 }
 
 impl Default for Span {
@@ -103,5 +100,13 @@ impl Default for Span {
             start_idx: 0,
             end_idx: 0,
         }
+    }
+}
+
+impl Index<Span> for str {
+    type Output = str;
+
+    fn index(&self, span: Span) -> &Self::Output {
+        &self.index(span.start_idx..=span.end_idx)
     }
 }
