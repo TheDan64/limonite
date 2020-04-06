@@ -427,7 +427,7 @@ impl<'s> Iterator for Lexer<'s> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LexerError<'s> {
     EmptyCharLiteral(Spanned<&'s str>),
     InvalidCharLiteralEnd(Spanned<char>),
@@ -565,4 +565,80 @@ if x <= 3,
 
     assert_eq!(&s[tokens[17].span()], "\n");
     assert_eq!(tokens[17].node(), TokenKind::Indent(0));
+}
+
+#[test]
+fn test_char_literal_errors() {
+    let s = "'";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let token = lexer.into_iter().next().unwrap().unwrap_err();
+
+    if let LexerError::UnexpectedEof(spanned_str) = token {
+        assert_eq!(&s[spanned_str.span()], "'");
+        assert_eq!(spanned_str.node(), "'");
+    } else {
+        panic!();
+    }
+
+    let s = "'\\";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let token = lexer.into_iter().next().unwrap().unwrap_err();
+
+    if let LexerError::UnexpectedEof(spanned_str) = token {
+        assert_eq!(&s[spanned_str.span()], "'\\");
+        assert_eq!(spanned_str.node(), "'\\");
+    } else {
+        panic!();
+    }
+
+    let s = "'\\a";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let token = lexer.into_iter().next().unwrap().unwrap_err();
+
+    if let LexerError::UnknownEscape(spanned_char) = token {
+        assert_eq!(&s[spanned_char.span()], "\\a");
+        assert_eq!(spanned_char.node(), 'a');
+    } else {
+        panic!();
+    }
+
+    let s = "''";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let token = lexer.into_iter().next().unwrap().unwrap_err();
+
+    if let LexerError::EmptyCharLiteral(spanned_str) = token {
+        assert_eq!(&s[spanned_str.span()], "''");
+        assert_eq!(spanned_str.node(), "''");
+    } else {
+        panic!();
+    }
+
+    let s = "'a";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let token = lexer.into_iter().next().unwrap().unwrap_err();
+
+    if let LexerError::UnexpectedEof(spanned_str) = token {
+        assert_eq!(&s[spanned_str.span()], "'a");
+        assert_eq!(spanned_str.node(), "'a");
+    } else {
+        panic!();
+    }
+
+    let s = "'ab";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let token = lexer.into_iter().next().unwrap().unwrap_err();
+
+    if let LexerError::InvalidCharLiteralEnd(spanned_char) = token {
+        assert_eq!(&s[spanned_char.span()], "'ab");
+        assert_eq!(spanned_char.node(), 'b');
+    } else {
+        panic!();
+    }
+
+    let s = "'a'";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let token = lexer.into_iter().next().unwrap().unwrap();
+
+    assert_eq!(&s[token.span()], "'a'");
+    assert_eq!(token.node(), TokenKind::CharLiteral('a'));
 }
