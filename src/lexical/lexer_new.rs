@@ -7,7 +7,7 @@ use crate::span::{Span, Spanned};
 use std::iter::{Iterator, Peekable};
 use std::str::CharIndices;
 
-pub type TokenResult<'s> = Result<Token<'s>, LexerError>;
+pub type TokenResult<'s> = Result<Token<'s>, LexerError<'s>>;
 
 // REVIEW: CharIndices may not be sufficient for unicode with modifiers?
 // For example, y̆ is y + \u{0306} modifier. I think the current approach
@@ -285,7 +285,76 @@ impl<'s> Lexer<'s> {
 
         Ok(Spanned::new(TokenKind::Numeric(number, opt_suffix), outer_span))
     }
+
+    fn consume_char_literal(&mut self) -> TokenResult<'s> {
+        let ch;
+        let (start_idx, _quote) = self.consume_char().expect("Can't fail");
+        let (inner_idx, inner) = match self.consume_char() {
+            Some((inner_idx, ch)) => (inner_idx, ch),
+            None => {
+                let span = Span::new(self.file_id, start_idx, start_idx);
+
+                return Err(LexerError::UnexpectedEof(Spanned::new(&self.input[span], span)))
+            },
+        };
+
+        match inner {
+            '\\' => {
+                let (inner_idx2, inner2) = match self.consume_char() {
+                    Some((inner_idx2, inner2)) => (inner_idx2, inner2),
+                    None => {
+                        let span = Span::new(self.file_id, start_idx, inner_idx);
+
+                        return Err(LexerError::UnexpectedEof(Spanned::new(&self.input[span], span)));
+                    }
+                };
+
+                // Does not include unicode escapes
+                ch = match inner2 {
+                    '\''=> '\'',
+                    '\"'=> '\"',
+                    '\\'=> '\\',
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    '\n'=> ' ', // Escape newline?
+                    _ => {
+                        let span = Span::new(self.file_id, inner_idx, inner_idx2);
+
+                        return Err(LexerError::UnknownEscape(Spanned::new(inner2, span)))
+                    }
+                };
+            },
+            '\'' => {
+                let span = Span::new(self.file_id, start_idx, inner_idx);
+
+                return Err(LexerError::EmptyCharLiteral(Spanned::new(&self.input[span], span)))
+            },
+            c => ch = c,
+        }
+
+        let (end_idx, maybe_quote) = match self.consume_char() {
+            Some((end_idx, maybe_quote)) => (end_idx, maybe_quote),
+            None => {
+                let span = Span::new(self.file_id, start_idx, inner_idx);
+
+                return Err(LexerError::UnexpectedEof(Spanned::new(&self.input[span], span)))
+            },
+        };
+
+        if maybe_quote != '\'' {
+            let span = Span::new(self.file_id, start_idx, end_idx);
+
+            return Err(LexerError::InvalidCharLiteralEnd(Spanned::new(maybe_quote, span)))
+        }
+
+        let span = Span::new(self.file_id, start_idx, end_idx);
+
+        Ok(Spanned::new(TokenKind::CharLiteral(ch), span))
+    }
 }
+
+// IDEA: consume_n_then_while which eats n unconditionally then calls consume_while
 
 impl<'s> Iterator for Lexer<'s> {
     type Item = TokenResult<'s>;
@@ -325,6 +394,8 @@ impl<'s> Iterator for Lexer<'s> {
             Some('=') => {
                 self.symbols_token()
             },
+            // Find character literals, 'c', including ascii escape chars
+            Some('\'') => self.consume_char_literal(),
             // Find string literals, "String"
             Some('\"') => self.consume_string_literal(),
             // Count tabs: \n\t*
@@ -333,8 +404,23 @@ impl<'s> Iterator for Lexer<'s> {
             Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
             // Find ints, floats, hex, and bin numeric values
             Some(n) if n.is_digit(10) => self.consume_numeric(),
+            // Error: Found tabs without preceeding newline
+            Some('\t') => {
+                let (start_index, ch) = self.consume_char().expect("Can't fail");
+                let span = Span::new(self.file_id, start_index, start_index);
+                let spanned_char = Spanned::new(ch, span);
+
+                Err(LexerError::UnexpectedTab(spanned_char))
+            },
+            // Error: Don't know how to lex this character
+            Some(ch) => {
+                let (start_index, _) = self.consume_char().expect("Can't fail");
+                let span = Span::new(self.file_id, start_index, start_index);
+                let spanned_char = Spanned::new(ch, span);
+
+                Err(LexerError::UnknownChar(spanned_char))
+            },
             None => return None,
-            Some(chr) => unimplemented!("{}", chr),
         };
 
         Some(tok)
@@ -342,7 +428,14 @@ impl<'s> Iterator for Lexer<'s> {
 }
 
 #[derive(Debug)]
-pub enum LexerError {}
+pub enum LexerError<'s> {
+    EmptyCharLiteral(Spanned<&'s str>),
+    InvalidCharLiteralEnd(Spanned<char>),
+    UnexpectedEof(Spanned<&'s str>),
+    UnexpectedTab(Spanned<char>),
+    UnknownChar(Spanned<char>),
+    UnknownEscape(Spanned<char>),
+}
 
 #[test]
 fn test_consume_while() {
