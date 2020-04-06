@@ -1,14 +1,13 @@
 use crate::lexical::keywords::Keyword;
 use crate::lexical::symbols::Symbol;
-use crate::lexical::types::Type;
 use crate::span::Spanned;
 
 pub type Token<'s> = Spanned<TokenKind<'s>>;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TokenKind<'s> {
-    // 42, 42, 0x2A, 0b101010, -42.0, 42 ... and a suffix
-    Numeric(&'s str, Option<Type>),
+    // 42, 42, 0x2A, 0b101010, -42.0, 42 ... and an optional suffix
+    Numeric(Spanned<&'s str>, Option<Spanned<&'s str>>),
     // Variables, fn names
     Identifier(&'s str),
     // Count the number of tabs after a newline

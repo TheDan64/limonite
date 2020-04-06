@@ -226,6 +226,65 @@ impl<'s> Lexer<'s> {
 
         Ok(string.map(|s| TokenKind::StrLiteral(s)))
     }
+
+    fn consume_whitespace(&mut self) {
+        self.consume_while(|ch| match ch {
+            '\n' | '\t' => false,
+            w if w.is_whitespace() => true,
+            _ => false,
+        });
+    }
+
+    fn consume_numeric(&mut self) -> TokenResult<'s> {
+        let mut leading_zero = self.next_char() == Some('0');
+        let mut count = 0;
+        let mut guarenteed_float = false;
+        let mut guarenteed_int = false;
+
+        let number = self.consume_while(|ch| {
+            count += 1;
+
+            match ch {
+                '.' if !guarenteed_float && !guarenteed_int => {
+                    guarenteed_float = true;
+                    true
+                },
+                'x' | 'b' if leading_zero && !guarenteed_float => {
+                    leading_zero = false;
+                    guarenteed_int = true;
+                    true
+                },
+                c if c.is_numeric() => {
+                    if count > 1 {
+                        leading_zero = false;
+                    }
+
+                    true
+                }
+                _ => false,
+            }
+        });
+        let suffix = self.consume_while(|ch| match ch {
+            c if c.is_alphanumeric() => true,
+            '_' => true,
+            _ => false,
+        });
+        // If the suffix is empty, use None instead
+        let opt_suffix = if suffix.span().start_idx < suffix.span().end_idx {
+            Some(suffix)
+        } else {
+            None
+        };
+
+        let end_idx = if suffix.span().end_idx == 0 {
+            number.span().end_idx
+        } else {
+            suffix.span().end_idx
+        };
+        let outer_span = Span::new(self.file_id, number.span().start_idx, end_idx);
+
+        Ok(Spanned::new(TokenKind::Numeric(number, opt_suffix), outer_span))
+    }
 }
 
 impl<'s> Iterator for Lexer<'s> {
@@ -233,6 +292,8 @@ impl<'s> Iterator for Lexer<'s> {
 
     // Parse the file where it left off and return the next token
     fn next(&mut self) -> Option<Self::Item> {
+        self.consume_whitespace();
+
         let tok = match self.next_char() {
             // Find >> and >>> comments, otherwise > or >= symbols
             Some('>') => {
@@ -241,10 +302,9 @@ impl<'s> Iterator for Lexer<'s> {
                 match self.next_char() {
                     Some('>') => self.consume_comment(start_idx),
                     Some('=') => {
-                        self.consume_char();
-                        unimplemented!("self.symbols_token(\">=\");");
+                        self.symbols_token()
                     },
-                    _ => unimplemented!("self.symbols_token(\">\")"),
+                    _ => self.symbols_token(),
                 }
             },
             // Find single-char symbols
@@ -256,6 +316,12 @@ impl<'s> Iterator for Lexer<'s> {
             Some(':') |
             Some('^') |
             Some('~') |
+            Some('+') |
+            Some('*') |
+            Some('/') |
+            Some('%') |
+            Some('-') |
+            Some('<') |
             Some('=') => {
                 self.symbols_token()
             },
@@ -265,6 +331,8 @@ impl<'s> Iterator for Lexer<'s> {
             Some('\n') => self.consume_tabs(),
             // Find Keywords and Identifiers
             Some(a) if a.is_alphabetic() || a == '_' => self.consume_identifier(),
+            // Find ints, floats, hex, and bin numeric values
+            Some(n) if n.is_digit(10) => self.consume_numeric(),
             None => return None,
             Some(chr) => unimplemented!("{}", chr),
         };
@@ -292,7 +360,7 @@ fn test_consume_while() {
 fn test_comment_hello_world() {
     let s = ">> This is a comment
 print(\"Hello, world!\")\n";
-    let mut lexer = Lexer::new(s, StrId::DUMMY);
+    let lexer = Lexer::new(s, StrId::DUMMY);
 
     let tokens: Result<Vec<Token>, _> = lexer.into_iter().collect();
     let tokens = tokens.unwrap();
@@ -317,4 +385,91 @@ print(\"Hello, world!\")\n";
 
     assert_eq!(&s[tokens[5].span()], ")");
     assert_eq!(tokens[5].node(), TokenKind::Symbol(Symbol::ParenClose));
+}
+
+#[test]
+fn test_non_ascii() {
+    // FIXME: y̆ after Å will fail
+    let s = "abÅcd";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let tokens: Result<Vec<Token>, _> = lexer.into_iter().collect();
+    let tokens = tokens.unwrap();
+
+    assert_eq!(&s[tokens[0].span()], "abÅcd");
+    assert_eq!(tokens[0].node(), TokenKind::Identifier("abÅcd"));
+}
+
+
+#[test]
+fn test_vars_if_while() {
+    let s = "var x = 1 + 2
+if x <= 3,
+\tprint(\"x <= 3\")
+";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let tokens: Result<Vec<Token>, _> = lexer.into_iter().collect();
+    let tokens = tokens.unwrap();
+
+    assert_eq!(&s[tokens[0].span()], "var");
+    assert_eq!(tokens[0].node(), TokenKind::Keyword(Keyword::Var));
+
+    assert_eq!(&s[tokens[1].span()], "x");
+    assert_eq!(tokens[1].node(), TokenKind::Identifier("x"));
+
+    assert_eq!(&s[tokens[2].span()], "=");
+    assert_eq!(tokens[2].node(), TokenKind::Symbol(Symbol::Equals));
+
+    let inner_span = Span::new(StrId::DUMMY, 8, 8);
+
+    assert_eq!(&s[inner_span], "1");
+    assert_eq!(&s[tokens[3].span()], "1");
+    assert_eq!(tokens[3].node(), TokenKind::Numeric(Spanned::new("1", inner_span), None));
+
+    assert_eq!(&s[tokens[4].span()], "+");
+    assert_eq!(tokens[4].node(), TokenKind::Symbol(Symbol::Plus));
+
+    let inner_span = Span::new(StrId::DUMMY, 12, 12);
+
+    assert_eq!(&s[inner_span], "2");
+    assert_eq!(&s[tokens[5].span()], "2");
+    assert_eq!(tokens[5].node(), TokenKind::Numeric(Spanned::new("2", inner_span), None));
+
+    assert_eq!(&s[tokens[6].span()], "\n");
+    assert_eq!(tokens[6].node(), TokenKind::Indent(0));
+
+    assert_eq!(&s[tokens[7].span()], "if");
+    assert_eq!(tokens[7].node(), TokenKind::Keyword(Keyword::If));
+
+    assert_eq!(&s[tokens[8].span()], "x");
+    assert_eq!(tokens[8].node(), TokenKind::Identifier("x"));
+
+    assert_eq!(&s[tokens[9].span()], "<=");
+    assert_eq!(tokens[9].node(), TokenKind::Symbol(Symbol::LessThanEqual));
+
+    let inner_span = Span::new(StrId::DUMMY, 22, 22);
+
+    assert_eq!(&s[inner_span], "3");
+    assert_eq!(&s[tokens[10].span()], "3");
+    assert_eq!(tokens[10].node(), TokenKind::Numeric(Spanned::new("3", inner_span), None));
+
+    assert_eq!(&s[tokens[11].span()], ",");
+    assert_eq!(tokens[11].node(), TokenKind::Symbol(Symbol::Comma));
+
+    assert_eq!(&s[tokens[12].span()], "\n\t");
+    assert_eq!(tokens[12].node(), TokenKind::Indent(1));
+
+    assert_eq!(&s[tokens[13].span()], "print");
+    assert_eq!(tokens[13].node(), TokenKind::Identifier("print"));
+
+    assert_eq!(&s[tokens[14].span()], "(");
+    assert_eq!(tokens[14].node(), TokenKind::Symbol(Symbol::ParenOpen));
+
+    assert_eq!(&s[tokens[15].span()], "\"x <= 3\"");
+    assert_eq!(tokens[15].node(), TokenKind::StrLiteral("\"x <= 3\""));
+
+    assert_eq!(&s[tokens[16].span()], ")");
+    assert_eq!(tokens[16].node(), TokenKind::Symbol(Symbol::ParenClose));
+
+    assert_eq!(&s[tokens[17].span()], "\n");
+    assert_eq!(tokens[17].node(), TokenKind::Indent(0));
 }
