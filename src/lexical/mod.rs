@@ -5,4 +5,7 @@ pub mod symbols;
 pub mod token;
 pub mod types;
 
-pub use lexer_new::Lexer;
+pub use keywords::Keyword;
+pub use lexer_new::{Lexer, LexerError, TokenResult};
+pub use symbols::Symbol;
+pub use token::{Token, TokenKind};

@@ -5,8 +5,9 @@ use std::io::{BufReader, Read};
 use std::fs::File;
 use std::path::PathBuf;
 
-use lexical::lexer_new::Lexer;
+use lexical::Lexer;
 use interner::Interner;
+use syntax::Parser;
 // use syntax::parser::Parser;
 // use semantic::analyzer::SemanticAnalyzer;
 // use semantic::analyzer_trait::ASTAnalyzer;
@@ -65,12 +66,12 @@ fn main() {
     let lexer = Lexer::new(&input_string, file_id);
 
     // Parse & Build an AST
-    // let mut parser = Parser::new(lexer);
+    let parser = Parser::new(lexer);
 
-    // let mut ast_root = match parser.parse() {
-    //     Some(ast) => ast,
-    //     None => return,
-    // };
+    let mut _ast_root = match parser.parse() {
+        Ok(ast) => ast,
+        Err(_errs) => unimplemented!("Parser errors"),
+    };
 
     // TODO: Semantic Analysis
     // let mut semantic_analyzer = SemanticAnalyzer::new();

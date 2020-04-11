@@ -31,6 +31,10 @@ impl<T> Spanned<T> {
     pub fn map<F: FnOnce(&T) -> R, R>(&self, f: F) -> Spanned<R> {
         Spanned::new(f(&self.node), self.span)
     }
+
+    pub fn replace<R>(&self, r: R) -> Spanned<R> {
+        self.map(|_| r)
+    }
 }
 
 impl<'s> Spanned<&'s str> {
@@ -78,7 +82,7 @@ impl<T: Clone> Clone for Spanned<T> {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Span {
-    file_id: StrId,
+    pub(crate) file_id: StrId,
     pub(crate) start_idx: usize,
     pub(crate) end_idx: usize,
 }

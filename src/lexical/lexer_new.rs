@@ -221,7 +221,7 @@ impl<'s> Lexer<'s> {
 
         // Hit eof before last quote
         if &string.node()[string.node().len() - 1..] != "\"" {
-            unimplemented!("EOF error: {}", string.node());
+            return Err(LexerError::UnexpectedEof(string));
         }
 
         Ok(string.map(|s| TokenKind::StrLiteral(s)))
