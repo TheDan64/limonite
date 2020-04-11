@@ -18,8 +18,8 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         }
     }
 
-    pub fn parse(mut self) -> Result<Block<'s>, Vec<ParserError<'s>>> {
-        let ast_root = self.sub_parse();
+    pub fn run(mut self) -> Result<Block<'s>, Vec<ParserError<'s>>> {
+        let ast_root = self.parse_block();
 
         if self.errors.is_empty() {
             Ok(ast_root)
@@ -190,7 +190,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         }
     }
 
-    fn sub_parse(&mut self) -> Block<'s> {
+    fn parse_block(&mut self) -> Block<'s> {
         let mut stmts = Vec::new();
 
         loop {
@@ -238,7 +238,7 @@ where
             Ok(())
         } else {
             Err(ParserError {
-                kind: ParserErrorKind::UnexpectToken(tok),
+                kind: ParserErrorKind::UnexpectedToken(tok),
             })
         }
     }
@@ -288,7 +288,7 @@ trait RegexObject {
 pub enum ParserErrorKind<'s> {
     LexerError(LexerError<'s>),
     // Should be internal only?
-    UnexpectToken(Token<'s>),
+    UnexpectedToken(Token<'s>),
 }
 
 #[derive(Debug)]
@@ -314,7 +314,7 @@ fn test_comment_hello_world() {
 print(\"Hello, world!\")\n";
     let lexer = Lexer::new(s, StrId::DUMMY);
     let parser = Parser::new(lexer);
-    let ast_block = parser.parse().unwrap();
+    let ast_block = parser.run().unwrap();
     let stmts = ast_block.stmts();
 
     assert_eq!(stmts.len(), 1);

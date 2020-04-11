@@ -1,5 +1,5 @@
 use crate::span::Spanned;
-use crate::syntax::{Block, InfixOp, Literal, Stmt};
+use crate::syntax::{Block, InfixOp, Literal};
 
 pub type Expr<'s> = Spanned<Box<ExprKind<'s>>>;
 

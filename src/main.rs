@@ -68,7 +68,7 @@ fn main() {
     // Parse & Build an AST
     let parser = Parser::new(lexer);
 
-    let mut _ast_root = match parser.parse() {
+    let mut _ast_root = match parser.run() {
         Ok(ast) => ast,
         Err(_errs) => unimplemented!("Parser errors"),
     };
