@@ -2,15 +2,8 @@ language: rust
 
 sudo: false
 
-rust:
-  - stable
-  - beta
-  - nightly
-
-matrix:
-  allow_failures:
-    - rust: nightly
-
+rust: stable
+dist: trusty
 env:
   global:
     - RUSTFLAGS="-C link-dead-code"
@@ -19,9 +12,9 @@ addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
-      - llvm-toolchain-precise-3.7
+      - llvm-toolchain-trusty-8
     packages:
-      - llvm-3.7-dev
+      - llvm-8-dev
       - libelf-dev
       - lib32z1-dev
       - libedit-dev
@@ -30,7 +23,7 @@ addons:
       - libiberty-dev
 
 before_install:
-  - export PATH=/usr/lib/llvm-3.7/bin/:$HOME/.local/bin:$PATH
+  - export PATH=/usr/lib/llvm-8/bin/:$HOME/.local/bin:$PATH
 
 after_success:
 after_success: |
