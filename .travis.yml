@@ -1,7 +1,6 @@
 language: rust
 
-sudo: false
-
+os: linux
 rust: stable
 dist: trusty
 env:
@@ -25,7 +24,6 @@ addons:
 before_install:
   - export PATH=/usr/lib/llvm-8/bin/:$HOME/.local/bin:$PATH
 
-after_success:
 after_success: |
   wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
   tar xzf master.tar.gz &&
