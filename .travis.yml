@@ -22,7 +22,7 @@ addons:
       - libiberty-dev
 
 before_install:
-  - export PATH=/usr/lib/llvm-8/bin/:$HOME/.local/bin:$PATH
+  - export PATH=/usr/lib/llvm-8.0/bin/:$HOME/.local/bin:$PATH
 
 after_success: |
   wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
