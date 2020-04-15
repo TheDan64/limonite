@@ -1,43 +1,58 @@
-// extern crate limonite;
-
 // use limonite::lexical::keywords::Keywords::{Def, Function, If, Is, Return, Var};
-// use limonite::lexical::symbols::Symbols::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
-// use limonite::lexical::tokens::Tokens;
-// use limonite::lexical::tokens::Tokens::{BoolLiteral, CharLiteral, Comment, Error, Identifier, Indent, Keyword, Numeric, Symbol, StrLiteral};
-// use limonite::lexical::types::Types::{Float32Bit, Float64Bit, Int32Bit, Int64Bit, UInt8Bit, UInt32Bit, UInt64Bit, Float128Bit, UInt128Bit};
-// use limonite::lexical::lexer::{Lexer};
+use limonite::interner::StrId;
+use limonite::lexical::Symbol::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
+use limonite::lexical::{CommentKind, Lexer, Token, TokenKind::{self, *}, TokenResult};
+use limonite::span::{Span, Spanned};
 
-// fn cmp_tokens(mut lexer: Lexer, vec: Vec<Tokens>) {
-//     for desired_tok in vec.iter() {
-//         let tok = lexer.next();
-//         if let Some(tok) = tok {
-//             if tok == *desired_tok {
-//                 continue;
-//             }
-//             panic!(format!("Unexpected token `{0:?}` found. Expected `{1:?}`.", tok, desired_tok));
-//         }
-//     }
-// }
+macro_rules! span {
+    ($e:expr, $start:expr, $end:expr) => {
+        Spanned::new($e, Span::new(StrId::DUMMY, $start, $end))
+    };
+}
 
-// #[test]
-// fn test_hello_world() {
-//     let input_string = "\
-// >> Hello World!
+fn cmp_tokens<'s>(mut lexer: Lexer<'s>, tokens: &[Token<'s>], skip_indents: bool) {
+    let mut iter: &mut Iterator<Item=TokenResult<'s>> = &mut lexer;
+    let mut filter;
 
-// print(\"Hello World!\")";
+    if skip_indents {
+        filter = iter.filter(|tok_res| match tok_res {
+            Ok(t) => {
+                dbg!((&t, !matches!(t.node(), TokenKind::Indent(_))));
 
-//     let lexer = Lexer::new(&input_string);
-//     let desired_output = vec![
-//         Comment(" Hello World!".to_string()), Indent(0),
-//         Indent(0),
-//         Identifier("print".to_string()),
-//         Symbol(ParenOpen),
-//         StrLiteral("Hello World!".to_string()),
-//         Symbol(ParenClose),
-//     ];
+                !matches!(t.node(), TokenKind::Indent(_))
+            },
+            Err(e) => true,
+        });
+        iter = &mut filter;
+    }
 
-//     cmp_tokens(lexer, desired_output);
-// }
+    for desired_tok in tokens {
+        let tok = iter.next();
+
+        assert_eq!(tok, Some(Ok(*desired_tok)));
+    }
+}
+
+#[test]
+fn test_hello_world() {
+    let input_string = "\
+>> Hello World!
+
+print(\"Hello World!\")";
+
+    let lexer = Lexer::new(&input_string, StrId::DUMMY);
+    let desired_output = vec![
+        span!(Comment(CommentKind::Single(span!(" Hello World!", 2, 14))), 0, 14),
+        span!(Indent(0), 15, 15),
+        span!(Indent(0), 16, 16),
+        span!(Identifier("print"), 17, 21),
+        span!(Symbol(ParenOpen), 22, 22),
+        span!(StrLiteral("\"Hello World!\""), 23, 36),
+        span!(Symbol(ParenClose), 37, 37),
+    ];
+
+    cmp_tokens(lexer, &desired_output, false);
+}
 
 // #[test]
 // fn test_indentation() {
@@ -66,71 +81,79 @@
 //     cmp_tokens(lexer, desired_output);
 // }
 
-// #[test]
-// fn test_valid_numerics() {
-//     // REVIEW: is f32/64 a valid suffix without decimal place? Thinking yes. Check rust
-//     let input_string = "\
-// 0xF3a
-// 0xfffi32
-// 0xfffi64
-// 0xfffu32
-// 0xfffu64
-// 0b111
-// 0b101i32
-// 0b101i64
-// 0b101u32
-// 0b101u64
-// 42
-// 42i32
-// 42i64
-// 42u32
-// 42u64
-// 42.0
-// 42.0f32
-// 42.0f64
-// 0xFFFF_FFFF
-// 0b0101_0101
-// 400_000
-// 400_000.000_000
-// 0f32
-// 0001
-// 0000_0000
-// 0000_0001u8
-// 1.0f128
-// 117u128";
+#[test]
+fn test_valid_numerics() {
+    let input_string = "\
+0xF3a
+0xfffi32
+0xfffi64
+0xfffu32
+0xfffu64
+0b111
+0b101i32
+0b101i64
+0b101u32
+0b101u64
+42
+42i32
+42i64
+42u32
+42u64
+42f32
+42f64
+42.0
+42.0f32
+42.0f64
+0xFFFF_FFFF
+0b0101_0101
+400_000
+400_000.000_000
+0f32
+0001
+0000_0000
+0000_0001u8
+1.0f128
+117u128";
 
-//     let lexer = Lexer::new(&input_string);
-//     let desired_output = vec![Numeric("0xF3a".to_string(), None), Indent(0),
-//                               Numeric("0xfff".to_string(), Some(Int32Bit)), Indent(0),
-//                               Numeric("0xfff".to_string(), Some(Int64Bit)), Indent(0),
-//                               Numeric("0xfff".to_string(), Some(UInt32Bit)), Indent(0),
-//                               Numeric("0xfff".to_string(), Some(UInt64Bit)), Indent(0),
-//                               Numeric("0b111".to_string(), None), Indent(0),
-//                               Numeric("0b101".to_string(), Some(Int32Bit)), Indent(0),
-//                               Numeric("0b101".to_string(), Some(Int64Bit)), Indent(0),
-//                               Numeric("0b101".to_string(), Some(UInt32Bit)), Indent(0),
-//                               Numeric("0b101".to_string(), Some(UInt64Bit)), Indent(0),
-//                               Numeric("42".to_string(), None), Indent(0),
-//                               Numeric("42".to_string(), Some(Int32Bit)), Indent(0),
-//                               Numeric("42".to_string(), Some(Int64Bit)), Indent(0),
-//                               Numeric("42".to_string(), Some(UInt32Bit)), Indent(0),
-//                               Numeric("42".to_string(), Some(UInt64Bit)), Indent(0),
-//                               Numeric("42.0".to_string(), None), Indent(0),
-//                               Numeric("42.0".to_string(), Some(Float32Bit)), Indent(0),
-//                               Numeric("42.0".to_string(), Some(Float64Bit)), Indent(0),
-//                               Numeric("0xFFFF_FFFF".to_string(), None), Indent(0),
-//                               Numeric("0b0101_0101".to_string(), None), Indent(0),
-//                               Numeric("400_000".to_string(), None), Indent(0),
-//                               Numeric("400_000.000_000".to_string(), None), Indent(0),
-//                               Numeric("0".to_string(), Some(Float32Bit)), Indent(0),
-//                               Numeric("0001".to_string(), None), Indent(0),
-//                               Numeric("0000_0000".to_string(), None), Indent(0),
-//                               Numeric("0000_0001".to_string(), Some(UInt8Bit)), Indent(0),
-//                               Numeric("1.0".to_string(), Some(Float128Bit)), Indent(0),
-//                               Numeric("117".to_string(), Some(UInt128Bit))];
+    let lexer = Lexer::new(&input_string, StrId::DUMMY);
 
-//     cmp_tokens(lexer, desired_output);
-// }
+    assert_eq!(&input_string[span!("0b111", 42, 46).span()], "0b111");
+
+    let desired_output = vec![
+        span!(Numeric(span!("0xF3a", 0, 4), None), 0, 4),
+        span!(Numeric(span!("0xfff", 6, 10), Some(span!("i32", 11, 13))), 6, 13),
+        span!(Numeric(span!("0xfff", 15, 19), Some(span!("i64", 20, 22))), 15, 22),
+        span!(Numeric(span!("0xfff", 24, 28), Some(span!("u32", 29, 31))), 24, 31),
+        span!(Numeric(span!("0xfff", 33, 37), Some(span!("u64", 38, 40))), 33, 40),
+        span!(Numeric(span!("0b111", 42, 46), None), 42, 46),
+        span!(Numeric(span!("0b101", 48, 52), Some(span!("i32", 53, 55))), 48, 55),
+        span!(Numeric(span!("0b101", 57, 61), Some(span!("i64", 62, 64))), 57, 64),
+        span!(Numeric(span!("0b101", 66, 70), Some(span!("u32", 71, 73))), 66, 73),
+        span!(Numeric(span!("0b101", 75, 79), Some(span!("u64", 80, 82))), 75, 82),
+        span!(Numeric(span!("42", 84, 85), None), 84, 85),
+        span!(Numeric(span!("42", 87, 88), Some(span!("i32", 89, 91))), 87, 91),
+        span!(Numeric(span!("42", 93, 94), Some(span!("i64", 95, 97))), 93, 97),
+        span!(Numeric(span!("42", 99, 100), Some(span!("u32", 101, 103))), 99, 103),
+        span!(Numeric(span!("42", 105, 106), Some(span!("u64", 107, 109))), 105, 109),
+        span!(Numeric(span!("42", 111, 112), Some(span!("f32", 113, 115))), 111, 115),
+        span!(Numeric(span!("42", 117, 118), Some(span!("f64", 119, 121))), 117, 121),
+        span!(Numeric(span!("42.0", 123, 126), None), 123, 126),
+        span!(Numeric(span!("42.0", 128, 131), Some(span!("f32", 132, 134))), 128, 134),
+        span!(Numeric(span!("42.0", 136, 139), Some(span!("f64", 140, 142))), 136, 142),
+        span!(Numeric(span!("0xFFFF_FFFF", 144, 154), None), 144, 154),
+        span!(Numeric(span!("0b0101_0101", 156, 166), None), 156, 166),
+        span!(Numeric(span!("400_000", 168, 174), None), 168, 174),
+        span!(Numeric(span!("400_000.000_000", 176, 190), None), 176, 190),
+        span!(Numeric(span!("0", 192, 192), Some(span!("f32", 193, 195))), 192, 195),
+        span!(Numeric(span!("0001", 197, 200), None), 197, 200),
+        span!(Numeric(span!("0000_0000", 202, 210), None), 202, 210),
+        span!(Numeric(span!("0000_0001", 212, 220), Some(span!("u8", 221, 222))), 212, 222),
+        span!(Numeric(span!("1.0", 224, 226), Some(span!("f128", 227, 230))), 224, 230),
+        span!(Numeric(span!("117", 232, 234), Some(span!("u128", 235, 238))), 232, 238),
+    ];
+
+    cmp_tokens(lexer, &desired_output, true);
+}
 
 // #[test]
 // fn test_invalid_numerics() {

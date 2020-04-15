@@ -240,6 +240,7 @@ impl<'s> Lexer<'s> {
         let mut count = 0;
         let mut guarenteed_float = false;
         let mut guarenteed_int = false;
+        let mut hex = false;
 
         let number = self.consume_while(|ch| {
             count += 1;
@@ -250,20 +251,30 @@ impl<'s> Lexer<'s> {
                     true
                 },
                 'x' | 'b' if leading_zero && !guarenteed_float => {
+                    if ch == 'x' {
+                        hex = true;
+                    }
                     leading_zero = false;
                     guarenteed_int = true;
                     true
                 },
+                'a'..='f' | 'A'..='F' if hex => true,
+                '_' => true,
                 c if c.is_numeric() => {
                     if count > 1 {
                         leading_zero = false;
                     }
 
                     true
-                }
+                },
                 _ => false,
             }
         });
+
+        if number.node() == "0x" || number.node() == "0b" {
+            unimplemented!("LexerErrorKind::IncompleteNumeric");
+        }
+
         let suffix = self.consume_while(|ch| match ch {
             c if c.is_alphanumeric() => true,
             '_' => true,
@@ -426,6 +437,8 @@ impl<'s> Iterator for Lexer<'s> {
         Some(tok)
     }
 }
+
+// TODO: type LexerError<'s> = Spanned<LexerErrorKind<'s>> ?
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LexerError<'s> {
@@ -641,4 +654,21 @@ fn test_char_literal_errors() {
 
     assert_eq!(&s[token.span()], "'a'");
     assert_eq!(token.node(), TokenKind::CharLiteral('a'));
+}
+
+#[test]
+fn test_numeric() {
+    let s = "0xF3a";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let tokens: Result<Vec<Token>, _> = lexer.into_iter().collect();
+    let tokens = tokens.unwrap();
+
+    assert_eq!(&s[tokens[0].span()], "0xF3a");
+
+    if let TokenKind::Numeric(n, suffix) = tokens[0].node() {
+        assert_eq!(&s[n.span()], "0xF3a");
+        assert!(suffix.is_none());
+    } else {
+        unreachable!();
+    }
 }
