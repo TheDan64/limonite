@@ -11,7 +11,7 @@ macro_rules! span {
 }
 
 fn cmp_tokens<'s>(mut lexer: Lexer<'s>, tokens: &[Token<'s>], skip_indents: bool) {
-    let mut iter: &mut Iterator<Item=TokenResult<'s>> = &mut lexer;
+    let mut iter: &mut dyn Iterator<Item=TokenResult<'s>> = &mut lexer;
     let mut filter;
 
     if skip_indents {
@@ -21,7 +21,7 @@ fn cmp_tokens<'s>(mut lexer: Lexer<'s>, tokens: &[Token<'s>], skip_indents: bool
 
                 !matches!(t.node(), TokenKind::Indent(_))
             },
-            Err(e) => true,
+            Err(_) => true,
         });
         iter = &mut filter;
     }

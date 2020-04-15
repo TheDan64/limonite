@@ -67,12 +67,3 @@ impl FromStr for Symbol {
         }
     }
 }
-
-impl Symbol {
-    pub fn binding_power(&self) -> (Option<u8>, u8) {
-        match self {
-            Symbol::Minus => (None, 0), // left bp not valid for unary op..
-            _ => unimplemented!(),
-        }
-    }
-}

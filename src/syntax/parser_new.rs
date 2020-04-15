@@ -1,9 +1,9 @@
-use std::iter::{Iterator, Peekable};
-
 use crate::lexical::{LexerError, Symbol::{self, *}, Token, TokenKind::{self, *}, TokenResult};
-use crate::lexical::Keyword::Equals;
 use crate::span::{Span, Spanned};
 use crate::syntax::{Block, Expr, ExprKind, InfixOp, Literal::*, Stmt, UnaryOp};
+
+use std::convert::TryFrom;
+use std::iter::{Iterator, Peekable};
 
 pub struct Parser<'s, I: Iterator> {
     token_stream: Peekable<I>,
@@ -59,7 +59,8 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
     }
 
     fn parse_ident(&mut self, ident: Spanned<&'s str>) -> Result<Expr<'s>, ParserError<'s>> {
-        let ident_token = self.consume_token().unwrap();
+        self.consume_token().unwrap();
+
         let next_token = self.next_token()?;
 
         match next_token.node() {
@@ -73,7 +74,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
 
     fn parse_fn_call(&mut self, ident: Spanned<&'s str>) -> Result<Expr<'s>, ParserError<'s>> {
         // Open Paren
-        self.consume_token();
+        self.consume_token().unwrap();
 
         let token = self.next_token()?;
 
@@ -105,41 +106,11 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             unimplemented!("err");
         }
 
-        self.consume_token();
+        self.consume_token().unwrap();
 
         let span = Span::new(token.span().file_id, ident.span().start_idx, end_token.span().end_idx);
 
         Ok(Spanned::new(Box::new(ExprKind::FnCall(ident, exprs)), span))
-    }
-
-    fn get_precedence(&self, token: Token<'s>) -> u8 {
-        match token.node() {
-            Symbol(Plus) => InfixOp::Add.get_precedence(),
-            Symbol(Minus) => InfixOp::Sub.get_precedence(),
-            Symbol(Asterisk) => InfixOp::Mul.get_precedence(),
-            Symbol(Slash) => InfixOp::Div.get_precedence(),
-            Symbol(Percent) => InfixOp::Mod.get_precedence(),
-            Symbol(Caret) => InfixOp::Pow.get_precedence(),
-            Keyword(Equals) => InfixOp::Equ.get_precedence(),
-            _ => 0
-        }
-    }
-
-    fn is_infix_op(&self, token: Token<'s>) -> bool {
-        match token.node() {
-            Symbol(Plus) => true,
-            Symbol(Minus) => true,
-            Symbol(Asterisk) => true,
-            Symbol(Slash) => true,
-            Symbol(Percent) => true,
-            Symbol(Caret) => true,
-            Symbol(LessThan) => true,
-            Symbol(LessThanEqual) => true,
-            Symbol(GreaterThan) => true,
-            Symbol(GreaterThanEqual) => true,
-            Keyword(Equals) => true,
-            _ => false
-        }
     }
 
     fn parse_expr(&mut self, min_bp: u8) -> Result<Expr<'s>, ParserError<'s>> {
@@ -153,7 +124,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 let lhs = self.parse_expr(0)?;
 
                 // FIXME: Check if CloseParen
-                self.consume_token();
+                self.consume_token().unwrap();
 
                 lhs
             },
@@ -167,7 +138,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             // },
             // TODO: or Keyword::Not
             Symbol(Minus) => {
-                let (_, r_bp) = Minus.binding_power();
+                let ((), r_bp) = UnaryOp::Negate.binding_power();
                 let rhs = self.parse_expr(r_bp)?;
                 let Span { file_id, start_idx, .. } = lhs_tok.span();
                 let span = Span::new(file_id, start_idx, rhs.span().end_idx);
@@ -184,26 +155,17 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 None => break,
             };
 
-            let ((l_bp, r_bp), op) = match tok.node() {
-                Symbol(Plus) => (Plus.binding_power(), InfixOp::Add),
-                Symbol(Minus) => (Minus.binding_power(), InfixOp::Sub),
-                Symbol(Asterisk) => (Asterisk.binding_power(), InfixOp::Mul),
-                Symbol(Slash) => (Slash.binding_power(), InfixOp::Div),
-                Symbol(LessThan) => (LessThan.binding_power(), InfixOp::Lt),
-                Symbol(LessThanEqual) => (LessThanEqual.binding_power(), InfixOp::Lte),
-                Symbol(GreaterThan) => (GreaterThan.binding_power(), InfixOp::Gt),
-                Symbol(GreaterThanEqual) => (GreaterThanEqual.binding_power(), InfixOp::Gte),
-                Symbol(Percent) => (Percent.binding_power(), InfixOp::Mod),
-                Symbol(Caret) => (Caret.binding_power(), InfixOp::Pow),
-                Symbol(ParenClose) => break, // Not an infix op. More?
-                t => panic!("Unsupported expr op: {:?}", t),
+            let (op, (l_bp, r_bp)) = match InfixOp::try_from(tok.node()) {
+                Ok(op) => (op, op.binding_power()),
+                // REVIEW: Should we always break?
+                Err(()) => break,
             };
 
-            if l_bp.unwrap() < min_bp {
+            if l_bp < min_bp {
                 break;
             }
 
-            self.consume_token();
+            self.consume_token().unwrap();
 
             let rhs = self.parse_expr(r_bp)?;
             let Span { file_id, start_idx, .. } = lhs_tok.span();
@@ -217,21 +179,6 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         Ok(lhs)
     }
 
-    fn sub_parse_expr(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
-        let next_token = self.next_token()?;
-
-        match next_token.node() {
-            TokenKind::StrLiteral(s) => {
-                self.consume_token();
-
-                Ok(next_token.replace(Box::new(ExprKind::Literal(UTF8String(s)))))
-            },
-            _ => Err(ParserError {
-                kind: ParserErrorKind::UnexpectedToken(next_token),
-            }),
-        }
-    }
-
     fn parse_block(&mut self) -> Block<'s> {
         let mut stmts = Vec::new();
 
@@ -243,14 +190,14 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             };
 
             match next_token.node() {
-                TokenKind::Comment(..) => { self.consume_token(); },
-                TokenKind::Indent(_level) => { self.consume_token(); }, // TODO
+                TokenKind::Comment(..) => { self.consume_token().unwrap(); },
+                TokenKind::Indent(_level) => { self.consume_token().unwrap(); }, // TODO
                 TokenKind::Identifier(ident) => {
                     match self.parse_ident(next_token.replace(ident)) {
                         Ok(expr) => stmts.push(Stmt::new(expr)),
                         Err(err) => self.errors.push(err),
                     };
-                    self.consume_token();
+                    self.consume_token().unwrap();
                 },
                 e => unimplemented!("{:?}", e),
             }
@@ -275,7 +222,7 @@ where
         let tok = parser.next_token()?;
 
         if tok.node() == TokenKind::Symbol(*self) {
-            parser.consume_token();
+            parser.consume_token().unwrap();
 
             Ok(())
         } else {
