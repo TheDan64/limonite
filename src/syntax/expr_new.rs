@@ -1,5 +1,5 @@
 use crate::span::Spanned;
-use crate::syntax::{Block, InfixOp, Literal};
+use crate::syntax::{Block, InfixOp, Literal, UnaryOp};
 
 pub type Expr<'s> = Spanned<Box<ExprKind<'s>>>;
 
@@ -8,7 +8,7 @@ pub enum ExprKind<'s> {
     // Operations between two expressions
     InfixOp(InfixOp, Expr<'s>, Expr<'s>),
     // Operation on a single expression
-    // UnaryOp(UnaryOp, ExprWrapper),
+    UnaryOp(UnaryOp, Expr<'s>),
     // Literals such as numbers and strings
     Literal(Literal<'s>),
     // While conditional is true, run expression

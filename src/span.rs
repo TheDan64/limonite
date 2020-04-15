@@ -1,5 +1,6 @@
 use crate::interner::StrId;
 
+use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::ops::Index;
 
 #[derive(Debug, PartialEq)]
@@ -9,7 +10,7 @@ pub struct Spanned<T> {
 }
 
 impl<T> Spanned<T> {
-    pub(crate) fn new(node: T, span: Span) -> Self {
+    pub fn new(node: T, span: Span) -> Self {
         Spanned {
             node,
             span,
@@ -80,7 +81,7 @@ impl<T: Clone> Clone for Spanned<T> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Span {
     pub(crate) file_id: StrId,
     pub(crate) start_idx: usize,
@@ -88,7 +89,7 @@ pub struct Span {
 }
 
 impl Span {
-    pub(crate) fn new(file_id: StrId, start_idx: usize, end_idx: usize) -> Self {
+    pub fn new(file_id: StrId, start_idx: usize, end_idx: usize) -> Self {
         Span { file_id, start_idx, end_idx }
     }
 
@@ -112,5 +113,17 @@ impl Index<Span> for str {
 
     fn index(&self, span: Span) -> &Self::Output {
         &self.index(span.start_idx..=span.end_idx)
+    }
+}
+
+// Compact Span repr so that it's easier to read in debug output.
+// Omitting file_id at least for now since there's currently only
+// support for a single file.
+impl Debug for Span {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        f.debug_tuple("Span")
+            // .field(&self.file_id)
+            .field(&format_args!("{}..={}", self.start_idx, self.end_idx))
+            .finish()
     }
 }

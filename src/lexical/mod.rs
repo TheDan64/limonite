@@ -6,4 +6,4 @@ pub mod token;
 pub use keywords::Keyword;
 pub use lexer::{Lexer, LexerError, TokenResult};
 pub use symbols::Symbol;
-pub use token::{Token, TokenKind};
+pub use token::{CommentKind, Token, TokenKind};

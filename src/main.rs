@@ -41,9 +41,6 @@ fn main() {
     env_logger::init();
 
     let opt = Opt::from_args();
-
-    dbg!(&opt);
-
     let input_string = if !opt.stdin {
         let file = match File::open(opt.file.as_ref().unwrap()) {
             Ok(f)  => f,

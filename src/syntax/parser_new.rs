@@ -3,7 +3,7 @@ use std::iter::{Iterator, Peekable};
 use crate::lexical::{LexerError, Symbol::{self, *}, Token, TokenKind::{self, *}, TokenResult};
 use crate::lexical::Keyword::Equals;
 use crate::span::{Span, Spanned};
-use crate::syntax::{Block, Expr, ExprKind, InfixOp, Literal::*, Stmt};
+use crate::syntax::{Block, Expr, ExprKind, InfixOp, Literal::*, Stmt, UnaryOp};
 
 pub struct Parser<'s, I: Iterator> {
     token_stream: Peekable<I>,
@@ -43,12 +43,23 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         }
     }
 
-    fn consume_token(&mut self) -> Option<TokenResult<'s>> {
-        self.token_stream.next()
+    fn opt_consume_token(&mut self) -> Result<Option<Token<'s>>, ParserError<'s>> {
+        match self.token_stream.next() {
+            Some(Ok(t)) => Ok(Some(t)),
+            Some(Err(e)) => e.into(),
+            None => Ok(None),
+        }
+    }
+
+    fn consume_token(&mut self) -> Result<Token<'s>, ParserError<'s>> {
+        match self.opt_consume_token()? {
+            Some(t) => Ok(t),
+            None => unimplemented!("eof error"),
+        }
     }
 
     fn parse_ident(&mut self, ident: Spanned<&'s str>) -> Result<Expr<'s>, ParserError<'s>> {
-        let ident_token = self.consume_token().unwrap().unwrap();
+        let ident_token = self.consume_token().unwrap();
         let next_token = self.next_token()?;
 
         match next_token.node() {
@@ -68,7 +79,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
 
         // call()
         if token.node() == Symbol(ParenClose) {
-            let close_paren_span = self.consume_token().unwrap().unwrap().span();
+            let close_paren_span = self.consume_token().unwrap().span();
             let span = Span::new(close_paren_span.file_id, ident.span().start_idx, close_paren_span.end_idx);
 
             return Ok(Spanned::new(Box::new(ExprKind::FnCall(ident, Vec::new())), span));
@@ -131,47 +142,76 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         }
     }
 
-    fn parse_expr(&mut self, precedence: u8) -> Result<Expr<'s>, ParserError<'s>> {
+    fn parse_expr(&mut self, min_bp: u8) -> Result<Expr<'s>, ParserError<'s>> {
         // E -> (E) | [E] | E * E | E + E | E - E | E / E | E % E | E ^ E |
         // E equals E | E and E | E or E | not E | -E | Terminal
         // Terminal -> identifier | literal
 
-        let mut lhs = self.sub_parse_expr()?;
+        let lhs_tok = self.consume_token()?;
+        let mut lhs = match lhs_tok.node() {
+            Symbol(ParenOpen) => {
+                let lhs = self.parse_expr(0)?;
 
-        dbg!(&lhs);
+                // FIXME: Check if CloseParen
+                self.consume_token();
 
-        let mut token = self.next_token()?;
+                lhs
+            },
+            // Symbol(SBracketOpen) => {
+            //     let lhs = self.parse_expr(0);
 
-        while self.is_infix_op(token) && self.get_precedence(token) >= precedence {
+            //     // FIXME: Check if SBracketClose
+            //     self.consume_token();
+
+            //     lhs
+            // },
+            // TODO: or Keyword::Not
+            Symbol(Minus) => {
+                let (_, r_bp) = Minus.binding_power();
+                let rhs = self.parse_expr(r_bp)?;
+                let Span { file_id, start_idx, .. } = lhs_tok.span();
+                let span = Span::new(file_id, start_idx, rhs.span().end_idx);
+
+                Spanned::new(Box::new(ExprKind::UnaryOp(UnaryOp::Negate, rhs)), span)
+            },
+            StrLiteral(s) => lhs_tok.replace(Box::new(ExprKind::Literal(UTF8String(s)))),
+            t => panic!("Unsupported expr lhs: {:?}", t),
+        };
+
+        loop {
+            let tok = match self.opt_next_token()? {
+                Some(tok) => tok,
+                None => break,
+            };
+
+            let ((l_bp, r_bp), op) = match tok.node() {
+                Symbol(Plus) => (Plus.binding_power(), InfixOp::Add),
+                Symbol(Minus) => (Minus.binding_power(), InfixOp::Sub),
+                Symbol(Asterisk) => (Asterisk.binding_power(), InfixOp::Mul),
+                Symbol(Slash) => (Slash.binding_power(), InfixOp::Div),
+                Symbol(LessThan) => (LessThan.binding_power(), InfixOp::Lt),
+                Symbol(LessThanEqual) => (LessThanEqual.binding_power(), InfixOp::Lte),
+                Symbol(GreaterThan) => (GreaterThan.binding_power(), InfixOp::Gt),
+                Symbol(GreaterThanEqual) => (GreaterThanEqual.binding_power(), InfixOp::Gte),
+                Symbol(Percent) => (Percent.binding_power(), InfixOp::Mod),
+                Symbol(Caret) => (Caret.binding_power(), InfixOp::Pow),
+                Symbol(ParenClose) => break, // Not an infix op. More?
+                t => panic!("Unsupported expr op: {:?}", t),
+            };
+
+            if l_bp.unwrap() < min_bp {
+                break;
+            }
+
             self.consume_token();
 
-            let new_precedence = self.get_precedence(token) + match token.node() {
-                // Right associative ops don't get the +1
-                Symbol(Caret) => 0,
-                _ => 1,
-            };
+            let rhs = self.parse_expr(r_bp)?;
+            let Span { file_id, start_idx, .. } = lhs_tok.span();
+            let span = Span::new(file_id, start_idx, rhs.span().end_idx);
 
-            let rhs = self.parse_expr(new_precedence)?;
-            let infix = match token.node() {
-                Symbol(Plus) => InfixOp::Add,
-                Symbol(Minus) => InfixOp::Sub,
-                Symbol(Asterisk) => InfixOp::Mul,
-                Symbol(Slash) => InfixOp::Div,
-                Symbol(Percent) => InfixOp::Mod,
-                Symbol(Caret) => InfixOp::Pow,
-                Symbol(LessThan) => InfixOp::Lt,
-                Symbol(LessThanEqual) => InfixOp::Lte,
-                Symbol(GreaterThan) => InfixOp::Gt,
-                Symbol(GreaterThanEqual) => InfixOp::Gte,
-                Keyword(Equals) => InfixOp::Equ,
-                _ => unreachable!("Expression parse")
-            };
+            lhs = Spanned::new(Box::new(ExprKind::InfixOp(op, lhs, rhs)), span);
 
-            let span = Span::new(lhs.span().file_id, lhs.span().start_idx, rhs.span().end_idx);
-
-            lhs = Spanned::new(Box::new(ExprKind::InfixOp(infix, lhs, rhs)), span);
-
-            token = self.next_token()?;
+            continue;
         }
 
         Ok(lhs)
@@ -186,7 +226,9 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
 
                 Ok(next_token.replace(Box::new(ExprKind::Literal(UTF8String(s)))))
             },
-            _ => unimplemented!(),
+            _ => Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(next_token),
+            }),
         }
     }
 
