@@ -271,21 +271,21 @@ impl<'s> Lexer<'s> {
             }
         });
 
-        if number.node() == "0x" || number.node() == "0b" {
-            unimplemented!("LexerErrorKind::IncompleteNumeric");
-        }
-
         let suffix = self.consume_while(|ch| match ch {
             c if c.is_alphanumeric() => true,
             '_' => true,
             _ => false,
         });
         // If the suffix is empty, use None instead
-        let opt_suffix = if suffix.span().start_idx < suffix.span().end_idx {
+        let opt_suffix = if !suffix.node().is_empty() {
             Some(suffix)
         } else {
             None
         };
+
+        if number.node() == "0x" || number.node() == "0b" {
+            return Err(LexerError::IncompleteNumeric(number, opt_suffix));
+        }
 
         let end_idx = if suffix.span().end_idx == 0 {
             number.span().end_idx
@@ -443,6 +443,7 @@ impl<'s> Iterator for Lexer<'s> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LexerError<'s> {
     EmptyCharLiteral(Spanned<&'s str>),
+    IncompleteNumeric(Spanned<&'s str>, Option<Spanned<&'s str>>),
     InvalidCharLiteralEnd(Spanned<char>),
     UnexpectedEof(Spanned<&'s str>),
     UnexpectedTab(Spanned<char>),
