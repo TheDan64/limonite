@@ -166,22 +166,24 @@ fn test_invalid_numerics() {
 42i31
 42.
 42.0f
-42.0f31";
+42.0f31
+0b2";
 
     let lexer = Lexer::new(&input_string, StrId::DUMMY);
     let desired_output = vec![
-        Err(LexerError::IncompleteNumeric(span!("0x", 0, 1), None)),
-        Err(LexerError::IncompleteNumeric(span!("0x", 3, 4), Some(span!("z", 5, 5)))),
+        Err(LexerError::IncompleteNumeric(span!("0x", 0, 1))),
+        Err(LexerError::InvalidNumeric(span!("0x", 3, 4), span!("z", 5, 5))),
         Ok(span!(Numeric(span!("0xf", 7, 9), Some(span!("z", 10, 10))), 7, 10)),
         Ok(span!(Numeric(span!("0xf", 12, 14), Some(span!("i3", 15, 16))), 12, 16)),
-        Err(LexerError::IncompleteNumeric(span!("0b", 18, 19), None)),
-        Err(LexerError::IncompleteNumeric(span!("0b", 21, 22), Some(span!("a", 23, 23)))),
+        Err(LexerError::IncompleteNumeric(span!("0b", 18, 19))),
+        Err(LexerError::InvalidNumeric(span!("0b", 21, 22), span!("a", 23, 23))),
         Ok(span!(Numeric(span!("0b1", 25, 27), Some(span!("f", 28, 28))), 25, 28)),
         Ok(span!(Numeric(span!("42", 30, 31), Some(span!("i3", 32, 33))), 30, 33)),
         Ok(span!(Numeric(span!("42", 35, 36), Some(span!("i31", 37, 39))), 35, 39)),
         Ok(span!(Numeric(span!("42.", 41, 43), None), 41, 43)),
         Ok(span!(Numeric(span!("42.0", 45, 48), Some(span!("f", 49, 49))), 45, 49)),
         Ok(span!(Numeric(span!("42.0", 51, 54), Some(span!("f31", 55, 57))), 51, 57)),
+        Err(LexerError::InvalidNumeric(span!("0b", 59, 60), span!("2", 61, 61))),
     ];
 
     cmp_tokens(lexer, &desired_output, true);

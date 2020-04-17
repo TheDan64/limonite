@@ -38,15 +38,6 @@ impl<T> Spanned<T> {
     }
 }
 
-impl<'s> Spanned<&'s str> {
-    pub fn new_start(&mut self, start_idx: usize, input: &'s str) {
-        debug_assert!(start_idx < self.span.end_idx);
-
-        self.span.new_start(start_idx);
-        self.node = &input[start_idx..=self.span.end_idx];
-    }
-}
-
 impl<T: Copy> Spanned<T> {
     pub fn node(&self) -> T {
         self.node
@@ -91,10 +82,6 @@ pub struct Span {
 impl Span {
     pub fn new(file_id: StrId, start_idx: usize, end_idx: usize) -> Self {
         Span { file_id, start_idx, end_idx }
-    }
-
-    pub fn new_start(&mut self, start_idx: usize) {
-        self.start_idx = start_idx;
     }
 
     pub fn width(&self) -> usize {

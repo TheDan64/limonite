@@ -241,6 +241,7 @@ impl<'s> Lexer<'s> {
         let mut guarenteed_float = false;
         let mut guarenteed_int = false;
         let mut hex = false;
+        let mut bin = false;
 
         let number = self.consume_while(|ch| {
             count += 1;
@@ -253,14 +254,17 @@ impl<'s> Lexer<'s> {
                 'x' | 'b' if leading_zero && !guarenteed_float => {
                     if ch == 'x' {
                         hex = true;
+                    } else {
+                        bin = true;
                     }
                     leading_zero = false;
                     guarenteed_int = true;
                     true
                 },
                 'a'..='f' | 'A'..='F' if hex => true,
+                '0' | '1' if bin => true,
                 '_' => true,
-                c if c.is_numeric() => {
+                c if !bin && c.is_numeric() => {
                     if count > 1 {
                         leading_zero = false;
                     }

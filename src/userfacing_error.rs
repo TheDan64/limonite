@@ -54,12 +54,6 @@ impl<'s> UserfacingError<'_, 's> {
     }
 }
 
-// error[E0451]: field `file_name` of struct `syntax::parser_new::UserfacingError` is private
-//   --> src/main.rs:75:21
-//    |
-// 75 |                     file_name,
-//    |                     ^^^^^^^^^ field `file_name` is private
-
 impl Display for UserfacingError<'_, '_> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let (err_msg, span) = match self.error.kind {
@@ -102,7 +96,7 @@ impl Display for UserfacingError<'_, '_> {
 
         f.write_str("┏━━▶ ")?;
         f.write_str(CLEAR)?;
-        f.write_str(self.file_name)?;
+        f.write_str(self.file_name)?; // TODO: "file_name:line:column"?
         f.write_str(BLUE_FG)?;
         f.write_str("\n")?;
         f.write_str(line_no_str)?;
@@ -113,10 +107,12 @@ impl Display for UserfacingError<'_, '_> {
         f.write_str("┗━━▶ ")?;
         f.write_str(CLEAR)?;
         f.write_str(line)?;
+        f.write_str(RED_FG)?;
 
         write_nl_n_spaces(f, n + adjusted_span.start_idx + 5)?;
-        write_n_chars(f, adjusted_span.end_idx - adjusted_span.start_idx + 1, "^")?;
+        write_n_chars(f, adjusted_span.width(), "^")?;
 
+        f.write_str(CLEAR)?;
         f.write_str("\n")
     }
 }
