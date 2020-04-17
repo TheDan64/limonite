@@ -114,6 +114,50 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         Ok(Spanned::new(Box::new(ExprKind::FnCall(ident, exprs)), span))
     }
 
+    fn parse_numeric(&mut self, num: Spanned<&'s str>, opt_suffix: Option<Spanned<&'s str>>) -> Result<Expr<'s>, ParserError<'s>> {
+        macro_rules! parse_int {
+            ($ty:ty) => {{
+                let num = num.node();
+
+                if num.starts_with("0b") {
+                    <$ty>::from_str_radix(&num[2..], 2).expect("fixme")
+                } else if num.starts_with("0x") {
+                    <$ty>::from_str_radix(&num[2..], 16).expect("fixme")
+                } else {
+                    <$ty>::from_str_radix(&num, 10).expect("fixme")
+                }
+            }}
+        }
+
+        let num_lit = match opt_suffix.map(|sp| sp.node()) {
+            Some("i8") => I8Num(parse_int!(i8)),
+            Some("i16") => I16Num(parse_int!(i16)),
+            Some("i32") => I32Num(parse_int!(i32)),
+            Some("i64") => I64Num(parse_int!(i64)),
+            Some("i128") => I128Num(parse_int!(i128)),
+            Some("u8") => U8Num(parse_int!(u8)),
+            Some("u16") => U16Num(parse_int!(u16)),
+            Some("u32") => U32Num(parse_int!(u32)),
+            Some("u64") => U64Num(parse_int!(u64)),
+            Some("u128") => U128Num(parse_int!(u128)),
+            Some("f32") => F32Num(num.node().parse().expect("fixme")),
+            Some("f64") => F64Num(num.node().parse().expect("fixme")),
+            Some(unknown) => todo!("parser error"),
+            None => {
+                if num.node().contains('.') {
+                    F32Num(num.node().parse().expect("fixme"))
+                } else {
+                    I32Num(parse_int!(i32))
+                }
+            },
+        };
+
+        let end_idx = opt_suffix.map(|s| s.end_idx()).unwrap_or(num.end_idx());
+        let span = Span::new(num.span().file_id, num.start_idx(), end_idx);
+
+        Ok(Spanned::new(Box::new(ExprKind::Literal(num_lit)), span))
+    }
+
     fn parse_expr(&mut self, min_bp: u8) -> Result<Expr<'s>, ParserError<'s>> {
         // E -> (E) | [E] | E * E | E + E | E - E | E / E | E % E | E ^ E |
         // E equals E | E and E | E or E | not E | -E | Terminal
@@ -147,6 +191,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 Spanned::new(Box::new(ExprKind::UnaryOp(UnaryOp::Negate, rhs)), span)
             },
             StrLiteral(s) => lhs_tok.replace(Box::new(ExprKind::Literal(UTF8String(s)))),
+            Numeric(num, opt_suffix) => self.parse_numeric(num, opt_suffix)?,
             t => panic!("Unsupported expr lhs: {:?}", t),
         };
 
@@ -199,6 +244,13 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 TokenKind::Indent(_level) => { self.consume_token().unwrap(); }, // TODO
                 TokenKind::Identifier(ident) => {
                     match self.parse_ident(next_token.replace(ident)) {
+                        Ok(expr) => stmts.push(Stmt::new(expr)),
+                        Err(err) => self.errors.push(err),
+                    };
+                    self.consume_token().unwrap();
+                },
+                TokenKind::Numeric(_, _) => {
+                    match self.parse_expr(0) {
                         Ok(expr) => stmts.push(Stmt::new(expr)),
                         Err(err) => self.errors.push(err),
                     };

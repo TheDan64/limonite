@@ -36,6 +36,14 @@ impl<T> Spanned<T> {
     pub fn replace<R>(&self, r: R) -> Spanned<R> {
         self.map(|_| r)
     }
+
+    pub fn start_idx(&self) -> usize {
+        self.span().start_idx
+    }
+
+    pub fn end_idx(&self) -> usize {
+        self.span().end_idx
+    }
 }
 
 impl<T: Copy> Spanned<T> {

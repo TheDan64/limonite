@@ -18,6 +18,7 @@ const LIGHT_RED_FG: &str = "\x1B[38;5;9m";
 const WHITE_FG: &str = "\x1B[38;5;15m";
 const CLEAR: &str = "\x1B[0m";
 
+// REVIEW: Maybe name "ContextualizedError"?
 #[derive(Debug)]
 pub struct UserfacingError<'intern, 's> {
     pub file_name: &'intern str,
@@ -61,15 +62,19 @@ impl Display for UserfacingError<'_, '_> {
                 LexerError::IncompleteNumeric(num) => {
                     if num.node() == "0b" {
                         ("Found an incomplete binary literal", num.span())
-                    } else {
+                    } else if num.node() == "0x" {
                         ("Found an incomplete hex literal", num.span())
+                    } else {
+                        unreachable!()
                     }
                 },
                 LexerError::InvalidNumeric(num, suffix) => {
                     if num.node() == "0b" {
                         ("Found an invalid binary literal", suffix.span())
-                    } else {
+                    } else if num.node() == "0x" {
                         ("Found an invalid hex literal", suffix.span())
+                    } else {
+                        unreachable!()
                     }
                 },
                 _ => todo!(),
@@ -79,12 +84,16 @@ impl Display for UserfacingError<'_, '_> {
 
         let (line, line_no, adjusted_span) = self.get_line(span);
         let mut line_no_str = [0u8; 10];
+        let mut column_no_str = [0u8; 10];
 
         write!(&mut line_no_str as &mut [u8], "{}", line_no).expect("u32 to always fit in 10 bytes");
+        write!(&mut column_no_str as &mut [u8], "{}", adjusted_span.start_idx + 1).expect("u32 to always fit in 10 bytes");
 
         let line_no_str = str::from_utf8(&line_no_str[..bytes_written(&line_no_str)]).unwrap();
-        let n = line_no_str.len() + 1;
+        let column_no_str = str::from_utf8(&column_no_str[..bytes_written(&column_no_str)]).unwrap();
+        let n_spaces = line_no_str.len() + 1;
 
+        // TODO: Split this into methods?
         f.write_str(RED_FG)?;
         f.write_str("⚑ error")?;
         f.write_str(WHITE_FG)?;
@@ -92,24 +101,28 @@ impl Display for UserfacingError<'_, '_> {
         f.write_str(err_msg)?;
         f.write_str(BLUE_FG)?;
 
-        write_nl_n_spaces(f, n)?;
+        write_nl_n_spaces(f, n_spaces)?;
 
         f.write_str("┏━━▶ ")?;
         f.write_str(CLEAR)?;
-        f.write_str(self.file_name)?; // TODO: "file_name:line:column"?
+        f.write_str(self.file_name)?;
+        f.write_str(":")?;
+        f.write_str(line_no_str)?;
+        f.write_str(":")?;
+        f.write_str(column_no_str)?;
         f.write_str(BLUE_FG)?;
         f.write_str("\n")?;
         f.write_str(line_no_str)?;
         f.write_str(" ┃")?;
 
-        write_nl_n_spaces(f, n)?;
+        write_nl_n_spaces(f, n_spaces)?;
 
         f.write_str("┗━━▶ ")?;
         f.write_str(CLEAR)?;
         f.write_str(line)?;
         f.write_str(RED_FG)?;
 
-        write_nl_n_spaces(f, n + adjusted_span.start_idx + 5)?;
+        write_nl_n_spaces(f, n_spaces + adjusted_span.start_idx + 5)?;
         write_n_chars(f, adjusted_span.width(), "^")?;
 
         f.write_str(CLEAR)?;
