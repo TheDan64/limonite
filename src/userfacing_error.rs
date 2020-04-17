@@ -49,7 +49,7 @@ impl<'s> UserfacingError<'_, 's> {
             }
         }
 
-        let adjusted_span = Span::new(file_id, span.start_idx - start_idx, end_idx - start_idx);
+        let adjusted_span = Span::new(file_id, span.start_idx - start_idx, span.end_idx - start_idx);
 
         (&self.file_str[start_idx..=end_idx], line_no, adjusted_span)
     }
