@@ -8,18 +8,20 @@ use std::path::PathBuf;
 use lexical::Lexer;
 use interner::Interner;
 use syntax::Parser;
+use userfacing_error::UserfacingError;
 // use syntax::parser::Parser;
 // use semantic::analyzer::SemanticAnalyzer;
 // use semantic::analyzer_trait::ASTAnalyzer;
 // #[cfg(feature="llvm-backend")]
 // use codegen::llvm::LLVMGenerator;
 
+pub mod codegen;
 pub mod interner;
 pub mod lexical;
+pub mod semantic;
 pub mod span;
 pub mod syntax;
-pub mod semantic;
-pub mod codegen;
+pub mod userfacing_error;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "limc", group = ArgGroup::with_name("file_or_stdin").required(true))]
@@ -67,7 +69,21 @@ fn main() {
 
     let mut _ast_root = match parser.run() {
         Ok(ast) => ast,
-        Err(_errs) => unimplemented!("Parser errors"),
+        Err(errs) => {
+            for error in errs {
+                let file_id = error.file_id();
+                let file_name = interner.lookup(file_id);
+                let displayable_err = UserfacingError {
+                    file_name,
+                    file_str: &input_string,
+                    error,
+                };
+
+                println!("{}", displayable_err);
+            }
+
+            return;
+        },
     };
 
     // TODO: Semantic Analysis

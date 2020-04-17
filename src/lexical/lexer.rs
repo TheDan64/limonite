@@ -284,7 +284,11 @@ impl<'s> Lexer<'s> {
         };
 
         if number.node() == "0x" || number.node() == "0b" {
-            return Err(LexerError::IncompleteNumeric(number, opt_suffix));
+            if let Some(suffix) = opt_suffix {
+                return Err(LexerError::InvalidNumeric(number, suffix));
+            }
+
+            return Err(LexerError::IncompleteNumeric(number));
         }
 
         let end_idx = if suffix.span().end_idx == 0 {
@@ -443,12 +447,28 @@ impl<'s> Iterator for Lexer<'s> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LexerError<'s> {
     EmptyCharLiteral(Spanned<&'s str>),
-    IncompleteNumeric(Spanned<&'s str>, Option<Spanned<&'s str>>),
+    IncompleteNumeric(Spanned<&'s str>),
+    InvalidNumeric(Spanned<&'s str>, Spanned<&'s str>),
     InvalidCharLiteralEnd(Spanned<char>),
     UnexpectedEof(Spanned<&'s str>),
     UnexpectedTab(Spanned<char>),
     UnknownChar(Spanned<char>),
     UnknownEscape(Spanned<char>),
+}
+
+impl LexerError<'_> {
+    pub fn file_id(&self) -> StrId {
+        match self {
+            LexerError::EmptyCharLiteral(sp) => sp.span().file_id,
+            LexerError::IncompleteNumeric(sp) => sp.span().file_id,
+            LexerError::InvalidNumeric(sp, _) => sp.span().file_id,
+            LexerError::InvalidCharLiteralEnd(sp) => sp.span().file_id,
+            LexerError::UnexpectedEof(sp) => sp.span().file_id,
+            LexerError::UnexpectedTab(sp) => sp.span().file_id,
+            LexerError::UnknownChar(sp) => sp.span().file_id,
+            LexerError::UnknownEscape(sp) => sp.span().file_id,
+        }
+    }
 }
 
 #[test]

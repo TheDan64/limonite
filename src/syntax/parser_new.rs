@@ -1,3 +1,4 @@
+use crate::interner::StrId;
 use crate::lexical::{LexerError, Symbol::{self, *}, Token, TokenKind::{self, *}, TokenResult};
 use crate::span::{Span, Spanned};
 use crate::syntax::{Block, Expr, ExprKind, InfixOp, Literal::*, Stmt, UnaryOp};
@@ -185,7 +186,11 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         loop {
             let next_token = match self.opt_next_token() {
                 Ok(Some(t)) => t,
-                Err(e) => unimplemented!("Parser error: {:?}", e),
+                Err(e) => {
+                    self.consume_token().unwrap_err();
+                    self.errors.push(e);
+                    continue;
+                },
                 Ok(None) => break,
             };
 
@@ -269,9 +274,7 @@ where
     }
 }
 
-trait RegexObject {
-
-}
+trait RegexObject {}
 
 #[derive(Debug)]
 pub enum ParserErrorKind<'s> {
@@ -282,7 +285,16 @@ pub enum ParserErrorKind<'s> {
 
 #[derive(Debug)]
 pub struct ParserError<'s> {
-    kind: ParserErrorKind<'s>,
+    pub(crate) kind: ParserErrorKind<'s>,
+}
+
+impl ParserError<'_> {
+    pub fn file_id(&self) -> StrId {
+        match self.kind {
+            ParserErrorKind::LexerError(le) => le.file_id(),
+            ParserErrorKind::UnexpectedToken(t) => t.span().file_id,
+        }
+    }
 }
 
 impl<'s, T> From<LexerError<'s>> for Result<T, ParserError<'s>> {

@@ -96,6 +96,11 @@ impl Span {
     pub fn new_start(&mut self, start_idx: usize) {
         self.start_idx = start_idx;
     }
+
+    pub fn width(&self) -> usize {
+        // Inclusive range, so must add 1
+        self.end_idx - self.start_idx + 1
+    }
 }
 
 impl Default for Span {

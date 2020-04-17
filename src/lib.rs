@@ -1,6 +1,7 @@
+pub mod codegen;
 pub mod interner;
 pub mod lexical;
+pub mod semantic;
 pub mod span;
 pub mod syntax;
-pub mod semantic;
-pub mod codegen;
+pub mod userfacing_error;

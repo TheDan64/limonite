@@ -11,5 +11,5 @@ pub use block::Block;
 pub use expr_new::{Expr, ExprKind};
 pub use literals::Literal;
 pub use op::{InfixOp, UnaryOp};
-pub use parser_new::Parser;
+pub use parser_new::{Parser, ParserError, ParserErrorKind};
 pub use stmt::{Stmt, StmtKind};
