@@ -11,12 +11,12 @@ pub enum ExprKind<'s> {
     UnaryOp(Spanned<UnaryOp>, Expr<'s>),
     // Literals such as numbers and strings
     Literal(Literal<'s>),
-    // While conditional is true, run expression
-    // WhileLoop(Expr<'s>, Expr<'s>),
-    // If condition true, run expression, optional elif, else
-    // If(ExprWrapper, ExprWrapper, Option<ExprWrapper>),
+    // While conditional is true, run block
+    WhileLoop(Expr<'s>, Block<'s>),
+    // If condition true, run block, optional elif, else
+    If(Expr<'s>, Block<'s>, Option<Expr<'s>>),
     // Assign an expression to an existing variable
-    // Assign(ExprWrapper, ExprWrapper), // REVIEW: Shouldn't the first param just be a string?
+    Assign(Spanned<&'s str>, Expr<'s>),
     // Fn call with name and args.
     FnCall(Spanned<&'s str>, Vec<Expr<'s>>),
     // Declare a function with a name, args(name, type), return type, and body expr

@@ -2,7 +2,7 @@ use crate::lexical::{Keyword::Equals, Symbol, TokenKind};
 
 use std::convert::TryFrom;
 
-use Symbol::{Plus, Minus, Asterisk, Slash, Percent, Caret};
+use Symbol::{Asterisk, Caret, GreaterThan, GreaterThanEqual, LessThan, LessThanEqual, Minus, Percent, Plus, Slash};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum InfixOp {
@@ -55,7 +55,7 @@ impl InfixOp {
         // 2. logical and | logical or
         // 1. ,
         match self {
-            // '=' => (2, 1),
+            InfixOp::Equ | InfixOp::Gt | InfixOp::Gte | InfixOp::Lt | InfixOp::Lte => (2, 1),
             // '?' => (4, 3),
             InfixOp::Add | InfixOp::Sub => (5, 6),
             InfixOp::Mul | InfixOp::Div => (7, 8),
@@ -70,13 +70,17 @@ impl<'s> TryFrom<TokenKind<'s>> for InfixOp {
 
     fn try_from(tok: TokenKind<'s>) -> Result<Self, Self::Error> {
         match tok {
-            TokenKind::Symbol(Plus) => Ok(InfixOp::Add),
-            TokenKind::Symbol(Minus) => Ok(InfixOp::Sub),
-            TokenKind::Symbol(Asterisk) => Ok(InfixOp::Mul),
-            TokenKind::Symbol(Slash) => Ok(InfixOp::Div),
-            TokenKind::Symbol(Percent) => Ok(InfixOp::Mod),
-            TokenKind::Symbol(Caret) => Ok(InfixOp::Pow),
             TokenKind::Keyword(Equals) => Ok(InfixOp::Equ),
+            TokenKind::Symbol(Asterisk) => Ok(InfixOp::Mul),
+            TokenKind::Symbol(Caret) => Ok(InfixOp::Pow),
+            TokenKind::Symbol(GreaterThan) => Ok(InfixOp::Gt),
+            TokenKind::Symbol(GreaterThanEqual) => Ok(InfixOp::Gte),
+            TokenKind::Symbol(LessThan) => Ok(InfixOp::Lt),
+            TokenKind::Symbol(LessThanEqual) => Ok(InfixOp::Lte),
+            TokenKind::Symbol(Minus) => Ok(InfixOp::Sub),
+            TokenKind::Symbol(Percent) => Ok(InfixOp::Mod),
+            TokenKind::Symbol(Plus) => Ok(InfixOp::Add),
+            TokenKind::Symbol(Slash) => Ok(InfixOp::Div),
             _ => Err(()),
         }
     }

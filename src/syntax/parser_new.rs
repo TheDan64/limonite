@@ -7,8 +7,9 @@ use std::convert::TryFrom;
 use std::iter::{Iterator, Peekable};
 
 pub struct Parser<'s, I: Iterator> {
-    token_stream: Peekable<I>,
     errors: Vec<ParserError<'s>>,
+    token_stream: Peekable<I>,
+    indent: u32,
 }
 
 impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
@@ -16,6 +17,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         Parser {
             errors: Vec::new(),
             token_stream: token_stream.peekable(),
+            indent: 0,
         }
     }
 
@@ -298,6 +300,15 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                             self.skip_til_indent();
                         },
                     }
+                },
+                TokenKind::Keyword(Keyword::If) => {
+                    match self.parse_if() {
+                        Ok(expr) => stmts.push(Stmt::new(expr)),
+                        Err(err) => {
+                            self.errors.push(err);
+                            self.skip_til_indent();
+                        },
+                    }
                 }
                 e => unimplemented!("{:?}", e),
             }
@@ -306,12 +317,39 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         Block::new(stmts)
     }
 
+    fn parse_if(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
+        let if_keywd = self.consume_token().unwrap();
+        let cond = self.parse_expr(0)?;
+        let sp_comma = self.next_token()?;
+
+        if sp_comma.node() != TokenKind::Symbol(Symbol::Comma) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_comma)
+            });
+        }
+
+        self.consume_token().unwrap();
+        self.indent();
+
+        let block = self.parse_block();
+        let span = Span::new(if_keywd, if_keywd, sp_comma);
+
+        // TODO: else/elseif
+        Ok(Spanned::new(Box::new(ExprKind::If(cond, block, None)), span))
+    }
+
+    fn indent(&mut self) {
+        self.indent += 1;
+    }
+
     fn parse_var_decl(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
-        let start_idx = self.consume_token().unwrap().start_idx(); // Var Keyword
+        let var_kwd = self.consume_token().unwrap();
         let tok = self.next_token()?;
         let ident = match tok.node() {
             TokenKind::Identifier(i) => tok.replace(i),
-            _ => todo!("parser err"),
+            _ => return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(tok),
+            }),
         };
 
         self.consume_token().unwrap();
@@ -327,7 +365,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         }
 
         let init = self.parse_expr(0)?;
-        let span = Span::new(tok, start_idx, init.span());
+        let span = Span::new(var_kwd, var_kwd, init.span());
 
         Ok(Spanned::new(Box::new(ExprKind::VarDecl(false, ident, None, init)), span))
     }
@@ -347,7 +385,6 @@ where
     fn parse(&self, parser: &mut Parser<'s, I>, _exprs: &mut Vec<Expr<'s>>) -> Result<(), ParserError<'s>> {
         let tok = parser.next_token()?;
 
-        dbg!(tok.node());
         if tok.node() == TokenKind::Symbol(*self) {
             parser.consume_token().unwrap();
 
