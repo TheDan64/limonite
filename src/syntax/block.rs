@@ -7,10 +7,9 @@ pub struct Block<'s> {
 }
 
 impl<'s> Block<'s> {
-    pub fn new(stmts: Vec<Stmt<'s>>) -> Self {
+    pub fn new(indent: u32, stmts: Vec<Stmt<'s>>) -> Self {
         Block {
-            // TODO:
-            indent: 0,
+            indent,
             stmts,
         }
     }

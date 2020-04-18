@@ -11,7 +11,7 @@ pub enum TokenKind<'s> {
     // Variables, fn names
     Identifier(&'s str),
     // Count the number of tabs after a newline
-    Indent(u64),
+    Indent(u32),
     // True, False
     BoolLiteral(bool),
     // 'c'

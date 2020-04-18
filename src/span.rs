@@ -21,6 +21,13 @@ impl<T> Spanned<T> {
         }
     }
 
+    pub fn boxed(node: T, span: Span) -> Spanned<Box<T>> {
+        Spanned {
+            node: Box::new(node),
+            span,
+        }
+    }
+
     pub fn span(&self) -> Span {
         self.span
     }

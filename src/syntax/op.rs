@@ -2,7 +2,7 @@ use crate::lexical::{Keyword::Equals, Symbol, TokenKind};
 
 use std::convert::TryFrom;
 
-use Symbol::{Asterisk, Caret, GreaterThan, GreaterThanEqual, LessThan, LessThanEqual, Minus, Percent, Plus, Slash};
+use Symbol::{Asterisk, Caret, GreaterThan, GreaterThanEqual, LessThan, LessThanEqual, Minus, Percent, Plus, PlusEquals, Slash};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum InfixOp {
@@ -28,6 +28,8 @@ pub enum InfixOp {
     Gt,
     // A >= B
     Gte,
+    // A += B
+    AddEq,
 }
 
 impl InfixOp {
@@ -57,7 +59,7 @@ impl InfixOp {
         match self {
             InfixOp::Equ | InfixOp::Gt | InfixOp::Gte | InfixOp::Lt | InfixOp::Lte => (2, 1),
             // '?' => (4, 3),
-            InfixOp::Add | InfixOp::Sub => (5, 6),
+            InfixOp::Add | InfixOp::AddEq | InfixOp::Sub => (5, 6),
             InfixOp::Mul | InfixOp::Div => (7, 8),
             // '.' => (14, 13),
             op => unimplemented!("{:?}", op),
@@ -81,6 +83,7 @@ impl<'s> TryFrom<TokenKind<'s>> for InfixOp {
             TokenKind::Symbol(Percent) => Ok(InfixOp::Mod),
             TokenKind::Symbol(Plus) => Ok(InfixOp::Add),
             TokenKind::Symbol(Slash) => Ok(InfixOp::Div),
+            TokenKind::Symbol(PlusEquals) => Ok(InfixOp::AddEq),
             _ => Err(()),
         }
     }

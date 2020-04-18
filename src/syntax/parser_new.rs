@@ -77,7 +77,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             // TokenKind::Symbol(ParenOpen) => self.parse_assignment(ident),
             // TokenKind::Symbol(ParenOpen) => self.parse_add_assignment(ident),
             // TokenKind::Symbol(ParenOpen) => self.parse_sub_assignment(ident),
-            _ => unimplemented!(), // TODO: *=, /=, .. and Errors
+            e => unimplemented!("{:?}", e), // TODO: *=, /=, .. and Errors
         }
     }
 
@@ -93,7 +93,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
 
             let span = Span::new(ident, ident, token);
 
-            return Ok(Spanned::new(Box::new(ExprKind::FnCall(ident, Vec::new())), span));
+            return Ok(Spanned::boxed(ExprKind::FnCall(ident, Vec::new()), span));
         }
 
         // re: (e[, e]*)
@@ -122,7 +122,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
 
         let span = Span::new(token, ident, end_token);
 
-        Ok(Spanned::new(Box::new(ExprKind::FnCall(ident, exprs)), span))
+        Ok(Spanned::boxed(ExprKind::FnCall(ident, exprs), span))
     }
 
     fn parse_numeric(&mut self, num: Spanned<&'s str>, opt_suffix: Option<Spanned<&'s str>>) -> Result<Expr<'s>, ParserError<'s>> {
@@ -166,7 +166,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let end_idx = opt_suffix.map(|s| s.end_idx()).unwrap_or(num.end_idx());
         let span = Span::new(num, num, end_idx);
 
-        Ok(Spanned::new(Box::new(ExprKind::Literal(num_lit)), span))
+        Ok(Spanned::boxed(ExprKind::Literal(num_lit), span))
     }
 
     fn parse_expr(&mut self, min_bp: u8) -> Result<Expr<'s>, ParserError<'s>> {
@@ -202,7 +202,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 let rhs = self.parse_expr(r_bp)?;
                 let span = Span::new(lhs_tok, lhs_tok, rhs.span());
 
-                Spanned::new(Box::new(ExprKind::UnaryOp(lhs_tok.replace(UnaryOp::Negate), rhs)), span)
+                Spanned::boxed(ExprKind::UnaryOp(lhs_tok.replace(UnaryOp::Negate), rhs), span)
             },
             TokenKind::StrLiteral(s) => {
                 self.consume_token().unwrap();
@@ -232,6 +232,16 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 None => break,
             };
 
+            if let TokenKind::Symbol(Symbol::ParenOpen) = tok.node() {
+                let ident = match lhs_tok.node() {
+                    TokenKind::Identifier(s) => lhs_tok.replace(s),
+                    _ => unreachable!(),
+                };
+                lhs = self.parse_fn_call(ident)?;
+
+                continue;
+            }
+
             let (op, (l_bp, r_bp)) = match InfixOp::try_from(tok.node()) {
                 Ok(op) => (tok.replace(op), op.binding_power()),
                 // REVIEW: Should we always break?
@@ -247,7 +257,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             let rhs = self.parse_expr(r_bp)?;
             let span = Span::new(lhs_tok, lhs_tok, rhs.span());
 
-            lhs = Spanned::new(Box::new(ExprKind::InfixOp(op, lhs, rhs)), span);
+            lhs = Spanned::boxed(ExprKind::InfixOp(op, lhs, rhs), span);
 
             continue;
         }
@@ -257,6 +267,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
 
     fn parse_block(&mut self) -> Block<'s> {
         let mut stmts = Vec::new();
+        let indent_level = self.indent;
 
         loop {
             let next_token = match self.opt_next_token() {
@@ -271,9 +282,18 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
 
             match next_token.node() {
                 TokenKind::Comment(..) => { self.consume_token().unwrap(); },
-                TokenKind::Indent(_level) => { self.consume_token().unwrap(); }, // TODO
+                TokenKind::Indent(level) => {
+                    if level == indent_level {
+                        self.consume_token().unwrap();
+                        continue;
+                    } else if level > indent_level {
+                        todo!("indent error");
+                    } else {
+                        break;
+                    }
+                },
                 TokenKind::Identifier(ident) => {
-                    match self.parse_ident(next_token.replace(ident)) {
+                    match self.parse_expr(0) {
                         Ok(expr) => stmts.push(Stmt::new(expr)),
                         Err(err) => {
                             self.errors.push(err);
@@ -294,7 +314,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 },
                 TokenKind::Keyword(Keyword::Var) => {
                     match self.parse_var_decl() {
-                        Ok(expr) => stmts.push(Stmt::new(expr)),
+                        Ok(expr) => stmts.push(Stmt::new(expr)), // REVIEW: StmtKind::Local?
                         Err(err) => {
                             self.errors.push(err);
                             self.skip_til_indent();
@@ -309,12 +329,24 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                             self.skip_til_indent();
                         },
                     }
-                }
+                },
+                TokenKind::Keyword(Keyword::While) => {
+                    match self.parse_while() {
+                        Ok(expr) => stmts.push(Stmt::new(expr)),
+                        Err(err) => {
+                            self.errors.push(err);
+                            self.skip_til_indent();
+                        },
+                    }
+                },
                 e => unimplemented!("{:?}", e),
             }
         }
 
-        Block::new(stmts)
+        // REVIEW: What if multi ident dedent? next_token == indent?
+        self.dedent();
+
+        Block::new(indent_level, stmts)
     }
 
     fn parse_if(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
@@ -335,11 +367,39 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let span = Span::new(if_keywd, if_keywd, sp_comma);
 
         // TODO: else/elseif
-        Ok(Spanned::new(Box::new(ExprKind::If(cond, block, None)), span))
+        Ok(Spanned::boxed(ExprKind::If(cond, block, None), span))
     }
 
+    fn parse_while(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
+        let while_keywd = self.consume_token().unwrap();
+        let cond = self.parse_expr(0)?;
+        let sp_comma = self.next_token()?;
+
+        if sp_comma.node() != TokenKind::Symbol(Symbol::Comma) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_comma)
+            });
+        }
+
+        self.consume_token().unwrap();
+        self.indent();
+
+        let block = self.parse_block();
+        let span = Span::new(while_keywd, while_keywd, sp_comma);
+
+        Ok(Spanned::boxed(ExprKind::WhileLoop(cond, block), span))
+    }
+
+    #[inline]
     fn indent(&mut self) {
         self.indent += 1;
+    }
+
+    #[inline]
+    fn dedent(&mut self) {
+        if self.indent > 0 {
+            self.indent -= 1;
+        }
     }
 
     fn parse_var_decl(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
@@ -367,7 +427,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let init = self.parse_expr(0)?;
         let span = Span::new(var_kwd, var_kwd, init.span());
 
-        Ok(Spanned::new(Box::new(ExprKind::VarDecl(false, ident, None, init)), span))
+        Ok(Spanned::boxed(ExprKind::VarDecl(false, ident, None, init), span))
     }
 }
 
