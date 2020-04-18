@@ -1,5 +1,5 @@
 pub mod block;
-pub mod expr_new;
+pub mod exprs;
 pub mod literals;
 pub mod local;
 pub mod op;
@@ -8,7 +8,7 @@ pub mod stmt;
 pub mod types;
 
 pub use block::Block;
-pub use expr_new::{Expr, ExprKind};
+pub use exprs::{Expr, ExprKind};
 pub use literals::Literal;
 pub use local::Local;
 pub use op::{InfixOp, UnaryOp};
