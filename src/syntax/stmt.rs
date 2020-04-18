@@ -1,4 +1,4 @@
-use crate::syntax::{Expr, Local};
+use crate::syntax::{Expr, Item, Local};
 
 #[derive(Debug, PartialEq)]
 pub struct Stmt<'s> {
@@ -20,7 +20,7 @@ impl<'s> Stmt<'s> {
 #[derive(Debug, PartialEq)]
 pub enum StmtKind<'s> {
     Local(Local<'s>),
-    Item,
+    Item(Item<'s>),
     Expr(Expr<'s>),
 }
 
@@ -33,5 +33,11 @@ impl<'s> From<Expr<'s>> for StmtKind<'s> {
 impl<'s> From<Local<'s>> for StmtKind<'s> {
     fn from(l: Local<'s>) -> Self {
         StmtKind::Local(l)
+    }
+}
+
+impl<'s> From<Item<'s>> for StmtKind<'s> {
+    fn from(i: Item<'s>) -> Self {
+        StmtKind::Item(i)
     }
 }
