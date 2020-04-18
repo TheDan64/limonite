@@ -3,6 +3,10 @@ use crate::interner::StrId;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::ops::Index;
 
+// Shouldn't need to be pub?
+pub struct StartIdx(usize);
+pub struct EndIdx(usize);
+
 #[derive(Debug, PartialEq)]
 pub struct Spanned<T> {
     node: T,
@@ -88,8 +92,8 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new(file_id: StrId, start_idx: usize, end_idx: usize) -> Self {
-        Span { file_id, start_idx, end_idx }
+    pub fn new<F: Into<StrId>, S: Into<StartIdx>, E: Into<EndIdx>>(file_id: F, start_idx: S, end_idx: E) -> Self {
+        Span { file_id: file_id.into(), start_idx: start_idx.into().0, end_idx: end_idx.into().0 }
     }
 
     pub fn width(&self) -> usize {
@@ -125,5 +129,53 @@ impl Debug for Span {
             // .field(&self.file_id)
             .field(&format_args!("{}..={}", self.start_idx, self.end_idx))
             .finish()
+    }
+}
+
+impl<T> From<Spanned<T>> for StrId {
+    fn from(sp: Spanned<T>) -> Self {
+        sp.span().file_id
+    }
+}
+
+impl<T> From<Spanned<T>> for StartIdx {
+    fn from(sp: Spanned<T>) -> Self {
+        StartIdx(sp.span().start_idx)
+    }
+}
+
+impl<T> From<Spanned<T>> for EndIdx {
+    fn from(sp: Spanned<T>) -> Self {
+        EndIdx(sp.span().end_idx)
+    }
+}
+
+impl From<usize> for StartIdx {
+    fn from(u: usize) -> Self {
+        StartIdx(u)
+    }
+}
+
+impl From<usize> for EndIdx {
+    fn from(u: usize) -> Self {
+        EndIdx(u)
+    }
+}
+
+impl From<Span> for StrId {
+    fn from(sp: Span) -> Self {
+        sp.file_id
+    }
+}
+
+impl From<Span> for StartIdx {
+    fn from(sp: Span) -> Self {
+        StartIdx(sp.start_idx)
+    }
+}
+
+impl From<Span> for EndIdx {
+    fn from(sp: Span) -> Self {
+        EndIdx(sp.end_idx)
     }
 }

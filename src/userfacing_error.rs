@@ -79,7 +79,9 @@ impl Display for UserfacingError<'_, '_> {
                 },
                 _ => todo!(),
             },
-            ParserErrorKind::UnexpectedToken(tok) => todo!(),
+            ParserErrorKind::UnexpectedToken(tok) => {
+                ("Found an unexpected token", tok.span())
+            },
         };
 
         let (line, line_no, adjusted_span) = self.get_line(span);

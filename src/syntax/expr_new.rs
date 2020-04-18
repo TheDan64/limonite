@@ -6,9 +6,9 @@ pub type Expr<'s> = Spanned<Box<ExprKind<'s>>>;
 #[derive(Debug, PartialEq)]
 pub enum ExprKind<'s> {
     // Operations between two expressions
-    InfixOp(InfixOp, Expr<'s>, Expr<'s>),
+    InfixOp(Spanned<InfixOp>, Expr<'s>, Expr<'s>),
     // Operation on a single expression
-    UnaryOp(UnaryOp, Expr<'s>),
+    UnaryOp(Spanned<UnaryOp>, Expr<'s>),
     // Literals such as numbers and strings
     Literal(Literal<'s>),
     // While conditional is true, run expression
@@ -24,7 +24,7 @@ pub enum ExprKind<'s> {
     // Consecutive Stmts
     Block(Block<'s>),
     // Const declaration?, variable name, type(optional in parser but not SA), and expression
-    VarDecl(bool, &'s str, Option<&'s str>, Expr<'s>),
+    VarDecl(bool, Spanned<&'s str>, Option<Spanned<&'s str>>, Expr<'s>),
     // Reference to a value in a variable
     Var(&'s str),
     // Return an expression from a function

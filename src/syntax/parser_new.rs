@@ -1,5 +1,5 @@
 use crate::interner::StrId;
-use crate::lexical::{LexerError, Symbol::{self, *}, Token, TokenKind::{self, *}, TokenResult};
+use crate::lexical::{Keyword, LexerError, Symbol::{self, *}, Token, TokenKind, TokenResult};
 use crate::span::{Span, Spanned};
 use crate::syntax::{Block, Expr, ExprKind, InfixOp, Literal::*, Stmt, UnaryOp};
 
@@ -52,6 +52,12 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         }
     }
 
+    fn skip_til_indent(&mut self) {
+        while !matches!(self.opt_next_token().map(|i| i.map(|i| i.node())), Ok(Some(TokenKind::Indent(_)))) {
+            self.consume_token().unwrap();
+        }
+    }
+
     fn consume_token(&mut self) -> Result<Token<'s>, ParserError<'s>> {
         match self.opt_consume_token()? {
             Some(t) => Ok(t),
@@ -80,9 +86,10 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let token = self.next_token()?;
 
         // call()
-        if token.node() == Symbol(ParenClose) {
-            let close_paren_span = self.consume_token().unwrap().span();
-            let span = Span::new(close_paren_span.file_id, ident.span().start_idx, close_paren_span.end_idx);
+        if token.node() == TokenKind::Symbol(ParenClose) {
+            self.consume_token().unwrap();
+
+            let span = Span::new(ident, ident, token);
 
             return Ok(Spanned::new(Box::new(ExprKind::FnCall(ident, Vec::new())), span));
         }
@@ -103,13 +110,15 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let end_token = self.next_token()?;
 
         // Can be close token
-        if end_token.node() != Symbol(ParenClose) {
-            unimplemented!("err");
+        if end_token.node() != TokenKind::Symbol(ParenClose) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(end_token),
+            });
         }
 
         self.consume_token().unwrap();
 
-        let span = Span::new(token.span().file_id, ident.span().start_idx, end_token.span().end_idx);
+        let span = Span::new(token, ident, end_token);
 
         Ok(Spanned::new(Box::new(ExprKind::FnCall(ident, exprs)), span))
     }
@@ -153,7 +162,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         };
 
         let end_idx = opt_suffix.map(|s| s.end_idx()).unwrap_or(num.end_idx());
-        let span = Span::new(num.span().file_id, num.start_idx(), end_idx);
+        let span = Span::new(num, num, end_idx);
 
         Ok(Spanned::new(Box::new(ExprKind::Literal(num_lit)), span))
     }
@@ -163,9 +172,11 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         // E equals E | E and E | E or E | not E | -E | Terminal
         // Terminal -> identifier | literal
 
-        let lhs_tok = self.consume_token()?;
+        let lhs_tok = self.next_token()?;
         let mut lhs = match lhs_tok.node() {
-            Symbol(ParenOpen) => {
+            TokenKind::Symbol(ParenOpen) => {
+                self.consume_token().unwrap();
+
                 let lhs = self.parse_expr(0)?;
 
                 // FIXME: Check if CloseParen
@@ -182,16 +193,34 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             //     lhs
             // },
             // TODO: or Keyword::Not
-            Symbol(Minus) => {
+            TokenKind::Symbol(Minus) => {
+                self.consume_token().unwrap();
+
                 let ((), r_bp) = UnaryOp::Negate.binding_power();
                 let rhs = self.parse_expr(r_bp)?;
-                let Span { file_id, start_idx, .. } = lhs_tok.span();
-                let span = Span::new(file_id, start_idx, rhs.span().end_idx);
+                let span = Span::new(lhs_tok, lhs_tok, rhs.span());
 
-                Spanned::new(Box::new(ExprKind::UnaryOp(UnaryOp::Negate, rhs)), span)
+                Spanned::new(Box::new(ExprKind::UnaryOp(lhs_tok.replace(UnaryOp::Negate), rhs)), span)
             },
-            StrLiteral(s) => lhs_tok.replace(Box::new(ExprKind::Literal(UTF8String(s)))),
-            Numeric(num, opt_suffix) => self.parse_numeric(num, opt_suffix)?,
+            TokenKind::StrLiteral(s) => {
+                self.consume_token().unwrap();
+
+                lhs_tok.replace(Box::new(ExprKind::Literal(UTF8String(s))))
+            },
+            TokenKind::Numeric(num, opt_suffix) => {
+                self.consume_token().unwrap();
+                self.parse_numeric(num, opt_suffix)?
+            },
+            TokenKind::Identifier(i) => {
+                self.consume_token().unwrap();
+
+                lhs_tok.replace(Box::new(ExprKind::Var(i)))
+            },
+            TokenKind::Symbol(_) => {
+                return Err(ParserError {
+                    kind: ParserErrorKind::UnexpectedToken(lhs_tok),
+                });
+            },
             t => panic!("Unsupported expr lhs: {:?}", t),
         };
 
@@ -202,7 +231,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             };
 
             let (op, (l_bp, r_bp)) = match InfixOp::try_from(tok.node()) {
-                Ok(op) => (op, op.binding_power()),
+                Ok(op) => (tok.replace(op), op.binding_power()),
                 // REVIEW: Should we always break?
                 Err(()) => break,
             };
@@ -214,8 +243,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             self.consume_token().unwrap();
 
             let rhs = self.parse_expr(r_bp)?;
-            let Span { file_id, start_idx, .. } = lhs_tok.span();
-            let span = Span::new(file_id, start_idx, rhs.span().end_idx);
+            let span = Span::new(lhs_tok, lhs_tok, rhs.span());
 
             lhs = Spanned::new(Box::new(ExprKind::InfixOp(op, lhs, rhs)), span);
 
@@ -245,22 +273,63 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 TokenKind::Identifier(ident) => {
                     match self.parse_ident(next_token.replace(ident)) {
                         Ok(expr) => stmts.push(Stmt::new(expr)),
-                        Err(err) => self.errors.push(err),
+                        Err(err) => {
+                            self.errors.push(err);
+                            self.skip_til_indent();
+                        },
                     };
-                    self.consume_token().unwrap();
+                    // self.consume_token().unwrap();
                 },
                 TokenKind::Numeric(_, _) => {
                     match self.parse_expr(0) {
                         Ok(expr) => stmts.push(Stmt::new(expr)),
-                        Err(err) => self.errors.push(err),
+                        Err(err) => {
+                            self.errors.push(err);
+                            self.skip_til_indent();
+                        },
                     };
-                    self.consume_token().unwrap();
+                    // self.consume_token().unwrap();
                 },
+                TokenKind::Keyword(Keyword::Var) => {
+                    match self.parse_var_decl() {
+                        Ok(expr) => stmts.push(Stmt::new(expr)),
+                        Err(err) => {
+                            self.errors.push(err);
+                            self.skip_til_indent();
+                        },
+                    }
+                }
                 e => unimplemented!("{:?}", e),
             }
         }
 
         Block::new(stmts)
+    }
+
+    fn parse_var_decl(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
+        let start_idx = self.consume_token().unwrap().start_idx(); // Var Keyword
+        let tok = self.next_token()?;
+        let ident = match tok.node() {
+            TokenKind::Identifier(i) => tok.replace(i),
+            _ => todo!("parser err"),
+        };
+
+        self.consume_token().unwrap();
+
+        let tok = self.next_token()?;
+
+        if tok.node() == TokenKind::Symbol(Symbol::Equals) {
+            self.consume_token().unwrap();
+        } else {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(tok),
+            });
+        }
+
+        let init = self.parse_expr(0)?;
+        let span = Span::new(tok, start_idx, init.span());
+
+        Ok(Spanned::new(Box::new(ExprKind::VarDecl(false, ident, None, init)), span))
     }
 }
 
@@ -278,6 +347,7 @@ where
     fn parse(&self, parser: &mut Parser<'s, I>, _exprs: &mut Vec<Expr<'s>>) -> Result<(), ParserError<'s>> {
         let tok = parser.next_token()?;
 
+        dbg!(tok.node());
         if tok.node() == TokenKind::Symbol(*self) {
             parser.consume_token().unwrap();
 
