@@ -4,7 +4,7 @@ use crate::span::Spanned;
 
 pub type Type = Spanned<TypeKind>;
 
-#[derive(Copy, Debug, PartialEq, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TypeKind {
     Bool,
     Str,

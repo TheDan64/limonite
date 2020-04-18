@@ -1,7 +1,7 @@
 use crate::interner::StrId;
 use crate::lexical::{Keyword, LexerError, Symbol::{self, *}, Token, TokenKind, TokenResult};
 use crate::span::{Span, Spanned};
-use crate::syntax::{Block, Expr, ExprKind, InfixOp, Literal::*, Stmt, UnaryOp};
+use crate::syntax::{Block, Expr, ExprKind, InfixOp, Local, Literal::*, Stmt, UnaryOp};
 
 use std::convert::TryFrom;
 use std::iter::{Iterator, Peekable};
@@ -64,20 +64,6 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         match self.opt_consume_token()? {
             Some(t) => Ok(t),
             None => unimplemented!("eof error"),
-        }
-    }
-
-    fn parse_ident(&mut self, ident: Spanned<&'s str>) -> Result<Expr<'s>, ParserError<'s>> {
-        self.consume_token().unwrap();
-
-        let next_token = self.next_token()?;
-
-        match next_token.node() {
-            TokenKind::Symbol(ParenOpen) => self.parse_fn_call(ident),
-            // TokenKind::Symbol(ParenOpen) => self.parse_assignment(ident),
-            // TokenKind::Symbol(ParenOpen) => self.parse_add_assignment(ident),
-            // TokenKind::Symbol(ParenOpen) => self.parse_sub_assignment(ident),
-            e => unimplemented!("{:?}", e), // TODO: *=, /=, .. and Errors
         }
     }
 
@@ -153,7 +139,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             Some("u128") => U128Num(parse_int!(u128)),
             Some("f32") => F32Num(num.node().parse().expect("fixme")),
             Some("f64") => F64Num(num.node().parse().expect("fixme")),
-            Some(unknown) => todo!("parser error"),
+            Some(_unknown) => todo!("parser error"),
             None => {
                 if num.node().contains('.') {
                     F32Num(num.node().parse().expect("fixme"))
@@ -292,7 +278,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                         break;
                     }
                 },
-                TokenKind::Identifier(ident) => {
+                TokenKind::Identifier(_) => {
                     match self.parse_expr(0) {
                         Ok(expr) => stmts.push(Stmt::new(expr)),
                         Err(err) => {
@@ -314,7 +300,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 },
                 TokenKind::Keyword(Keyword::Var) => {
                     match self.parse_var_decl() {
-                        Ok(expr) => stmts.push(Stmt::new(expr)), // REVIEW: StmtKind::Local?
+                        Ok(local) => stmts.push(Stmt::new(local)),
                         Err(err) => {
                             self.errors.push(err);
                             self.skip_til_indent();
@@ -402,8 +388,8 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         }
     }
 
-    fn parse_var_decl(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
-        let var_kwd = self.consume_token().unwrap();
+    fn parse_var_decl(&mut self) -> Result<Local<'s>, ParserError<'s>> {
+        let _var_kwd = self.consume_token().unwrap();
         let tok = self.next_token()?;
         let ident = match tok.node() {
             TokenKind::Identifier(i) => tok.replace(i),
@@ -425,9 +411,9 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         }
 
         let init = self.parse_expr(0)?;
-        let span = Span::new(var_kwd, var_kwd, init.span());
+        // let span = Span::new(var_kwd, var_kwd, init.span());
 
-        Ok(Spanned::boxed(ExprKind::VarDecl(false, ident, None, init), span))
+        Ok(Local::new(false, ident, None, init))
     }
 }
 

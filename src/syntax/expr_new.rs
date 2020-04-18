@@ -23,8 +23,6 @@ pub enum ExprKind<'s> {
     // FnDecl(String, Vec<(String, String)>, Option<String>, ExprWrapper),
     // Consecutive Stmts
     Block(Block<'s>),
-    // Const declaration?, variable name, type(optional in parser but not SA), and expression
-    VarDecl(bool, Spanned<&'s str>, Option<Spanned<&'s str>>, Expr<'s>),
     // Reference to a value in a variable
     Var(&'s str),
     // Return an expression from a function
