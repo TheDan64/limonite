@@ -34,9 +34,6 @@ structopt = "0.3"
 [dev-dependencies]
 criterion = "0.3"
 
-[[test]]
-name = "tests"
-
 [[bench]]
 name = "lexer"
 harness = false

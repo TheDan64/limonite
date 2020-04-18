@@ -4,12 +4,6 @@ use limonite::lexical::Symbol::{Comma, Equals, ParenClose, ParenOpen, PlusEquals
 use limonite::lexical::{CommentKind, Lexer, LexerError, Token, TokenKind::{self, *}, TokenResult};
 use limonite::span::{Span, Spanned};
 
-macro_rules! span {
-    ($e:expr, $start:expr, $end:expr) => {
-        Spanned::new($e, Span::new(StrId::DUMMY, $start, $end))
-    };
-}
-
 fn cmp_tokens<'s>(mut lexer: Lexer<'s>, tokens: &[TokenResult<'s>], skip_indents: bool) {
     let mut iter: &mut dyn Iterator<Item=TokenResult<'s>> = &mut lexer;
     let mut filter;

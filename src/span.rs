@@ -3,7 +3,8 @@ use crate::interner::StrId;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::ops::Index;
 
-// Shouldn't need to be pub?
+// REVIEW: Shouldn't need to be pub?
+
 pub struct StartIdx(usize);
 pub struct EndIdx(usize);
 

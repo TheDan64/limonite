@@ -166,8 +166,14 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 self.consume_token().unwrap();
 
                 let lhs = self.parse_expr(0)?;
+                let sp_tok = self.next_token()?;
 
-                // FIXME: Check if CloseParen
+                if sp_tok.node() != TokenKind::Symbol(ParenOpen) {
+                    return Err(ParserError {
+                        kind: ParserErrorKind::UnexpectedToken(sp_tok)
+                    });
+                }
+
                 self.consume_token().unwrap();
 
                 lhs
@@ -221,7 +227,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             if let TokenKind::Symbol(Symbol::ParenOpen) = tok.node() {
                 let ident = match lhs_tok.node() {
                     TokenKind::Identifier(s) => lhs_tok.replace(s),
-                    _ => unreachable!(),
+                    _ => unreachable!(), // Maybe not?
                 };
                 lhs = self.parse_fn_call(ident)?;
 

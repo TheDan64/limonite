@@ -1,3 +1,15 @@
+use limonite::interner::StrId;
+use limonite::span::{Span, Spanned};
+
+macro_rules! span {
+    ($e:expr, $start:expr, $end:expr) => {
+        Spanned::new($e, Span::new(StrId::DUMMY, $start, $end))
+    };
+    (box $e:expr, $start:expr, $end:expr) => {
+        span!(Box::new($e), $start, $end)
+    };
+}
+
 // macro_rules! block {
 //     ($($args:tt)*) => {
 //         ExprWrapper::default(Expr::Block(vec![$($args)*]))
