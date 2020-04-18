@@ -19,8 +19,6 @@ pub enum ExprKind<'s> {
     Assign(Spanned<&'s str>, Expr<'s>),
     // Fn call with name and args.
     FnCall(Spanned<&'s str>, Vec<Expr<'s>>),
-    // Declare a function with a name, args(name, type), return type, and body expr
-    // FnDecl(String, Vec<(String, String)>, Option<String>, ExprWrapper),
     // Consecutive Stmts
     Block(Block<'s>),
     // Reference to a value in a variable
