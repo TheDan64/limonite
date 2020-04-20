@@ -281,7 +281,20 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                     } else if level > indent_level {
                         todo!("indent error");
                     } else {
-                        break;
+                        self.consume_token().unwrap();
+
+                        let next_tok = self.next_token().map(|sp_tok| sp_tok.node());
+                        let is_indent_or_err = match next_tok {
+                            Ok(TokenKind::Indent(_)) | Err(_) => true,
+                            _ => false,
+                        };
+
+                        // If it's not just multiple indents or an error, dedent
+                        if !is_indent_or_err {
+                            self.indent = level;
+                        }
+
+                        continue;
                     }
                 },
                 TokenKind::Identifier(_) => {
@@ -339,6 +352,24 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         self.dedent();
 
         Block::new(indent_level, stmts)
+    }
+
+    fn parse_deliminated_expr(&mut self, sym: Symbol, can_trail: bool) -> Result<Expr<'s>, ParserError<'s>> {
+        let mut exprs = Vec::new();
+
+        exprs.push(self.parse_expr(0)?);
+
+        let mut next_tok = self.next_token()?;
+
+        while next_tok.node() == TokenKind::Symbol(sym) {
+            self.consume_token().unwrap();
+
+            exprs.push(self.parse_expr(0)?);
+
+            next_tok = self.next_token()?;
+        }
+
+        todo!()
     }
 
     fn parse_if(&mut self) -> Result<Expr<'s>, ParserError<'s>> {

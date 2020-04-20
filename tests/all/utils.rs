@@ -1,20 +1,19 @@
-use limonite::interner::StrId;
-use limonite::span::{Span, Spanned};
-
 macro_rules! span {
-    ($e:expr, $start:expr, $end:expr) => {
+    ($e:expr, $start:expr, $end:expr) => {{
+        use limonite::span::{Span, Spanned};
         Spanned::new($e, Span::new(StrId::DUMMY, $start, $end))
-    };
-    (box $e:expr, $start:expr, $end:expr) => {
+    }};
+    (boxed $e:expr, $start:expr, $end:expr) => {{
         span!(Box::new($e), $start, $end)
-    };
+    }};
 }
 
-// macro_rules! block {
-//     ($($args:tt)*) => {
-//         ExprWrapper::default(Expr::Block(vec![$($args)*]))
-//     }
-// }
+macro_rules! block {
+    ($indent:literal => [$($stmt_kinds:expr,)*]) => {{
+        use limonite::syntax::{Block, Stmt};
+        Block::new($indent, vec![$(Stmt::new($stmt_kinds),)*])
+    }};
+}
 
 // macro_rules! var {
 //     ($arg:expr) => {

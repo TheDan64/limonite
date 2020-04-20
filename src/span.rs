@@ -8,7 +8,7 @@ use std::ops::Index;
 pub struct StartIdx(usize);
 pub struct EndIdx(usize);
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct Spanned<T> {
     node: T,
     span: Span,
@@ -89,6 +89,16 @@ impl<T: Clone> Clone for Spanned<T> {
             node: self.node.clone(),
             span: self.span,
         }
+    }
+}
+
+// Compact Spanned repr so that it's easier to read in debug output.
+impl<T: Debug> Debug for Spanned<T> {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        f.debug_tuple("Spanned")
+            .field(&self.node)
+            .field(&self.span)
+            .finish()
     }
 }
 
