@@ -65,7 +65,7 @@ fn main() {
     // Parse & Build an AST
     let parser = Parser::new(lexer);
 
-    let mut _ast_root = match parser.run() {
+    let mut ast_root = match parser.run() {
         Ok(ast) => ast,
         Err(errs) => {
             for error in errs {
@@ -89,19 +89,23 @@ fn main() {
     // semantic_analyzer.analyze(&mut ast_root);
 
     // Run Code Gen
-    // #[cfg(feature="llvm-backend")]
-    // {
-    //     let mut generator = LLVMGenerator::new();
+    #[cfg(feature="llvm-backend")]
+    {
+        use crate::codegen::llvm::LLVMCodeGen;
+        use inkwell::context::Context;
 
-    //     generator.add_module(ast_root, true, true);
-    //     generator.initialize(false);
+        let context = Context::create();
+        let mut generator = LLVMCodeGen::new(&context);
 
-    //     if args.flag_dump {
-    //         generator.dump_ir();
-    //     }
+        generator.add_module(ast_root, file_id, "main");
+        // generator.initialize(false);
 
-    //     generator.run().unwrap_or_else(|msg| panic!("{}", msg));
-    // }
+        // if args.flag_dump {
+        //     generator.dump_ir();
+        // }
+
+        // generator.run().unwrap_or_else(|msg| panic!("{}", msg));
+    }
 }
 
 fn readable_to_string<R: Read>(mut readable: R) -> String {

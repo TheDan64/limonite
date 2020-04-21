@@ -1,6 +1,6 @@
 use limonite::interner::StrId;
 use limonite::lexical::Lexer;
-use limonite::syntax::{Block, ExprKind, InfixOp, Literal::*, Parser, UnaryOp};
+use limonite::syntax::{Block, ExprKind, InfixOp::*, Literal::*, Parser, UnaryOp::*};
 
 // use std::vec::IntoIter;
 
@@ -714,28 +714,24 @@ fn test_precedence() {
     let s = "3 - 2 + 4 * -5"; // -19
     let lexer = Lexer::new(s, StrId::DUMMY);
     let ast = Parser::new(lexer).run().unwrap();
-
-
-
     let top_block = block!(0 => [
         span!(boxed ExprKind::InfixOp(
-            span!(InfixOp::Add, 6, 6),
+            span!(Add, 6, 6),
             span!(boxed ExprKind::InfixOp(
-                span!(InfixOp::Sub, 2, 2),
+                span!(Sub, 2, 2),
                 span!(boxed ExprKind::Literal(I32Num(3)), 0, 0),
                 span!(boxed ExprKind::Literal(I32Num(2)), 4, 4),
             ), 0, 4),
             span!(boxed ExprKind::InfixOp(
-                span!(InfixOp::Mul, 10, 10),
+                span!(Mul, 10, 10),
                 span!(boxed ExprKind::Literal(I32Num(4)), 8, 8),
                 span!(boxed ExprKind::UnaryOp(
-                    span!(UnaryOp::Negate, 12, 12),
+                    span!(Negate, 12, 12),
                     span!(boxed ExprKind::Literal(I32Num(5)), 13, 13)
                 ), 12, 13),
             ), 8, 13),
         ), 0, 13),
     ]);
-
 
     assert_eq!(&s[0..=0], "3");
     assert_eq!(&s[2..=2], "-");
