@@ -30,8 +30,9 @@ trait Type<'ctx, B: AnyType<'ctx>> {
 }
 
 trait FnDecl<'ctx>: Type<'ctx, FunctionType<'ctx>> {
+    // TODO: We might want linkage as a build_decl param eventually
     fn build_decl(fn_ty: FunctionType<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
-        module.add_function(PutcharBuiltin::FULL_PATH, fn_ty, None)
+        module.add_function(Self::FULL_PATH, fn_ty, None)
     }
 }
 
@@ -68,12 +69,12 @@ impl<'ctx> TyValCache<'ctx> {
             .entry(T::FULL_PATH)
             .or_insert_with(|| T::build_ty(ctx).into());
 
-        B::try_from(*ty_enum).map_err(|_| ())
+        B::try_from(*ty_enum).or(Err(()))
     }
 
     fn get_fn_decl<F: FnDecl<'ctx>>(&mut self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let ctx = self.context;
-        let fn_ty = self.get_type::<F, _>().unwrap();
+        let fn_ty = self.get_type::<F, _>().expect("to have found a FunctionType");
 
         self.values
             .entry((F::FULL_PATH, true))
