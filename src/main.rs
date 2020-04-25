@@ -96,12 +96,15 @@ fn main() {
 
         let context = Context::create();
         let mut generator = LLVMCodeGen::new(&context);
+        let std_id = interner.intern("std");
 
+        generator.add_std_module(std_id);
         generator.add_module(ast_root, file_id, "main");
         // generator.initialize(false);
 
         // if args.flag_dump {
-        //     generator.dump_ir();
+        generator.dump_ir(std_id);
+        generator.dump_ir(file_id);
         // }
 
         // generator.run().unwrap_or_else(|msg| panic!("{}", msg));

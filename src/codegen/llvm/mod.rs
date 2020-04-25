@@ -1,7 +1,10 @@
-// mod std;
+mod builtins;
+mod std;
 
 use crate::interner::StrId;
 use crate::syntax::Block;
+use crate::codegen::llvm::builtins::PutcharBuiltin;
+use crate::codegen::llvm::std::string::{LimeString, PrintString};
 
 // use codegen::llvm::std::string::{define_print_function, define_string_type};
 use inkwell::builder::Builder;
@@ -9,7 +12,8 @@ use inkwell::context::Context;
 // use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
 // use inkwell::pass_manager::PassManager;
-// use inkwell::types::Type;
+use inkwell::types::{AnyTypeEnum, BasicTypeEnum, FunctionType, StructType};
+use inkwell::values::{AnyValueEnum, BasicValueEnum, FunctionValue};
 // use inkwell::values::Value;
 use rustc_hash::FxHashMap;
 
@@ -17,10 +21,74 @@ use rustc_hash::FxHashMap;
 // use syntax::literals::Literals;
 // use syntax::op::{InfixOp, UnaryOp};
 
-pub struct LLVMCodeGen<'ctx> {
+trait LLVMType {
+    const FULL_PATH: &'static str;
+
+    fn codegen<'ctx>(ctx: &'ctx Context) -> BasicTypeEnum<'ctx>;
+}
+
+trait LLVMValue: LLVMType {
+    fn codegen<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, std_module: &Module<'ctx>) -> BasicValueEnum<'ctx>;
+}
+
+trait LLVMFnType {
+    const FULL_PATH: &'static str;
+
+    fn build_ty<'ctx>(ctx: &'ctx Context) -> FunctionType<'ctx>;
+}
+
+trait LLVMFnValue: LLVMFnType {
+    fn build_val<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, fn_ty: FunctionType<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx>;
+}
+
+struct TyValCache<'ctx> {
     context: &'ctx Context,
+    types: FxHashMap<&'static str, AnyTypeEnum<'ctx>>,
+    values: FxHashMap<&'static str, AnyValueEnum<'ctx>>,
+}
+
+impl<'ctx> TyValCache<'ctx> {
+    fn new(context: &'ctx Context) -> Self {
+        TyValCache {
+            context,
+            types: FxHashMap::default(),
+            values: FxHashMap::default(),
+        }
+    }
+}
+
+impl<'ctx> TyValCache<'ctx> {
+    // fn get_struct_type<T: LLVMType>(&self, ty: T) -> StructType<'ctx> {
+    //     self.types
+    //         .entry(T::FULL_PATH)
+    //         .or_insert_with(|| T::codegen(&self.context).into())
+    //         .into_struct_type()
+    // }
+
+    fn get_fn_type<F: LLVMFnType>(&mut self, ty: F) -> FunctionType<'ctx> {
+        let ctx = self.context;
+
+        self.types
+            .entry(F::FULL_PATH)
+            .or_insert_with(|| F::build_ty(ctx).into())
+            .into_function_type()
+    }
+
+    fn get_fn_value<F: LLVMFnValue>(&mut self, val: F, builder: &Builder<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+        let ctx = self.context;
+        let fn_ty = self.get_fn_type(val);
+
+        self.values
+            .entry(F::FULL_PATH)
+            .or_insert_with(|| F::build_val(builder, ctx, fn_ty, module).into())
+            .into_function_value()
+    }
+}
+
+pub struct LLVMCodeGen<'ctx> {
     builder: Builder<'ctx>,
     modules: FxHashMap<StrId, Module<'ctx>>,
+    ty_val_cache: TyValCache<'ctx>,
     // execution_engine: Option<ExecutionEngine>,
     // pass_manager: Option<PassManager>,
 }
@@ -31,18 +99,35 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 
         LLVMCodeGen {
             builder,
-            context,
             modules: FxHashMap::default(),
+            ty_val_cache: TyValCache::new(context),
             // execution_engine: None,
             // pass_manager: None,
         }
     }
 
     pub fn add_module(&mut self, ast: Block, module_id: StrId, module_name: &str) {
-        let module = self.context.create_module(module_name);
+        let module = self.ty_val_cache.context.create_module(module_name);
 
         // self.generate_ir(&module, &ast);
         self.modules.insert(module_id, module);
+    }
+
+    pub fn add_std_module(&mut self, module_id: StrId) {
+        let module = self.ty_val_cache.context.create_module("std");
+
+        // TODO: These should only be defined if they are referenced (ast knowledge?)
+        // self.ty_val_cache.get_struct_type(LimeString);
+
+        self.ty_val_cache.get_fn_value(PutcharBuiltin, &self.builder, &module);
+        self.ty_val_cache.get_fn_value(PrintString, &self.builder, &module);
+
+        self.modules.insert(module_id, module);
+    }
+
+    fn get_type<T: LLVMType>(&self, module_id: StrId) -> Option<BasicTypeEnum<'ctx>> {
+        // We should be able to call get_type from context once LLVM 11 rolls around...
+        self.modules.get(&module_id)?.get_type(T::FULL_PATH)
     }
 
 //     pub fn add_module(&mut self, mut ast: ExprWrapper, as_main: bool, include_std: bool) {
@@ -77,11 +162,11 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //         self.main_module = Some(main_module);
 //     }
 
-//     pub fn dump_ir(&self) {
-//         if let Some(ref module) = self.main_module {
-//             module.dump();
-//         }
-//     }
+    pub fn dump_ir(&self, module_id: StrId) {
+        if let Some(module) = self.modules.get(&module_id) {
+            module.print_to_stderr();
+        }
+    }
 
 //     pub fn save_binary(&self) -> () {
 //         // TODO

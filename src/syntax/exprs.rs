@@ -3,6 +3,8 @@ use crate::syntax::{Block, InfixOp, Literal, UnaryOp};
 
 pub type Expr<'s> = Spanned<Box<ExprKind<'s>>>;
 
+// Should Return be a Stmt instead? Or do we want Rust-like Expr Returns?
+
 #[derive(Debug, PartialEq)]
 pub enum ExprKind<'s> {
     // Operations between two expressions

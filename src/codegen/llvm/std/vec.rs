@@ -1,14 +1,28 @@
-extern crate inkwell;
+use crate::codegen::llvm::LLVMType;
 
-use self::inkwell::context::Context;
-use self::inkwell::types::Type;
+use inkwell::AddressSpace;
+use inkwell::context::Context;
+use inkwell::types::{BasicType, BasicTypeEnum, StructType};
 
-pub fn vec_type(context: &Context, t: Type, type_name: &str) {
-    let field_types = vec![
-        t,
-        context.i64_type(), // len
-        context.i64_type(), // cap
+struct LimeVec;
+
+impl LLVMType for LimeVec {
+    const FULL_PATH: &'static str = "std::Vec";
+
+    fn codegen<'ctx>(_ctx: &'ctx Context) -> BasicTypeEnum<'ctx> {
+        unimplemented!()
+    }
+}
+
+pub fn vec_type<'ctx>(context: &'ctx Context, t: BasicTypeEnum<'ctx>, name: &str) -> StructType<'ctx> {
+    let field_types = &[
+        t.ptr_type(AddressSpace::Generic).into(),
+        context.i64_type().into(), // len
+        context.i64_type().into(), // cap
     ];
 
-    context.struct_type(field_types, false, type_name);
+    let struct_type = context.opaque_struct_type(name);
+
+    struct_type.set_body(field_types, false);
+    struct_type
 }
