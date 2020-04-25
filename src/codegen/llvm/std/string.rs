@@ -1,6 +1,6 @@
 use crate::codegen::llvm::TyValCache;
 use crate::codegen::llvm::std::vec::vec_type;
-use crate::codegen::llvm::{LLVMFnType, LLVMFnValue, LLVMValue, LLVMType};
+use crate::codegen::llvm::{FnDecl, FnType, FnValue, LLVMValue, LLVMType};
 
 use inkwell::{AddressSpace, IntPredicate};
 use inkwell::builder::Builder;
@@ -21,7 +21,7 @@ impl LLVMType for LimeString {
 
 pub struct PrintString;
 
-impl LLVMFnType for PrintString {
+impl FnType for PrintString {
     const FULL_PATH: &'static str = "std::print";
 
     fn build_ty<'ctx>(ctx: &'ctx Context) -> FunctionType<'ctx> {
@@ -36,10 +36,10 @@ impl LLVMFnType for PrintString {
     }
 }
 
-impl LLVMFnValue for PrintString {
-    fn build_val<'ctx>(builder: &Builder<'ctx>, context: &'ctx Context, fn_ty: FunctionType<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
-        let print_fn = module.add_function(Self::FULL_PATH, fn_ty, None);
+impl FnDecl for PrintString {}
 
+impl FnValue for PrintString {
+    fn build_val<'ctx>(builder: &Builder<'ctx>, context: &'ctx Context, print_fn: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         // Types
         let void = context.void_type();
         let i32_type = context.i32_type();

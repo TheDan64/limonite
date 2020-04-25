@@ -31,20 +31,28 @@ trait LLVMValue: LLVMType {
     fn codegen<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, std_module: &Module<'ctx>) -> BasicValueEnum<'ctx>;
 }
 
-trait LLVMFnType {
+trait FnType {
     const FULL_PATH: &'static str;
 
     fn build_ty<'ctx>(ctx: &'ctx Context) -> FunctionType<'ctx>;
 }
 
-trait LLVMFnValue: LLVMFnType {
-    fn build_val<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, fn_ty: FunctionType<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx>;
+trait FnDecl: FnType {
+    fn build_decl<'ctx>(fn_ty: FunctionType<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+        module.add_function(PutcharBuiltin::FULL_PATH, fn_ty, None)
+    }
+}
+
+// IDEA: Rm fn_ty & module. Instead pass in &mut TyValCache. Though unlikely to work.
+trait FnValue: FnDecl {
+    fn build_val<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, fn_decl: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx>;
 }
 
 struct TyValCache<'ctx> {
     context: &'ctx Context,
     types: FxHashMap<&'static str, AnyTypeEnum<'ctx>>,
-    values: FxHashMap<&'static str, AnyValueEnum<'ctx>>,
+    // Mapping of a value and whether or not it is a decl (only for fns)
+    values: FxHashMap<(&'static str, bool), AnyValueEnum<'ctx>>,
 }
 
 impl<'ctx> TyValCache<'ctx> {
@@ -65,7 +73,7 @@ impl<'ctx> TyValCache<'ctx> {
     //         .into_struct_type()
     // }
 
-    fn get_fn_type<F: LLVMFnType>(&mut self, ty: F) -> FunctionType<'ctx> {
+    fn get_fn_type<F: FnType>(&mut self) -> FunctionType<'ctx> {
         let ctx = self.context;
 
         self.types
@@ -74,13 +82,24 @@ impl<'ctx> TyValCache<'ctx> {
             .into_function_type()
     }
 
-    fn get_fn_value<F: LLVMFnValue>(&mut self, val: F, builder: &Builder<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+    fn get_fn_decl<F: FnDecl>(&mut self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let ctx = self.context;
-        let fn_ty = self.get_fn_type(val);
+        let fn_ty = self.get_fn_type::<F>();
 
         self.values
-            .entry(F::FULL_PATH)
-            .or_insert_with(|| F::build_val(builder, ctx, fn_ty, module).into())
+            .entry((F::FULL_PATH, true))
+            .or_insert_with(|| F::build_decl(fn_ty, module).into())
+            .into_function_value()
+
+    }
+
+    fn get_fn_value<F: FnValue>(&mut self, builder: &Builder<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+        let ctx = self.context;
+        let fn_decl = self.get_fn_decl::<F>(module);
+
+        self.values
+            .entry((F::FULL_PATH, false))
+            .or_insert_with(|| F::build_val(builder, ctx, fn_decl, module).into())
             .into_function_value()
     }
 }
@@ -119,8 +138,8 @@ impl<'ctx> LLVMCodeGen<'ctx> {
         // TODO: These should only be defined if they are referenced (ast knowledge?)
         // self.ty_val_cache.get_struct_type(LimeString);
 
-        self.ty_val_cache.get_fn_value(PutcharBuiltin, &self.builder, &module);
-        self.ty_val_cache.get_fn_value(PrintString, &self.builder, &module);
+        self.ty_val_cache.get_fn_decl::<PutcharBuiltin>(&module);
+        self.ty_val_cache.get_fn_value::<PrintString>(&self.builder, &module);
 
         self.modules.insert(module_id, module);
     }

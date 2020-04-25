@@ -1,4 +1,4 @@
-use crate::codegen::llvm::{LLVMFnType, LLVMFnValue};
+use crate::codegen::llvm::{FnDecl, FnType};
 
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -8,7 +8,7 @@ use inkwell::values::FunctionValue;
 
 pub struct PutcharBuiltin;
 
-impl LLVMFnType for PutcharBuiltin {
+impl FnType for PutcharBuiltin {
     const FULL_PATH: &'static str = "putchar";
 
     fn build_ty<'ctx>(ctx: &'ctx Context) -> FunctionType<'ctx> {
@@ -18,8 +18,4 @@ impl LLVMFnType for PutcharBuiltin {
     }
 }
 
-impl LLVMFnValue for PutcharBuiltin {
-    fn build_val<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, fn_ty: FunctionType<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
-        module.add_function(PutcharBuiltin::FULL_PATH, fn_ty, None)
-    }
-}
+impl FnDecl for PutcharBuiltin {}
