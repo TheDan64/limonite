@@ -1,4 +1,4 @@
-use crate::codegen::llvm::LLVMType;
+use crate::codegen::llvm::Type;
 
 use inkwell::AddressSpace;
 use inkwell::context::Context;
@@ -6,10 +6,10 @@ use inkwell::types::{BasicType, BasicTypeEnum, StructType};
 
 struct LimeVec;
 
-impl LLVMType for LimeVec {
+impl<'ctx> Type<'ctx, StructType<'ctx>> for LimeVec {
     const FULL_PATH: &'static str = "std::Vec";
 
-    fn codegen<'ctx>(_ctx: &'ctx Context) -> BasicTypeEnum<'ctx> {
+    fn build_ty(_ctx: &'ctx Context) -> StructType<'ctx> {
         unimplemented!()
     }
 }

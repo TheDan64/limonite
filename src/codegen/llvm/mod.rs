@@ -12,40 +12,32 @@ use inkwell::context::Context;
 // use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
 // use inkwell::pass_manager::PassManager;
-use inkwell::types::{AnyTypeEnum, BasicTypeEnum, FunctionType, StructType};
+use inkwell::types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType, StructType};
 use inkwell::values::{AnyValueEnum, BasicValueEnum, FunctionValue};
 // use inkwell::values::Value;
 use rustc_hash::FxHashMap;
+
+use ::std::convert::{TryFrom, TryInto};
 
 // use syntax::expr::{Expr, ExprWrapper};
 // use syntax::literals::Literals;
 // use syntax::op::{InfixOp, UnaryOp};
 
-trait LLVMType {
+trait Type<'ctx, B: AnyType<'ctx>> {
     const FULL_PATH: &'static str;
 
-    fn codegen<'ctx>(ctx: &'ctx Context) -> BasicTypeEnum<'ctx>;
+    fn build_ty(ctx: &'ctx Context) -> B;
 }
 
-trait LLVMValue: LLVMType {
-    fn codegen<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, std_module: &Module<'ctx>) -> BasicValueEnum<'ctx>;
-}
-
-trait FnType {
-    const FULL_PATH: &'static str;
-
-    fn build_ty<'ctx>(ctx: &'ctx Context) -> FunctionType<'ctx>;
-}
-
-trait FnDecl: FnType {
-    fn build_decl<'ctx>(fn_ty: FunctionType<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+trait FnDecl<'ctx>: Type<'ctx, FunctionType<'ctx>> {
+    fn build_decl(fn_ty: FunctionType<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         module.add_function(PutcharBuiltin::FULL_PATH, fn_ty, None)
     }
 }
 
 // IDEA: Rm fn_ty & module. Instead pass in &mut TyValCache. Though unlikely to work.
-trait FnValue: FnDecl {
-    fn build_val<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, fn_decl: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx>;
+trait FnValue<'ctx>: FnDecl<'ctx> {
+    fn build_val(builder: &Builder<'ctx>, ctx: &'ctx Context, fn_decl: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx>;
 }
 
 struct TyValCache<'ctx> {
@@ -66,34 +58,30 @@ impl<'ctx> TyValCache<'ctx> {
 }
 
 impl<'ctx> TyValCache<'ctx> {
-    // fn get_struct_type<T: LLVMType>(&self, ty: T) -> StructType<'ctx> {
-    //     self.types
-    //         .entry(T::FULL_PATH)
-    //         .or_insert_with(|| T::codegen(&self.context).into())
-    //         .into_struct_type()
-    // }
-
-    fn get_fn_type<F: FnType>(&mut self) -> FunctionType<'ctx> {
+    fn get_type<T, B>(&mut self) -> Result<B, ()>
+    where
+        B: AnyType<'ctx> + TryFrom<AnyTypeEnum<'ctx>> + Into<AnyTypeEnum<'ctx>>,
+        T: Type<'ctx, B>,
+    {
         let ctx = self.context;
+        let ty_enum = self.types
+            .entry(T::FULL_PATH)
+            .or_insert_with(|| T::build_ty(ctx).into());
 
-        self.types
-            .entry(F::FULL_PATH)
-            .or_insert_with(|| F::build_ty(ctx).into())
-            .into_function_type()
+        B::try_from(*ty_enum).map_err(|_| ())
     }
 
-    fn get_fn_decl<F: FnDecl>(&mut self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+    fn get_fn_decl<F: FnDecl<'ctx>>(&mut self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let ctx = self.context;
-        let fn_ty = self.get_fn_type::<F>();
+        let fn_ty = self.get_type::<F, _>().unwrap();
 
         self.values
             .entry((F::FULL_PATH, true))
             .or_insert_with(|| F::build_decl(fn_ty, module).into())
             .into_function_value()
-
     }
 
-    fn get_fn_value<F: FnValue>(&mut self, builder: &Builder<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+    fn get_fn_value<F: FnValue<'ctx>>(&mut self, builder: &Builder<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let ctx = self.context;
         let fn_decl = self.get_fn_decl::<F>(module);
 
@@ -144,10 +132,10 @@ impl<'ctx> LLVMCodeGen<'ctx> {
         self.modules.insert(module_id, module);
     }
 
-    fn get_type<T: LLVMType>(&self, module_id: StrId) -> Option<BasicTypeEnum<'ctx>> {
-        // We should be able to call get_type from context once LLVM 11 rolls around...
-        self.modules.get(&module_id)?.get_type(T::FULL_PATH)
-    }
+    // fn get_type<T: LLVMType>(&self, module_id: StrId) -> Option<BasicTypeEnum<'ctx>> {
+    //     // We should be able to call get_type from context once LLVM 11 rolls around...
+    //     self.modules.get(&module_id)?.get_type(T::FULL_PATH)
+    // }
 
 //     pub fn add_module(&mut self, mut ast: ExprWrapper, as_main: bool, include_std: bool) {
 //         // TODO: Better non main module support. This should be split into add_main_module (required)

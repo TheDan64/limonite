@@ -1,6 +1,6 @@
 use crate::codegen::llvm::TyValCache;
 use crate::codegen::llvm::std::vec::vec_type;
-use crate::codegen::llvm::{FnDecl, FnType, FnValue, LLVMValue, LLVMType};
+use crate::codegen::llvm::{FnDecl, FnValue, Type};
 
 use inkwell::{AddressSpace, IntPredicate};
 use inkwell::builder::Builder;
@@ -11,35 +11,35 @@ use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue};
 
 pub struct LimeString;
 
-impl LLVMType for LimeString {
+impl<'ctx> Type<'ctx, StructType<'ctx>> for LimeString {
     const FULL_PATH: &'static str = "std::String";
 
-    fn codegen<'ctx>(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
+    fn build_ty(context: &'ctx Context) -> StructType<'ctx> {
         string_type(context).into()
     }
 }
 
 pub struct PrintString;
 
-impl FnType for PrintString {
+impl<'ctx> Type<'ctx, FunctionType<'ctx>> for PrintString {
     const FULL_PATH: &'static str = "std::print";
 
-    fn build_ty<'ctx>(ctx: &'ctx Context) -> FunctionType<'ctx> {
+    fn build_ty(ctx: &'ctx Context) -> FunctionType<'ctx> {
         let void_type = ctx.void_type();
         let param_types = &[
             // Ideally this would be context.get_type(LimeString::FULL_PATH) but
             // LLVM doesn't allow this from context yet, only via module...
-            LimeString::codegen(ctx).ptr_type(AddressSpace::Generic).into(),
+            LimeString::build_ty(ctx).ptr_type(AddressSpace::Generic).into(),
         ];
 
         void_type.fn_type(param_types, false).into()
     }
 }
 
-impl FnDecl for PrintString {}
+impl FnDecl<'_> for PrintString {}
 
-impl FnValue for PrintString {
-    fn build_val<'ctx>(builder: &Builder<'ctx>, context: &'ctx Context, print_fn: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+impl<'ctx> FnValue<'ctx> for PrintString {
+    fn build_val(builder: &Builder<'ctx>, context: &'ctx Context, print_fn: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         // Types
         let void = context.void_type();
         let i32_type = context.i32_type();
@@ -120,12 +120,6 @@ impl FnValue for PrintString {
         print_fn.into()
     }
 }
-
-// impl LLVMValue for LimeString {
-//     fn codegen<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context) -> BasicValueEnum<'ctx> {
-
-//     }
-// }
 
 fn string_type<'ctx>(context: &'ctx Context) -> StructType<'ctx> {
     vec_type(context, context.i8_type().into(), LimeString::FULL_PATH)
