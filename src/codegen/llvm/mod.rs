@@ -2,9 +2,9 @@ mod builtins;
 mod std;
 
 use crate::interner::StrId;
-use crate::syntax::Block;
+use crate::syntax::{Block, StmtKind};
 use crate::codegen::llvm::builtins::PutcharBuiltin;
-use crate::codegen::llvm::std::string::{LimeString, PrintString};
+use crate::codegen::llvm::std::string::PrintString;
 
 // use codegen::llvm::std::string::{define_print_function, define_string_type};
 use inkwell::builder::Builder;
@@ -12,12 +12,12 @@ use inkwell::context::Context;
 // use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
 // use inkwell::pass_manager::PassManager;
-use inkwell::types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType, StructType};
-use inkwell::values::{AnyValueEnum, BasicValueEnum, FunctionValue};
+use inkwell::types::{AnyType, AnyTypeEnum, FunctionType};
+use inkwell::values::{AnyValueEnum, FunctionValue};
 // use inkwell::values::Value;
 use rustc_hash::FxHashMap;
 
-use ::std::convert::{TryFrom, TryInto};
+use ::std::convert::TryFrom;
 
 // use syntax::expr::{Expr, ExprWrapper};
 // use syntax::literals::Literals;
@@ -38,7 +38,7 @@ trait FnDecl<'ctx>: Type<'ctx, FunctionType<'ctx>> {
 
 // IDEA: Rm fn_ty & module. Instead pass in &mut TyValCache. Though unlikely to work.
 trait FnValue<'ctx>: FnDecl<'ctx> {
-    fn build_val(builder: &Builder<'ctx>, ctx: &'ctx Context, fn_decl: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx>;
+    fn build_val(ctx: &'ctx Context, fn_decl: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx>;
 }
 
 struct TyValCache<'ctx> {
@@ -82,19 +82,18 @@ impl<'ctx> TyValCache<'ctx> {
             .into_function_value()
     }
 
-    fn get_fn_value<F: FnValue<'ctx>>(&mut self, builder: &Builder<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+    fn get_fn_value<F: FnValue<'ctx>>(&mut self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let ctx = self.context;
         let fn_decl = self.get_fn_decl::<F>(module);
 
         self.values
             .entry((F::FULL_PATH, false))
-            .or_insert_with(|| F::build_val(builder, ctx, fn_decl, module).into())
+            .or_insert_with(|| F::build_val(ctx, fn_decl, module).into())
             .into_function_value()
     }
 }
 
 pub struct LLVMCodeGen<'ctx> {
-    builder: Builder<'ctx>,
     modules: FxHashMap<StrId, Module<'ctx>>,
     ty_val_cache: TyValCache<'ctx>,
     // execution_engine: Option<ExecutionEngine>,
@@ -103,10 +102,7 @@ pub struct LLVMCodeGen<'ctx> {
 
 impl<'ctx> LLVMCodeGen<'ctx> {
     pub fn new(context: &'ctx Context) -> Self {
-        let builder = context.create_builder();
-
         LLVMCodeGen {
-            builder,
             modules: FxHashMap::default(),
             ty_val_cache: TyValCache::new(context),
             // execution_engine: None,
@@ -114,10 +110,16 @@ impl<'ctx> LLVMCodeGen<'ctx> {
         }
     }
 
-    pub fn add_module(&mut self, ast: Block, module_id: StrId, module_name: &str) {
+    pub fn add_module(&mut self, mut ast: Block, module_id: StrId, module_name: &str) {
         let module = self.ty_val_cache.context.create_module(module_name);
 
-        // self.generate_ir(&module, &ast);
+        // If we're dealing with main, and there isn't an explicitly defined main,
+        // we must turn the top level block into a main fn decl
+        // if module_name == "main" && module.get_function("main").is_none() {
+
+        // }
+
+        self.generate_block_ir(&module, &ast);
         self.modules.insert(module_id, module);
     }
 
@@ -125,10 +127,8 @@ impl<'ctx> LLVMCodeGen<'ctx> {
         let module = self.ty_val_cache.context.create_module("std");
 
         // TODO: These should only be defined if they are referenced (ast knowledge?)
-        // self.ty_val_cache.get_struct_type(LimeString);
-
         self.ty_val_cache.get_fn_decl::<PutcharBuiltin>(&module);
-        self.ty_val_cache.get_fn_value::<PrintString>(&self.builder, &module);
+        self.ty_val_cache.get_fn_value::<PrintString>(&module);
 
         self.modules.insert(module_id, module);
     }
@@ -242,8 +242,18 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //         Ok(())
 //     }
 
-//     pub fn generate_ir(&self, module: &Module, ast: &ExprWrapper, scoped_variables: &mut HashMap<String, Value>) -> Option<Value> { // TODO: Result makes more sense. Maybe Result<Value, Enum(Error, ErrorVec)>?
-//         // REVIEW: Should scoped_variables take a COW keys?
+    pub fn generate_block_ir<'s>(&self, module: &Module, block: &Block<'s>, /*scoped_variables: &mut HashMap<String, Value>*/) -> Result<(), ()> {
+        for stmt in block.stmts() {
+            match stmt.kind() {
+                StmtKind::Local(local) => unimplemented!("{:?}", local),
+                StmtKind::Item(item) => unimplemented!("{:?}", item),
+                StmtKind::Expr(expr) => unimplemented!("{:?}", expr),
+            }
+        }
+
+        Ok(())
+    }
+        //         // REVIEW: Should scoped_variables take a COW keys?
 
 //         match ast.get_expr() {
 //             &Expr::Block(ref exprs) => {

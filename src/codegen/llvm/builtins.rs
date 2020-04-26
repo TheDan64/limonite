@@ -1,8 +1,6 @@
 use crate::codegen::llvm::{FnDecl, Type};
 
-use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::module::Module;
 use inkwell::types::FunctionType;
 
 pub struct PutcharBuiltin;

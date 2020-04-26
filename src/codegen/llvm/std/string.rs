@@ -1,13 +1,11 @@
-use crate::codegen::llvm::TyValCache;
 use crate::codegen::llvm::std::vec::vec_type;
 use crate::codegen::llvm::{FnDecl, FnValue, Type};
 
 use inkwell::{AddressSpace, IntPredicate};
-use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::{BasicType, BasicTypeEnum, FunctionType, StructType};
-use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue};
+use inkwell::types::{BasicType, FunctionType, StructType};
+use inkwell::values::{FunctionValue};
 
 pub struct LimeString;
 
@@ -39,7 +37,9 @@ impl<'ctx> Type<'ctx, FunctionType<'ctx>> for PrintString {
 impl FnDecl<'_> for PrintString {}
 
 impl<'ctx> FnValue<'ctx> for PrintString {
-    fn build_val(builder: &Builder<'ctx>, context: &'ctx Context, print_fn: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+    fn build_val(context: &'ctx Context, print_fn: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx> {
+        let builder = context.create_builder();
+
         // Types
         let void = context.void_type();
         let i32_type = context.i32_type();
@@ -55,7 +55,7 @@ impl<'ctx> FnValue<'ctx> for PrintString {
             .expect("Print function should have at least one param")
             .into_pointer_value();
 
-        // param.set_name("str");
+        param.set_name("str");
 
         // Create basic blocks to generate code in
         let entry_block = context.append_basic_block(print_fn, "entry");
