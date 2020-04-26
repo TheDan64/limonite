@@ -9,11 +9,11 @@ pub struct Local<'s> {
     // pat: Pat,
     ident: Spanned<&'s str>,
     is_immut: bool,
-    ty: Option<Type>, // MaybeSpanned<Type>?
+    ty: Option<Type<'s>>, // MaybeSpanned<Type>?
     init: Expr<'s>,
 }
 impl<'s> Local<'s> {
-    pub fn new(is_immut: bool, ident: Spanned<&'s str>, ty: Option<Type>, init: Expr<'s>) -> Self {
+    pub fn new(is_immut: bool, ident: Spanned<&'s str>, ty: Option<Type<'s>>, init: Expr<'s>) -> Self {
         Local { is_immut, ident, ty, init, }
     }
 }

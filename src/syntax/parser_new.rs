@@ -1,7 +1,8 @@
 use crate::interner::StrId;
 use crate::lexical::{Keyword, LexerError, Symbol::{self, *}, Token, TokenKind, TokenResult};
 use crate::span::{Span, Spanned};
-use crate::syntax::{Block, Expr, ExprKind, InfixOp, Local, Literal::*, Stmt, UnaryOp};
+use crate::syntax::{Block, Expr, ExprKind, InfixOp, Item, ItemKind, Local, Literal::*, Stmt, Type, TypeKind, UnaryOp};
+use crate::syntax::items::FnSig;
 
 use std::convert::TryFrom;
 use std::iter::{Iterator, Peekable};
@@ -279,13 +280,15 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                         self.consume_token().unwrap();
                         continue;
                     } else if level > indent_level {
-                        todo!("indent error");
+                        todo!("indent error: {} > {}", level, indent_level);
                     } else {
                         self.consume_token().unwrap();
 
-                        let next_tok = self.next_token().map(|sp_tok| sp_tok.node());
+                        let next_tok = self.opt_next_token().map(|opt_sp_tok| opt_sp_tok.map(|t| t.node()));
                         let is_indent_or_err = match next_tok {
-                            Ok(TokenKind::Indent(_)) | Err(_) => true,
+                            Ok(Some(TokenKind::Indent(_))) | Err(_) => true,
+                            // Hit EOF; end block
+                            Ok(None) => break,
                             _ => false,
                         };
 
@@ -344,6 +347,24 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                         },
                     }
                 },
+                TokenKind::Keyword(Keyword::Function) => {
+                    match self.parse_fn_def() {
+                        Ok(item) => stmts.push(Stmt::new(item)),
+                        Err(err) => {
+                            self.errors.push(err);
+                            self.skip_til_indent();
+                        },
+                    }
+                }
+                TokenKind::Keyword(Keyword::Return) => {
+                    match self.parse_return() {
+                        Ok(expr) => stmts.push(Stmt::new(expr)),
+                        Err(err) => {
+                            self.errors.push(err);
+                            self.skip_til_indent();
+                        },
+                    }
+                }
                 e => unimplemented!("{:?}", e),
             }
         }
@@ -354,22 +375,45 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         Block::new(indent_level, stmts)
     }
 
-    fn parse_deliminated_expr(&mut self, sym: Symbol, can_trail: bool) -> Result<Expr<'s>, ParserError<'s>> {
-        let mut exprs = Vec::new();
+    fn parse_return(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
+        let return_keywd = self.consume_token().unwrap();
+        let opt_expr;
+        let end_idx;
 
-        exprs.push(self.parse_expr(0)?);
+        if matches!(self.next_token()?.node(), TokenKind::Indent(_)) {
+            opt_expr = None;
+            end_idx = return_keywd.span();
+        } else {
+            let expr = self.parse_expr(0)?;
+
+            end_idx = expr.span();
+            opt_expr = Some(expr);
+        };
+
+        let span = Span::new(return_keywd, return_keywd, end_idx);
+
+        Ok(Spanned::boxed(ExprKind::Return(opt_expr), span))
+    }
+
+    fn parse_deliminated<F, T>(&mut self, f: F, sym: Symbol, can_trail: bool) -> Result<Vec<T>, ParserError<'s>>
+    where
+        F: Fn(&mut Parser<'s, I>) -> Result<T, ParserError<'s>>,
+    {
+        let mut parsed = Vec::new();
+
+        parsed.push(f(self)?);
 
         let mut next_tok = self.next_token()?;
 
         while next_tok.node() == TokenKind::Symbol(sym) {
             self.consume_token().unwrap();
 
-            exprs.push(self.parse_expr(0)?);
+            parsed.push(f(self)?);
 
             next_tok = self.next_token()?;
         }
 
-        todo!()
+        Ok(parsed)
     }
 
     fn parse_if(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
@@ -411,6 +455,90 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let span = Span::new(while_keywd, while_keywd, sp_comma);
 
         Ok(Spanned::boxed(ExprKind::WhileLoop(cond, block), span))
+    }
+
+    fn parse_ident_ty_pair(&mut self) -> Result<(Spanned<&'s str>, Type<'s>), ParserError<'s>> {
+        let sp_ident = self.next_token()?;
+        let ident = match sp_ident.node() {
+            TokenKind::Identifier(ident) => sp_ident.replace(ident),
+            tok => return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_ident),
+            }),
+        };
+
+        let sp_colon = self.next_token()?;
+
+        if sp_colon.node() != TokenKind::Symbol(Symbol::Colon) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_colon)
+            });
+        }
+
+        let sp_ident_ty = self.next_token()?;
+        let ident_ty = match sp_ident_ty.node() {
+            TokenKind::Identifier(ident) => ident,
+            tok => return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_ident),
+            }),
+        };
+
+        Ok((ident, Spanned::boxed(TypeKind::Path(ident_ty), sp_ident_ty.span())))
+    }
+
+    fn parse_fn_def(&mut self) -> Result<Item<'s>, ParserError<'s>> {
+        let fn_keywd = self.consume_token().unwrap();
+        let sp_ident = self.next_token()?;
+        let ident = match sp_ident.node() {
+            TokenKind::Identifier(ident) => sp_ident.replace(ident),
+            tok => return Err(ParserError {
+                kind: ParserErrorKind::FnDeclNameMissing(sp_ident),
+            }),
+        };
+
+        self.consume_token().unwrap();
+
+        let sp_paren = self.next_token()?;
+
+        if sp_paren.node() != TokenKind::Symbol(Symbol::ParenOpen) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_paren)
+            });
+        }
+
+        self.consume_token().unwrap();
+
+        let param_pairs = if self.next_token()?.node() == TokenKind::Symbol(Symbol::ParenClose) {
+            Vec::new()
+        } else {
+            self.parse_deliminated(Parser::parse_ident_ty_pair, Comma, true)?
+        };
+
+        // let cond = self.parse_expr(0)?;
+        let sp_paren = self.next_token()?;
+
+        if sp_paren.node() != TokenKind::Symbol(Symbol::ParenClose) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_paren)
+            });
+        }
+
+        // TODO: return type
+        let end_idx = if true {
+            sp_paren
+        } else {
+            todo!("return type")
+        };
+
+        let fn_sig = FnSig::new(param_pairs, None);
+
+        self.consume_token().unwrap();
+        self.indent();
+
+        let block = self.parse_block();
+
+        let span = Span::new(fn_keywd, fn_keywd, sp_paren);
+
+        Ok(Spanned::new(ItemKind::FnDef(ident, Spanned::new(fn_sig, span), block), span)) // FIXME: outer span should encompase block?
     }
 
     #[inline]
@@ -520,8 +648,10 @@ trait RegexObject {}
 
 #[derive(Debug)]
 pub enum ParserErrorKind<'s> {
+    FnDeclNameMissing(Token<'s>),
     LexerError(LexerError<'s>),
-    // Should be internal only?
+    /// This is the most generic error we can produce. It is only intended
+    /// to be a placeholder to be replaced by a more detailed variant.
     UnexpectedToken(Token<'s>),
 }
 
@@ -534,7 +664,8 @@ impl ParserError<'_> {
     pub fn file_id(&self) -> StrId {
         match self.kind {
             ParserErrorKind::LexerError(le) => le.file_id(),
-            ParserErrorKind::UnexpectedToken(t) => t.span().file_id,
+            ParserErrorKind::FnDeclNameMissing(t)
+            | ParserErrorKind::UnexpectedToken(t) => t.span().file_id,
         }
     }
 }

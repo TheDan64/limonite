@@ -17,4 +17,8 @@ impl<'s> Block<'s> {
     pub fn stmts(&self) -> &[Stmt<'s>] {
         &self.stmts
     }
+
+    pub fn indent(&self) -> u32 {
+        self.indent
+    }
 }

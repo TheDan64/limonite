@@ -79,6 +79,9 @@ impl Display for UserfacingError<'_, '_> {
                 },
                 _ => todo!(),
             },
+            ParserErrorKind::FnDeclNameMissing(tok) => {
+                ("`fn` keyword must be followed by a space and an identifier([a-zA-Z_][a-zA-z0-9_]*)", tok.span())
+            },
             ParserErrorKind::UnexpectedToken(tok) => {
                 ("Found an unexpected token", tok.span())
             },

@@ -437,6 +437,7 @@ impl<'s> Iterator for Lexer<'s> {
                 let span = Span::new(self.file_id, start_index, start_index);
                 let spanned_char = Spanned::new(ch, span);
 
+                // REVIEW: Should this be fatal to parser? IE "# print(fn)" still continues to parse after unknown char #
                 Err(LexerError::UnknownChar(spanned_char))
             },
             None => return None,

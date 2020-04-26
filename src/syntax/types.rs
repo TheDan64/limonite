@@ -1,13 +1,11 @@
 use crate::span::Spanned;
 
-// use std::str::FromStr;
+pub type Type<'s> = Spanned<Box<TypeKind<'s>>>;
 
-pub type Type = Spanned<TypeKind>;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum TypeKind {
+#[derive(Clone, Debug, PartialEq)]
+pub enum TypeKind<'s> {
+    Array(Type<'s>, u32),
     Bool,
-    Str,
     Char,
     Int8Bit,
     Int16Bit,
@@ -22,7 +20,9 @@ pub enum TypeKind {
     Float32Bit,
     Float64Bit,
     Float128Bit,
-    NoneType
+    NoneType,
+    /// For now just a string, but could be foo::Bar<G>
+    Path(&'s str),
 }
 
 // impl FromStr for Types {

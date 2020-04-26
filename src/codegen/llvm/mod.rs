@@ -6,22 +6,15 @@ use crate::syntax::{Block, StmtKind};
 use crate::codegen::llvm::builtins::PutcharBuiltin;
 use crate::codegen::llvm::std::string::PrintString;
 
-// use codegen::llvm::std::string::{define_print_function, define_string_type};
-use inkwell::builder::Builder;
 use inkwell::context::Context;
 // use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
 // use inkwell::pass_manager::PassManager;
 use inkwell::types::{AnyType, AnyTypeEnum, FunctionType};
 use inkwell::values::{AnyValueEnum, FunctionValue};
-// use inkwell::values::Value;
 use rustc_hash::FxHashMap;
 
 use ::std::convert::TryFrom;
-
-// use syntax::expr::{Expr, ExprWrapper};
-// use syntax::literals::Literals;
-// use syntax::op::{InfixOp, UnaryOp};
 
 trait Type<'ctx, B: AnyType<'ctx>> {
     const FULL_PATH: &'static str;
