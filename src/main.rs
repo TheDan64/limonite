@@ -22,6 +22,7 @@ pub mod semantic;
 pub mod span;
 pub mod syntax;
 pub mod userfacing_error;
+pub mod utils;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "limc", group = ArgGroup::with_name("file_or_stdin").required(true))]

@@ -513,7 +513,6 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             self.parse_deliminated(Parser::parse_ident_ty_pair, Comma, true)?
         };
 
-        // let cond = self.parse_expr(0)?;
         let sp_paren = self.next_token()?;
 
         if sp_paren.node() != TokenKind::Symbol(Symbol::ParenClose) {

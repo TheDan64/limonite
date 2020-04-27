@@ -4,6 +4,7 @@ use inkwell::AddressSpace;
 use inkwell::context::Context;
 use inkwell::types::{BasicType, BasicTypeEnum, StructType};
 
+#[allow(dead_code)]
 struct LimeVec;
 
 impl<'ctx> Type<'ctx, StructType<'ctx>> for LimeVec {

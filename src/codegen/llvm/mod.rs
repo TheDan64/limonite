@@ -1,10 +1,10 @@
 mod builtins;
 mod std;
 
-use crate::interner::StrId;
-use crate::syntax::{Block, StmtKind};
 use crate::codegen::llvm::builtins::PutcharBuiltin;
 use crate::codegen::llvm::std::string::PrintString;
+use crate::interner::StrId;
+use crate::syntax::{Block, StmtKind};
 
 use inkwell::context::Context;
 // use inkwell::execution_engine::ExecutionEngine;
@@ -110,6 +110,8 @@ impl<'ctx> LLVMCodeGen<'ctx> {
         // if module_name == "main" && module.get_function("main").is_none() {
 
         // }
+
+        crate::utils::dbg_ast!(ast);
 
         self.generate_block_ir(&module, &ast);
         self.modules.insert(module_id, module);
@@ -234,7 +236,7 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //         Ok(())
 //     }
 
-    pub fn generate_block_ir<'s>(&self, module: &Module, block: &Block<'s>, /*scoped_variables: &mut HashMap<String, Value>*/) -> Result<(), ()> {
+    pub fn generate_block_ir<'s>(&self, _module: &Module, block: &Block<'s>, /*scoped_variables: &mut HashMap<String, Value>*/) -> Result<(), ()> {
         for stmt in block.stmts() {
             match stmt.kind() {
                 StmtKind::Local(local) => unimplemented!("{:?}", local),

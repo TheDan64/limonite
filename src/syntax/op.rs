@@ -71,6 +71,27 @@ impl InfixOp {
             op => unimplemented!("{:?}", op),
         }
     }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            InfixOp::Add => "+",
+            InfixOp::AddEq => "+=",
+            InfixOp::Div => "/",
+            InfixOp::DivEq => "/=",
+            InfixOp::Equ => "equals",
+            InfixOp::Gt => ">",
+            InfixOp::Gte => ">=",
+            InfixOp::Lt => "<",
+            InfixOp::Lte => "<=",
+            InfixOp::Mod => "%",
+            InfixOp::ModEq => "%=",
+            InfixOp::Mul => "*",
+            InfixOp::MulEq => "*=",
+            InfixOp::Pow => "^",
+            InfixOp::Sub => "-",
+            InfixOp::SubEq => "-=",
+        }
+    }
 }
 
 impl<'s> TryFrom<TokenKind<'s>> for InfixOp {
