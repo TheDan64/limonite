@@ -4,8 +4,8 @@ use crate::codegen::llvm::{FnDecl, FnValue, Type};
 use inkwell::{AddressSpace, IntPredicate};
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::{BasicType, FunctionType, StructType};
-use inkwell::values::{FunctionValue};
+use inkwell::types::{FunctionType, StructType};
+use inkwell::values::FunctionValue;
 
 pub struct LimeString;
 
@@ -41,11 +41,9 @@ impl<'ctx> FnValue<'ctx> for PrintString {
         let builder = context.create_builder();
 
         // Types
-        let void = context.void_type();
         let i32_type = context.i32_type();
         let i64_type = context.i64_type();
         let i32_ptr_type = i32_type.ptr_type(AddressSpace::Generic);
-        let string_type_ptr = module.get_type(LimeString::FULL_PATH).expect("LLVMGenError: Could not find String definition").ptr_type(AddressSpace::Generic);
         let i32_zero = i32_type.const_int(0, false);
         let i32_one = i32_type.const_int(1, false);
         let i64_zero = i64_type.const_int(0, false);

@@ -6,6 +6,7 @@ pub mod local;
 pub mod op;
 pub mod parser_new;
 pub mod stmt;
+pub mod visitor;
 pub mod types;
 
 pub use block::Block;

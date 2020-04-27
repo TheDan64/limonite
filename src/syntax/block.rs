@@ -18,6 +18,10 @@ impl<'s> Block<'s> {
         &self.stmts
     }
 
+    pub fn stmts_mut(&mut self) -> &mut [Stmt<'s>] {
+        &mut self.stmts
+    }
+
     pub fn indent(&self) -> u32 {
         self.indent
     }

@@ -66,7 +66,6 @@ impl<'ctx> TyValCache<'ctx> {
     }
 
     fn get_fn_decl<F: FnDecl<'ctx>>(&mut self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
-        let ctx = self.context;
         let fn_ty = self.get_type::<F, _>().expect("to have found a FunctionType");
 
         self.values

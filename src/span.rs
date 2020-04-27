@@ -41,6 +41,10 @@ impl<T> Spanned<T> {
         &self.node
     }
 
+    pub fn get_node_mut(&mut self) -> &mut T {
+        &mut self.node
+    }
+
     pub fn map<F: FnOnce(&T) -> R, R>(&self, f: F) -> Spanned<R> {
         Spanned::new(f(&self.node), self.span)
     }
@@ -55,6 +59,12 @@ impl<T> Spanned<T> {
 
     pub fn end_idx(&self) -> usize {
         self.span().end_idx
+    }
+}
+
+impl<T> Spanned<Box<T>> {
+    pub fn deref_node_mut(&mut self) -> &mut T {
+        &mut *self.node
     }
 }
 

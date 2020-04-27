@@ -15,6 +15,10 @@ impl<'s> Stmt<'s> {
     pub fn kind(&self) -> &StmtKind<'s> {
         &self.kind
     }
+
+    pub fn kind_mut(&mut self) -> &mut StmtKind<'s> {
+        &mut self.kind
+    }
 }
 
 #[derive(Debug, PartialEq)]

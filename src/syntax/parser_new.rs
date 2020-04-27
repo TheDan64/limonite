@@ -395,7 +395,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         Ok(Spanned::boxed(ExprKind::Return(opt_expr), span))
     }
 
-    fn parse_deliminated<F, T>(&mut self, f: F, sym: Symbol, can_trail: bool) -> Result<Vec<T>, ParserError<'s>>
+    fn parse_deliminated<F, T>(&mut self, f: F, sym: Symbol, _can_trail: bool) -> Result<Vec<T>, ParserError<'s>>
     where
         F: Fn(&mut Parser<'s, I>) -> Result<T, ParserError<'s>>,
     {
@@ -461,7 +461,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let sp_ident = self.next_token()?;
         let ident = match sp_ident.node() {
             TokenKind::Identifier(ident) => sp_ident.replace(ident),
-            tok => return Err(ParserError {
+            _ => return Err(ParserError {
                 kind: ParserErrorKind::UnexpectedToken(sp_ident),
             }),
         };
@@ -477,7 +477,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let sp_ident_ty = self.next_token()?;
         let ident_ty = match sp_ident_ty.node() {
             TokenKind::Identifier(ident) => ident,
-            tok => return Err(ParserError {
+            _ => return Err(ParserError {
                 kind: ParserErrorKind::UnexpectedToken(sp_ident),
             }),
         };
@@ -490,7 +490,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let sp_ident = self.next_token()?;
         let ident = match sp_ident.node() {
             TokenKind::Identifier(ident) => sp_ident.replace(ident),
-            tok => return Err(ParserError {
+            _ => return Err(ParserError {
                 kind: ParserErrorKind::FnDeclNameMissing(sp_ident),
             }),
         };
@@ -536,7 +536,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
 
         let block = self.parse_block();
 
-        let span = Span::new(fn_keywd, fn_keywd, sp_paren);
+        let span = Span::new(fn_keywd, fn_keywd, end_idx);
 
         Ok(Spanned::new(ItemKind::FnDef(ident, Spanned::new(fn_sig, span), block), span)) // FIXME: outer span should encompase block?
     }
