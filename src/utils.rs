@@ -39,6 +39,7 @@ impl<'s> AstVisitor<'s> for DebugTree {
     fn visit_expr_kind(&mut self, expr_kind: &mut ExprKind<'s>) {
         let string = match expr_kind {
             ExprKind::InfixOp(op, ..) => format!("Expr: {}", op.get_node().as_str()),
+            ExprKind::UnaryOp(op, ..) => format!("Expr: {}", op.get_node().as_str()),
             ExprKind::If(..) => "Expr: If".into(),
             ExprKind::Var(s) => {
                 self.0.add_leaf(&format!("Expr: Var {}", s));

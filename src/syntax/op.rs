@@ -135,4 +135,11 @@ impl UnaryOp {
             UnaryOp::Not => todo!("UnaryOp::Not.binding_power()"),
         }
     }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            UnaryOp::Negate => "-",
+            UnaryOp::Not => "not"
+        }
+    }
 }
