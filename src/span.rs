@@ -120,6 +120,11 @@ pub struct Span {
 }
 
 impl Span {
+    // TODO: If we switch span range from inclusive to exclusive, start+end could both be 0
+    // which would be a more ideal dummy value, as it can be used and just return empty string.
+    // Currently it'll panic on OOB index. Also, 0s would be less ugly to look at in debug output..
+    pub(crate) const DUMMY: Span = Span { file_id: StrId::DUMMY, start_idx: usize::max_value(), end_idx: usize::max_value() };
+
     pub fn new<F: Into<StrId>, S: Into<StartIdx>, E: Into<EndIdx>>(file_id: F, start_idx: S, end_idx: E) -> Self {
         Span { file_id: file_id.into(), start_idx: start_idx.into().0, end_idx: end_idx.into().0 }
     }

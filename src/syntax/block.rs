@@ -2,7 +2,7 @@ use crate::syntax::Stmt;
 
 #[derive(Debug, PartialEq)]
 pub struct Block<'s> {
-    indent: u32,
+    pub(crate) indent: u32,
     stmts: Vec<Stmt<'s>>,
 }
 

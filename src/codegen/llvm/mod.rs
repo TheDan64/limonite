@@ -4,7 +4,10 @@ mod std;
 use crate::codegen::llvm::builtins::PutcharBuiltin;
 use crate::codegen::llvm::std::string::PrintString;
 use crate::interner::StrId;
-use crate::syntax::{Block, StmtKind};
+use crate::span::{Span, Spanned};
+use crate::syntax::{Block, ItemKind, Stmt, StmtKind};
+use crate::syntax::items::FnSig;
+use crate::syntax::visitor::{AstVisitor, Visitor};
 
 use inkwell::context::Context;
 // use inkwell::execution_engine::ExecutionEngine;
@@ -107,9 +110,18 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 
         // If we're dealing with main, and there isn't an explicitly defined main,
         // we must turn the top level block into a main fn decl
-        // if module_name == "main" && module.get_function("main").is_none() {
+        if module_name == "main" && module.get_function("main").is_none() {
+            Visitor::new(BlockIndentPlusPlus).run(&mut ast);
 
-        // }
+            let sig = FnSig::new(Vec::new(), None);
+            let sp_name = Spanned::new("main", Span::DUMMY);
+            let sp_sig = Spanned::new(sig, Span::DUMMY);
+            let stmts = vec![
+                Stmt::new(Spanned::new(ItemKind::FnDef(sp_name, sp_sig, ast), Span::DUMMY)),
+            ];
+
+            ast = Block::new(0, stmts);
+        }
 
         crate::utils::dbg_ast!(ast);
 
@@ -704,4 +716,15 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //             _ => module.get_type(name),
 //         }
 //     }
+}
+
+/// This struct is used when main isn't specified so we have to wrap
+/// the topmost block in a main function. We increment indent values
+/// so that they are normalized to being inside main.
+struct BlockIndentPlusPlus;
+
+impl<'s> AstVisitor<'s> for BlockIndentPlusPlus {
+    fn visit_block(&mut self, block: &mut Block<'s>) {
+        block.indent += 1;
+    }
 }
