@@ -9,7 +9,6 @@ use lexical::Lexer;
 use interner::Interner;
 use syntax::Parser;
 use userfacing_error::UserfacingError;
-// use syntax::parser::Parser;
 // use semantic::analyzer::SemanticAnalyzer;
 // use semantic::analyzer_trait::ASTAnalyzer;
 // #[cfg(feature="llvm-backend")]
@@ -93,22 +92,30 @@ fn main() {
     #[cfg(feature="llvm-backend")]
     {
         use crate::codegen::llvm::LLVMCodeGen;
+        use crate::utils::dbg_ast;
         use inkwell::context::Context;
 
         let context = Context::create();
         let mut generator = LLVMCodeGen::new(&context);
         let std_id = interner.intern("std");
 
+        if opt.dump {
+            dbg_ast!(ast_root);
+        }
+
         generator.add_std_module(std_id);
         generator.add_module(ast_root, file_id, "main");
-        // generator.initialize(false);
 
-        // if args.flag_dump {
-        generator.dump_ir(std_id);
-        generator.dump_ir(file_id);
-        // }
+        if opt.dump {
+            generator.dump_ir(std_id);
+            generator.dump_ir(file_id);
+        }
 
-        // generator.run().unwrap_or_else(|msg| panic!("{}", msg));
+        let jit_engine = generator.build_jit(file_id).expect("to build jit");
+
+        jit_engine.run()
+            // ICE, ICE, Baby
+            .unwrap_or_else(|msg| panic!("{}", msg));
     }
 }
 

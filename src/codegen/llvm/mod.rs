@@ -12,9 +12,9 @@ use crate::syntax::visitor::{AstVisitor, Visitor, VisitOutcome};
 use inkwell::AddressSpace;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-// use inkwell::execution_engine::ExecutionEngine;
+use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
-// use inkwell::pass_manager::PassManager;
+use inkwell::passes::PassManager;
 use inkwell::types::{AnyType, AnyTypeEnum, FunctionType};
 use inkwell::values::{AnyValueEnum, BasicValueEnum, FunctionValue};
 use rustc_hash::FxHashMap;
@@ -94,8 +94,6 @@ impl<'ctx> TyValCache<'ctx> {
 pub struct LLVMCodeGen<'ctx> {
     modules: FxHashMap<StrId, Module<'ctx>>,
     ty_val_cache: TyValCache<'ctx>,
-    // execution_engine: Option<ExecutionEngine>,
-    // pass_manager: Option<PassManager>,
 }
 
 impl<'ctx> LLVMCodeGen<'ctx> {
@@ -125,8 +123,6 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 
             ast = Block::new(0, stmts);
         }
-
-        crate::utils::dbg_ast!(ast);
 
         // HACK: Remove :(
         PrintString::build_decl(PrintString::build_ty(self.ty_val_cache.context), &module);
@@ -194,31 +190,30 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //         // TODO
 //     }
 
-//     pub fn initialize(&mut self, jit_mode: bool) {
-//         let main_module = self.main_module.as_ref().expect("Could not find a main module");
+    // TODO: Improve errors
+    pub fn build_jit<'cg>(&'cg self, main_id: StrId) -> Result<JitEngine<'cg, 'ctx>, ()> {
+        let main_module = match self.modules.get(&main_id) {
+            Some(module) => module,
+            None => return Err(()),
+        };
+        let fn_pass_manager = PassManager::create(main_module);
 
-//         assert!(main_module.verify(true)); // TODO: print param as cli flag
+        // TODO: Add more passes here
+        fn_pass_manager.add_memcpy_optimize_pass();
+        fn_pass_manager.initialize();
 
-//         let execution_engine = match main_module.create_execution_engine(jit_mode) {
-//             Ok(ee) => ee,
-//             Err(s) => panic!("LLVMExecutionError: Failed to initialize execution_engine: {}", s),
-//         };
+        let execution_engine = match main_module.create_execution_engine() {
+            Ok(ee) => ee,
+            Err(_err_str) => return Err(()),
+        };
 
-//         let pass_manager = main_module.create_function_pass_manager();
-//         let target_data = execution_engine.get_target_data();
-//         let data_layout = target_data.get_data_layout();
-
-//         main_module.set_data_layout(data_layout);
-//         pass_manager.add_target_data(target_data);
-
-//         // TODO: Add more passes here
-//         // pass_manager.add_optimize_memcpy_pass();
-
-//         pass_manager.initialize();
-
-//         self.pass_manager = Some(pass_manager);
-//         self.execution_engine = Some(execution_engine);
-//     }
+        Ok(JitEngine {
+            modules: &self.modules,
+            main_id,
+            execution_engine,
+            fn_pass_manager,
+        })
+    }
 
 //     pub fn get_function_address(&self, fn_name: &str) -> Result<u64, String> {
 //         if self.main_module.is_none() {
@@ -234,30 +229,7 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //         execution_engine.get_function_address(fn_name)
 //     }
 
-//     pub fn run(&self) -> Result<(), String> {
-//         if self.main_module.is_none() {
-//             return Err("LLVMGeneratorError: A main module was not created".into());
-//         }
-
-//         if self.execution_engine.is_none() {
-//             return Err("LLVMGeneratorError: Execution engine must be initialized".into())
-//         }
-
-//         let main_module = self.main_module.as_ref().unwrap();
-//         let execution_engine = self.execution_engine.as_ref().unwrap();
-
-//         let main = match main_module.get_function("main") {
-//             Some(main) => main,
-//             None => panic!("LLVMExecutionError: Could not find main function to run")
-//         };
-
-//         execution_engine.run_function_as_main(main);
-
-//         Ok(())
-//     }
-
-        //         // REVIEW: Should scoped_variables take a COW keys?
-
+// REVIEW: Should scoped_variables take a COW keys?
 //         match ast.get_expr() {
 //             &Expr::Block(ref exprs) => {
 //                 let mut last_value = None;
@@ -869,5 +841,30 @@ impl<'s> AstVisitor<'s> for BlockIndentPlusPlus {
         block.indent += 1;
 
         VisitOutcome::default()
+    }
+}
+
+pub struct JitEngine<'codegen, 'context: 'codegen> {
+    modules: &'codegen FxHashMap<StrId, Module<'context>>,
+    main_id: StrId,
+    execution_engine: ExecutionEngine<'context>,
+    fn_pass_manager: PassManager<FunctionValue<'context>>,
+}
+
+impl<'cg, 'ctx> JitEngine<'cg, 'ctx> {
+    pub fn run(&self) -> Result<(), String> {
+        let main_module = self.modules.get(&self.main_id).unwrap();
+        let main = match main_module.get_function("main") {
+            Some(main) => main,
+            None => return Err(String::from("Could not find main function")),
+        };
+
+        main_module.verify().map_err(|llvm_str| llvm_str.to_string())?;
+
+        unsafe {
+            self.execution_engine.run_function_as_main(main, &[]);
+        }
+
+        Ok(())
     }
 }
