@@ -14,6 +14,10 @@ impl<'s> FnSig<'s> {
     pub fn new(params: Vec<(Spanned<&'s str>, Type<'s>)>, ret: Option<Type<'s>>) -> Self {
         FnSig { params, ret }
     }
+
+    pub fn return_type(&self) -> Option<&Type<'s>> {
+        self.ret.as_ref()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -22,6 +26,7 @@ pub enum ItemKind<'s> {
     FnDef(Spanned<&'s str>, Spanned<FnSig<'s>>, Block<'s>),
     // Define a struct with a name and fields
     StructDef(Spanned<&'s str>, Vec<(Spanned<&'s str>, Type<'s>)>),
-    Use,
+    // Import a function or type into scope. Use keyword and double colon (rust-style) path
+    Use(Spanned<()>, Vec<Spanned<&'s str>>),
 }
 

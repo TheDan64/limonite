@@ -172,7 +172,9 @@ impl<'s> Lexer<'s> {
     fn symbols_token(&mut self) -> TokenResult<'s> {
         let mut bail = false;
         let mut count = 0;
+        let mut found_colon = false;
 
+        // REVIEW: Might be bad symbols here
         let symbol = self.consume_while(|ch| {
             if bail || count > 2 {
                 return false;
@@ -181,16 +183,22 @@ impl<'s> Lexer<'s> {
             count += 1;
 
             return match ch {
-                '(' | ')' | '[' | ']' | '{' | '}' | '.' | ',' | ':' | '^' | '~' | '=' => {
+                '(' | ')' | '[' | ']' | '{' | '}' | '.' | ',' | '^' | '~' | '=' if count == 1 => {
                     bail = true;
                     true
                 },
-                '+' | '-' | '*' | '/' | '>' | '<' | '%' => true,
+                ':' if count == 1 || found_colon => {
+                    found_colon = true;
+
+                    true
+                },
+                '=' => !found_colon,
+                '+' | '-' | '*' | '/' | '>' | '<' | '%' if count == 1 => true,
                 _ => false
             }
         });
 
-        Ok(symbol.map(|s| TokenKind::Symbol(s.parse::<Symbol>().expect("Can't fail"))))
+        Ok(symbol.map(|s| TokenKind::Symbol(s.parse::<Symbol>().expect("Can't fail?"))))
     }
 
     // This is currently set up to accept multi line strings

@@ -1,5 +1,5 @@
 use crate::syntax::{Block, ExprKind, ItemKind, Literal, Local, Stmt};
-use crate::syntax::visitor::AstVisitor;
+use crate::syntax::visitor::{AstVisitor, VisitOutcome};
 
 use debug_tree::TreeBuilder;
 use debug_tree::scoped_branch::ScopedBranch;
@@ -28,15 +28,19 @@ impl Drop for DebugTree {
 }
 
 impl<'s> AstVisitor<'s> for DebugTree {
-    fn visit_block(&mut self, block: &mut Block<'s>) {
+    fn visit_block(&mut self, block: &mut Block<'s>) -> VisitOutcome<()> {
         self.add_branch(&format!("Block Indent {}", block.indent()));
+
+        VisitOutcome::default()
     }
 
-    fn exit_block(&mut self, _block: &mut Block<'s>) {
+    fn exit_block(&mut self, _block: &mut Block<'s>) -> VisitOutcome<()> {
         self.pop_branch();
+
+        VisitOutcome::default()
     }
 
-    fn visit_expr_kind(&mut self, expr_kind: &mut ExprKind<'s>) {
+    fn visit_expr_kind(&mut self, expr_kind: &mut ExprKind<'s>) -> VisitOutcome<()> {
         let string = match expr_kind {
             ExprKind::InfixOp(op, ..) => format!("Expr: {}", op.get_node().as_str()),
             ExprKind::UnaryOp(op, ..) => format!("Expr: {}", op.get_node().as_str()),
@@ -44,7 +48,7 @@ impl<'s> AstVisitor<'s> for DebugTree {
             ExprKind::Var(s) => {
                 self.0.add_leaf(&format!("Expr: Var {}", s));
 
-                return;
+                return VisitOutcome::default();
             },
             ExprKind::FnCall(name, ..) => format!("Expr: FnCall {}", name.node()),
             ExprKind::Literal(lit) => {
@@ -66,55 +70,74 @@ impl<'s> AstVisitor<'s> for DebugTree {
 
                 self.0.add_leaf(&string);
 
-                return;
+                return VisitOutcome::default();
             },
             ExprKind::WhileLoop(..) => "Expr: While".into(),
             e => unimplemented!("{:?}", e),
         };
 
         self.add_branch(&string);
+
+        VisitOutcome::default()
     }
 
-    fn exit_expr_kind(&mut self, expr_kind: &mut ExprKind<'s>) {
+    fn exit_expr_kind(&mut self, expr_kind: &mut ExprKind<'s>) -> VisitOutcome<()> {
         // Don't pop leaf nodes
         match expr_kind {
             ExprKind::Literal(..)
-            | ExprKind::Var(..) => return,
+            | ExprKind::Var(..) => return VisitOutcome::default(),
             _ => (),
         };
 
         self.pop_branch();
+
+        VisitOutcome::default()
     }
 
-    fn visit_item_kind(&mut self, item_kind: &mut ItemKind<'s>) {
+    fn visit_item_kind(&mut self, item_kind: &mut ItemKind<'s>) -> VisitOutcome<()> {
         let string = match item_kind {
-            ItemKind::FnDef(name, _sig, _block) => {
+            ItemKind::FnDef(name, ..) => {
                 format!("Item: FnDef {}", name.node())
             },
-            _ => unimplemented!(),
+            ItemKind::Use(_keywd, paths) => {
+                format!("use {}", paths.iter().map(|sp| sp.node()).collect::<Vec<_>>().join("::"))
+            },
+            i => unimplemented!("{:?}", i),
         };
 
         self.add_branch(&string);
+
+        VisitOutcome::default()
     }
 
-    fn exit_item_kind(&mut self, _item_kind: &mut ItemKind<'s>) {
+    fn exit_item_kind(&mut self, _item_kind: &mut ItemKind<'s>) -> VisitOutcome<()> {
         self.pop_branch();
+
+        VisitOutcome::default()
     }
 
-    fn visit_local(&mut self, _local: &mut Local<'s>) {
+    fn visit_local(&mut self, _local: &mut Local<'s>) -> VisitOutcome<()> {
         self.add_branch("Local");
+
+        VisitOutcome::default()
     }
 
-    fn exit_local(&mut self, _local: &mut Local<'s>) {
+    fn exit_local(&mut self, _local: &mut Local<'s>) -> VisitOutcome<()> {
         self.pop_branch();
+
+        VisitOutcome::default()
     }
 
-    fn visit_stmt(&mut self, _stmt: &mut Stmt<'s>) {
+    fn visit_stmt(&mut self, _stmt: &mut Stmt<'s>) -> VisitOutcome<()> {
         self.add_branch("Stmt");
+
+        VisitOutcome::default()
     }
 
-    fn exit_stmt(&mut self, _stmt: &mut Stmt<'s>) {
+    fn exit_stmt(&mut self, _stmt: &mut Stmt<'s>) -> VisitOutcome<()> {
         self.pop_branch();
+
+        VisitOutcome::default()
     }
 }
 

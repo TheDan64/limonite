@@ -2,19 +2,21 @@ mod builtins;
 mod std;
 
 use crate::codegen::llvm::builtins::PutcharBuiltin;
-use crate::codegen::llvm::std::string::PrintString;
+use crate::codegen::llvm::std::string::{PrintString, LimeString};
 use crate::interner::StrId;
 use crate::span::{Span, Spanned};
-use crate::syntax::{Block, ItemKind, Stmt, StmtKind};
+use crate::syntax::{Block, ExprKind, ItemKind, Literal, Stmt, StmtKind};
 use crate::syntax::items::FnSig;
-use crate::syntax::visitor::{AstVisitor, Visitor};
+use crate::syntax::visitor::{AstVisitor, Visitor, VisitOutcome};
 
+use inkwell::AddressSpace;
+use inkwell::builder::Builder;
 use inkwell::context::Context;
 // use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
 // use inkwell::pass_manager::PassManager;
 use inkwell::types::{AnyType, AnyTypeEnum, FunctionType};
-use inkwell::values::{AnyValueEnum, FunctionValue};
+use inkwell::values::{AnyValueEnum, BasicValueEnum, FunctionValue};
 use rustc_hash::FxHashMap;
 
 use ::std::convert::TryFrom;
@@ -37,6 +39,7 @@ trait FnValue<'ctx>: FnDecl<'ctx> {
     fn build_val(ctx: &'ctx Context, fn_decl: FunctionValue<'ctx>, module: &Module<'ctx>) -> FunctionValue<'ctx>;
 }
 
+// FIXME: Getting cached items is useless? Not differentiated per module..
 struct TyValCache<'ctx> {
     context: &'ctx Context,
     types: FxHashMap<&'static str, AnyTypeEnum<'ctx>>,
@@ -125,7 +128,12 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 
         crate::utils::dbg_ast!(ast);
 
-        self.generate_block_ir(&module, &ast);
+        // HACK: Remove :(
+        PrintString::build_decl(PrintString::build_ty(self.ty_val_cache.context), &module);
+
+        // TODO: Immutable visitor only
+        Visitor::new(CodeGen::new(self.ty_val_cache.context, &module)).run(&mut ast);
+
         self.modules.insert(module_id, module);
     }
 
@@ -248,17 +256,6 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //         Ok(())
 //     }
 
-    pub fn generate_block_ir<'s>(&self, _module: &Module, block: &Block<'s>, /*scoped_variables: &mut HashMap<String, Value>*/) -> Result<(), ()> {
-        for stmt in block.stmts() {
-            match stmt.kind() {
-                StmtKind::Local(local) => unimplemented!("{:?}", local),
-                StmtKind::Item(item) => unimplemented!("{:?}", item),
-                StmtKind::Expr(expr) => unimplemented!("{:?}", expr),
-            }
-        }
-
-        Ok(())
-    }
         //         // REVIEW: Should scoped_variables take a COW keys?
 
 //         match ast.get_expr() {
@@ -718,13 +715,159 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //     }
 }
 
+struct CodeGen<'tmp, 'ctx: 'tmp> {
+    builder: Builder<'ctx>,
+    context: &'ctx Context,
+    module: &'tmp Module<'ctx>,
+}
+
+impl<'tmp, 'ctx> CodeGen<'tmp, 'ctx> {
+    fn new(context: &'ctx Context, module: &'tmp Module<'ctx>) -> Self {
+        let builder = context.create_builder();
+
+        CodeGen {
+            builder,
+            context,
+            module,
+        }
+    }
+}
+
+impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
+    fn visit_item_kind(&mut self, item_kind: &mut ItemKind<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
+        match item_kind {
+            ItemKind::FnDef(name, fn_sig, _block) => {
+                // let mut fn_variable_scope = HashMap::new(); // REVIEW: This will exclude globals
+                // let mut arg_types: Vec<Type> = arg_defs.iter().map(|&(_, ref type_string)| self.string_to_type(&type_string[..], &module).expect("Did not find specified type")).collect();
+
+                // TODO: Support args types and return types
+                let params = [];
+                let fn_ty = match fn_sig.get_node().return_type() {
+                    Some(ty) => unimplemented!("{:?}", ty),
+                    None => self.context.void_type().fn_type(&params, false),
+                };
+
+                let function = self.module.add_function(name.node(), fn_ty, None);
+
+                // let name_value_data = arg_defs.iter().map(|&(ref name, _)| name).zip(function.params());
+
+                // for (name, mut param_value) in name_value_data {
+                //     param_value.set_name(&name);
+                //     fn_variable_scope.insert(name.to_string(), param_value.as_value()); // REVIEW: Cow?
+                // }
+
+                let bb_enter = self.context.append_basic_block(function, "enter");
+
+                self.builder.position_at_end(bb_enter);
+
+                VisitOutcome::default()
+            },
+            i => unimplemented!("{:?}", i),
+        }
+    }
+
+    fn visit_expr_kind(&mut self, expr_kind: &mut ExprKind<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
+        match expr_kind {
+            ExprKind::FnCall(name, params) => {
+                let function = match self.module.get_function(name.node()) {
+                    Some(function) => function,
+                    None => {
+                        self.module.print_to_stderr();
+                        panic!("LLVMGenError: Could not find function {}", name.node());
+                    },
+                };
+
+                let num_params = function.count_params() as usize;
+
+                if num_params != params.len() {
+                    unreachable!("LLVMGenError: Function {} requires {} args. Found {}", name.node(), params.len(), num_params);
+                }
+
+                let mut param_values = Vec::with_capacity(num_params);
+
+                for param in params {
+                    let value = self.visit_expr_kind(param.deref_node_mut()).into_node();
+
+                    param_values.push(value);
+                }
+
+                let fn_call = self.builder.build_call(function, &param_values, name.node());
+
+                VisitOutcome::new_with_stop(fn_call.try_as_basic_value().left())
+            },
+            ExprKind::Literal(Literal::UTF8String(s)) => {
+                let string_type = self.module.get_type(LimeString::FULL_PATH).expect("To find string def");
+                let void_type = self.context.void_type();
+                let bool_type = self.context.bool_type();
+                let i8_type = self.context.i8_type();
+                let i8_ptr_type = i8_type.ptr_type(AddressSpace::Generic);
+                let i32_type = self.context.i32_type();
+                let i64_type = self.context.i64_type();
+                let i8_array_type = i8_type.array_type(s.len() as u32);
+                let i32_zero = i32_type.const_int(0, false);
+                let i32_one = i32_type.const_int(1, false);
+                let i32_two = i32_type.const_int(2, false);
+                let bool_false = bool_type.const_int(0, false);
+                let len = i64_type.const_int(s.len() as u64, false);
+
+                let mut chars = Vec::with_capacity(s.len());
+
+                for chr in s.bytes() {
+                    chars.push(i8_type.const_int(chr as u64, false));
+                }
+
+                let const_str_array = i8_type.const_array(&chars);
+
+                let global_str = self.module.add_global(i8_array_type, Some(AddressSpace::Generic), "global_str");
+
+                global_str.set_initializer(&const_str_array);
+
+                let stack_struct_ptr = self.builder.build_alloca(string_type, "string_struct");
+
+                let str_ptr = unsafe { self.builder.build_gep(stack_struct_ptr, &[i32_zero, i32_zero], "str_ptr") };
+                let len_ptr = unsafe { self.builder.build_gep(stack_struct_ptr, &[i32_zero, i32_one], "len_ptr") };
+                let cap_ptr = unsafe { self.builder.build_gep(stack_struct_ptr, &[i32_zero, i32_two], "cap_ptr") };
+
+                self.builder.build_store(len_ptr, len);
+                self.builder.build_store(cap_ptr, len);
+
+                let i8_heap_array = self.builder.build_array_alloca(i8_array_type, len, "i8_heap_array");
+                let i8_heap_ptr = self.builder.build_pointer_cast(i8_heap_array, i8_ptr_type, "i8_heap_ptr");
+
+                self.builder.build_store(i8_heap_ptr, str_ptr);
+
+                let memcpy_fn = match self.module.get_function("llvm.memcpy.p0i8.p0i8.i64") {
+                    Some(f) => f,
+                    None => {
+                        let i8_ptr_type2 = i8_type.ptr_type(AddressSpace::Generic);
+                        let args = [i8_ptr_type.into(), i8_ptr_type2.into(), i64_type.into(), i32_type.into(), bool_type.into()];
+
+                        let fn_type2 = void_type.fn_type(&args, false);
+
+                        self.module.add_function("llvm.memcpy.p0i8.p0i8.i64", fn_type2, None)
+                    }
+                };
+
+                let global_i8_ptr = unsafe { self.builder.build_gep(global_str.as_pointer_value(), &[i32_zero, i32_zero], "global_i8_ptr") };
+
+                self.builder.build_call(memcpy_fn, &[i8_heap_ptr.into(), global_i8_ptr.into(), len.into(), i32_one.into(), bool_false.into()], "llvm.memcpy.p0i8.p0i8.i64"); // REVIEW: val.len() as u64 doesn't seem to work. Says type is invalid... due to missing context?
+
+                VisitOutcome::new(BasicValueEnum::from(stack_struct_ptr))
+            },
+            e => unimplemented!("{:?}", e),
+        }
+    }
+}
+
 /// This struct is used when main isn't specified so we have to wrap
 /// the topmost block in a main function. We increment indent values
 /// so that they are normalized to being inside main.
 struct BlockIndentPlusPlus;
 
 impl<'s> AstVisitor<'s> for BlockIndentPlusPlus {
-    fn visit_block(&mut self, block: &mut Block<'s>) {
+    fn visit_block(&mut self, block: &mut Block<'s>) -> VisitOutcome<()> {
         block.indent += 1;
+
+        VisitOutcome::default()
     }
 }

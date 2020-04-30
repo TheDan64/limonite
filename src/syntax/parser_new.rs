@@ -355,7 +355,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                             self.skip_til_indent();
                         },
                     }
-                }
+                },
                 TokenKind::Keyword(Keyword::Return) => {
                     match self.parse_return() {
                         Ok(expr) => stmts.push(Stmt::new(expr)),
@@ -364,7 +364,16 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                             self.skip_til_indent();
                         },
                     }
-                }
+                },
+                TokenKind::Keyword(Keyword::Use) => {
+                    match self.parse_use() {
+                        Ok(item) => stmts.push(Stmt::new(item)),
+                        Err(err) => {
+                            self.errors.push(err);
+                            self.skip_til_indent();
+                        },
+                    }
+                },
                 e => unimplemented!("{:?}", e),
             }
         }
@@ -373,6 +382,20 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         self.dedent();
 
         Block::new(indent_level, stmts)
+    }
+
+    fn parse_use(&mut self) -> Result<Item<'s>, ParserError<'s>> {
+        let use_keywd = self.consume_token().unwrap();
+        let idents = self.parse_deliminated(Parser::parse_ident, Symbol::DoubleColon, false)?;
+        let end_idx = if idents.is_empty() {
+            use_keywd.span()
+        } else {
+            idents[idents.len() - 1].span()
+        };
+
+        let span = Span::new(use_keywd, use_keywd, end_idx);
+
+        Ok(Spanned::new(ItemKind::Use(use_keywd.replace(()), idents), span))
     }
 
     fn parse_return(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
@@ -457,7 +480,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         Ok(Spanned::boxed(ExprKind::WhileLoop(cond, block), span))
     }
 
-    fn parse_ident_ty_pair(&mut self) -> Result<(Spanned<&'s str>, Type<'s>), ParserError<'s>> {
+    fn parse_ident(&mut self) -> Result<Spanned<&'s str>, ParserError<'s>> {
         let sp_ident = self.next_token()?;
         let ident = match sp_ident.node() {
             TokenKind::Identifier(ident) => sp_ident.replace(ident),
@@ -466,6 +489,13 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             }),
         };
 
+        self.consume_token().unwrap();
+
+        Ok(ident)
+    }
+
+    fn parse_ident_ty_pair(&mut self) -> Result<(Spanned<&'s str>, Type<'s>), ParserError<'s>> {
+        let ident = self.parse_ident()?;
         let sp_colon = self.next_token()?;
 
         if sp_colon.node() != TokenKind::Symbol(Symbol::Colon) {
@@ -478,7 +508,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         let ident_ty = match sp_ident_ty.node() {
             TokenKind::Identifier(ident) => ident,
             _ => return Err(ParserError {
-                kind: ParserErrorKind::UnexpectedToken(sp_ident),
+                kind: ParserErrorKind::UnexpectedToken(sp_ident_ty),
             }),
         };
 

@@ -23,6 +23,10 @@ impl Interner {
         }
     }
 
+    pub fn get(&self, name: &str) -> Option<StrId> {
+        self.map.get(name).copied()
+    }
+
     pub fn intern(&mut self, name: &str) -> StrId {
         if let Some(&id) = self.map.get(name) {
             return id;

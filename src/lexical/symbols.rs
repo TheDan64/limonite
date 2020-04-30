@@ -29,6 +29,7 @@ pub enum Symbol {
     SlashEquals,
     PercentEquals,
     RightThinArrow,
+    DoubleColon,
 }
 
 impl FromStr for Symbol {
@@ -63,6 +64,7 @@ impl FromStr for Symbol {
             "/=" => Ok(Symbol::SlashEquals),
             "%=" => Ok(Symbol::PercentEquals),
             "->" => Ok(Symbol::RightThinArrow),
+            "::" => Ok(Symbol::DoubleColon),
             s    => Err(format!("Invalid Symbol Token match: {}", s))
         }
     }
