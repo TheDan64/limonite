@@ -12,7 +12,7 @@ pub struct LimeString;
 impl<'ctx> Type<'ctx, StructType<'ctx>> for LimeString {
     const FULL_PATH: &'static str = "String";
 
-    fn build_ty(context: &'ctx Context) -> StructType<'ctx> {
+    fn build_ty(context: &'ctx Context, _module: &Module<'ctx>) -> StructType<'ctx> {
         string_type(context).into()
     }
 }
@@ -22,12 +22,17 @@ pub struct PrintString;
 impl<'ctx> Type<'ctx, FunctionType<'ctx>> for PrintString {
     const FULL_PATH: &'static str = "print";
 
-    fn build_ty(ctx: &'ctx Context) -> FunctionType<'ctx> {
+    fn build_ty(ctx: &'ctx Context, module: &Module<'ctx>) -> FunctionType<'ctx> {
         let void_type = ctx.void_type();
+        // Ideally this would be context.get_type(LimeString::FULL_PATH) but
+        // LLVM doesn't allow this from context yet, only via module... (even
+        // though the data lives on the context)
+        let str_ty = match module.get_struct_type(LimeString::FULL_PATH) {
+            Some(ty) => ty,
+            None => LimeString::build_ty(ctx, module),
+        };
         let param_types = &[
-            // Ideally this would be context.get_type(LimeString::FULL_PATH) but
-            // LLVM doesn't allow this from context yet, only via module...
-            LimeString::build_ty(ctx).ptr_type(AddressSpace::Generic).into(),
+            str_ty.ptr_type(AddressSpace::Generic).into(),
         ];
 
         void_type.fn_type(param_types, false).into()

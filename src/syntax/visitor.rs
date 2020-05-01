@@ -22,7 +22,7 @@ impl<T> VisitOutcome<T> {
         VisitOutcome { node: node.into(), visit_children: true }
     }
 
-    pub fn new_with_stop<N: Into<Option<T>>>(node: N) -> Self {
+    pub fn new_without_visit<N: Into<Option<T>>>(node: N) -> Self {
         VisitOutcome { node: node.into(), visit_children: false }
     }
 
@@ -33,6 +33,12 @@ impl<T> VisitOutcome<T> {
     #[inline(always)]
     pub fn will_visit_children(&self) -> bool {
         self.visit_children
+    }
+
+    #[inline(always)]
+    pub fn without_visit(mut self) -> Self {
+        self.visit_children = false;
+        self
     }
 }
 

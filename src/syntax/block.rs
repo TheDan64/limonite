@@ -22,6 +22,10 @@ impl<'s> Block<'s> {
         &mut self.stmts
     }
 
+    pub fn append_stmt(&mut self, stmt: Stmt<'s>) {
+        self.stmts.push(stmt);
+    }
+
     pub fn indent(&self) -> u32 {
         self.indent
     }

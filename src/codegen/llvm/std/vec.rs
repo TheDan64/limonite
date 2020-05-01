@@ -2,6 +2,7 @@ use crate::codegen::llvm::Type;
 
 use inkwell::AddressSpace;
 use inkwell::context::Context;
+use inkwell::module::Module;
 use inkwell::types::{BasicType, BasicTypeEnum, StructType};
 
 #[allow(dead_code)]
@@ -10,7 +11,7 @@ struct LimeVec;
 impl<'ctx> Type<'ctx, StructType<'ctx>> for LimeVec {
     const FULL_PATH: &'static str = "std::Vec";
 
-    fn build_ty(_ctx: &'ctx Context) -> StructType<'ctx> {
+    fn build_ty(_ctx: &'ctx Context, _module: &Module<'ctx>) -> StructType<'ctx> {
         unimplemented!()
     }
 }

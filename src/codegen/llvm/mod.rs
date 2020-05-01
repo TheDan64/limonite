@@ -5,7 +5,7 @@ use crate::codegen::llvm::builtins::PutcharBuiltin;
 use crate::codegen::llvm::std::string::{PrintString, LimeString};
 use crate::interner::StrId;
 use crate::span::{Span, Spanned};
-use crate::syntax::{Block, ExprKind, ItemKind, Literal, Stmt, StmtKind};
+use crate::syntax::{Block, ExprKind, ItemKind, Literal, Stmt};
 use crate::syntax::items::FnSig;
 use crate::syntax::visitor::{AstVisitor, Visitor, VisitOutcome};
 
@@ -15,7 +15,8 @@ use inkwell::context::Context;
 use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
-use inkwell::types::{AnyType, AnyTypeEnum, FunctionType};
+use inkwell::targets::{InitializationConfig, Target};
+use inkwell::types::{AnyType, AnyTypeEnum, FunctionType, StructType};
 use inkwell::values::{AnyValueEnum, BasicValueEnum, FunctionValue};
 use rustc_hash::FxHashMap;
 
@@ -24,7 +25,8 @@ use ::std::convert::TryFrom;
 trait Type<'ctx, B: AnyType<'ctx>> {
     const FULL_PATH: &'static str;
 
-    fn build_ty(ctx: &'ctx Context) -> B;
+    // TODO: Remove module param in LLVM 11
+    fn build_ty(ctx: &'ctx Context, module: &Module<'ctx>) -> B;
 }
 
 trait FnDecl<'ctx>: Type<'ctx, FunctionType<'ctx>> {
@@ -58,7 +60,7 @@ impl<'ctx> TyValCache<'ctx> {
 }
 
 impl<'ctx> TyValCache<'ctx> {
-    fn get_type<T, B>(&mut self) -> Result<B, ()>
+    fn get_type<T, B>(&mut self, module: &Module<'ctx>) -> Result<B, ()>
     where
         B: AnyType<'ctx> + TryFrom<AnyTypeEnum<'ctx>> + Into<AnyTypeEnum<'ctx>>,
         T: Type<'ctx, B>,
@@ -66,13 +68,13 @@ impl<'ctx> TyValCache<'ctx> {
         let ctx = self.context;
         let ty_enum = self.types
             .entry(T::FULL_PATH)
-            .or_insert_with(|| T::build_ty(ctx).into());
+            .or_insert_with(|| T::build_ty(ctx, module).into());
 
         B::try_from(*ty_enum).or(Err(()))
     }
 
     fn get_fn_decl<F: FnDecl<'ctx>>(&mut self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
-        let fn_ty = self.get_type::<F, _>().expect("to have found a FunctionType");
+        let fn_ty = self.get_type::<F, _>(module).expect("to have found a FunctionType");
 
         self.values
             .entry((F::FULL_PATH, true))
@@ -114,6 +116,8 @@ impl<'ctx> LLVMCodeGen<'ctx> {
         if module_name == "main" && module.get_function("main").is_none() {
             Visitor::new(BlockIndentPlusPlus).run(&mut ast);
 
+            ast.append_stmt(Stmt::new(Spanned::boxed(ExprKind::Return(None), Span::DUMMY)));
+
             let sig = FnSig::new(Vec::new(), None);
             let sp_name = Spanned::new("main", Span::DUMMY);
             let sp_sig = Spanned::new(sig, Span::DUMMY);
@@ -125,7 +129,7 @@ impl<'ctx> LLVMCodeGen<'ctx> {
         }
 
         // HACK: Remove :(
-        PrintString::build_decl(PrintString::build_ty(self.ty_val_cache.context), &module);
+        PrintString::build_decl(PrintString::build_ty(self.ty_val_cache.context, &module), &module);
 
         // TODO: Immutable visitor only
         Visitor::new(CodeGen::new(self.ty_val_cache.context, &module)).run(&mut ast);
@@ -148,38 +152,6 @@ impl<'ctx> LLVMCodeGen<'ctx> {
     //     self.modules.get(&module_id)?.get_type(T::FULL_PATH)
     // }
 
-//     pub fn add_module(&mut self, mut ast: ExprWrapper, as_main: bool, include_std: bool) {
-//         // TODO: Better non main module support. This should be split into add_main_module (required)
-//         // which is used to initialize the EE and add_module (optional) which will be added to the EE
-
-//         if self.main_module.is_some() {
-//             panic!("Cannot override main module");
-//         }
-
-//         let main_module = self.context.create_module("main");
-
-//         // TODO: Only run whole script as "main" if there isn't a main defined already
-//         // And only add return None if there isn't a return None defined already
-//         if let &mut Expr::Block(ref mut blocks) = ast.get_mut_expr() {
-//             blocks.push(ExprWrapper::default(Expr::Return(None)));
-//         }
-
-//         if as_main {
-//             ast = ExprWrapper::default(Expr::FnDecl("main".into(), vec![], None, ast));
-//         }
-
-//         if include_std {
-//             // TODO: This should only be defined if they are referenced (ast knowledge?)
-//             define_string_type(&self.context);
-
-//             define_print_function(&self.builder, &self.context, &main_module);
-//         }
-
-//         self.generate_ir(&main_module, &ast, &mut HashMap::new());
-
-//         self.main_module = Some(main_module);
-//     }
-
     pub fn dump_ir(&self, module_id: StrId) {
         if let Some(module) = self.modules.get(&module_id) {
             module.print_to_stderr();
@@ -196,6 +168,9 @@ impl<'ctx> LLVMCodeGen<'ctx> {
             Some(module) => module,
             None => return Err(()),
         };
+
+        Target::initialize_native(&InitializationConfig::default()).unwrap();
+
         let fn_pass_manager = PassManager::create(main_module);
 
         // TODO: Add more passes here
@@ -214,20 +189,6 @@ impl<'ctx> LLVMCodeGen<'ctx> {
             fn_pass_manager,
         })
     }
-
-//     pub fn get_function_address(&self, fn_name: &str) -> Result<u64, String> {
-//         if self.main_module.is_none() {
-//             return Err("LLVMGeneratorError: A main module was not created".into());
-//         }
-
-//         if self.execution_engine.is_none() {
-//             return Err("LLVMGeneratorError: Not initialized".into())
-//         }
-
-//         let execution_engine = self.execution_engine.as_ref().expect("LLVMGenerator must be initialized");
-
-//         execution_engine.get_function_address(fn_name)
-//     }
 
 // REVIEW: Should scoped_variables take a COW keys?
 //         match ast.get_expr() {
@@ -271,62 +232,6 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //             &Expr::Literal(ref literal_type) => {
 //                 match literal_type {
 //                     &Literals::UTF8Char(ref val) => Some(self.context.i32_type().const_int(*val as u64, false)),
-//                     &Literals::UTF8String(ref val) => {
-//                         let string_type = module.get_type("std.string.String").expect("LLVMGenError: Could not find String definition");
-//                         let void_type = self.context.void_type();
-//                         let bool_type = self.context.bool_type();
-//                         let i8_type = self.context.i8_type();
-//                         let i8_ptr_type = i8_type.ptr_type(0);
-//                         let i32_type = self.context.i32_type();
-//                         let i64_type = self.context.i64_type();
-//                         let i8_array_type = i8_type.array_type(val.len() as u32);
-//                         let i32_one = i32_type.const_int(1, false);
-//                         let bool_false = bool_type.const_int(0, false);
-
-//                         let len = i64_type.const_int(val.len() as u64, false);
-
-//                         let mut chars = Vec::with_capacity(val.len());
-
-//                         for chr in val.bytes() {
-//                             chars.push(i8_type.const_int(chr as u64, false));
-//                         }
-
-//                         let const_str_array = i8_array_type.const_array(chars);
-
-//                         let global_str = module.add_global(&i8_array_type, &Some(const_str_array), "global_str");
-
-//                         let stack_struct = self.builder.build_stack_allocation(&string_type, "string_struct");
-
-//                         let str_ptr = self.builder.build_gep(&stack_struct, &vec![0, 0], "str_ptr");
-//                         let len_ptr = self.builder.build_gep(&stack_struct, &vec![0, 1], "len_ptr");
-//                         let cap_ptr = self.builder.build_gep(&stack_struct, &vec![0, 2], "cap_ptr");
-
-//                         self.builder.build_store(&len, &len_ptr);
-//                         self.builder.build_store(&len, &cap_ptr);
-
-//                         let i8_heap_array = self.builder.build_array_heap_allocation(&i8_array_type, &(val.len() as u64), "i8_heap_array");
-//                         let i8_heap_ptr = self.builder.build_pointer_cast(&i8_heap_array, &i8_ptr_type, "i8_heap_ptr");
-
-//                         self.builder.build_store(&i8_heap_ptr, &str_ptr);
-
-//                         let memcpy_fn = match module.get_function("llvm.memcpy.p0i8.p0i8.i64") {
-//                             Some(f) => f,
-//                             None => {
-//                                 let i8_ptr_type2 = i8_type.ptr_type(0);
-//                                 let mut args = vec![i8_ptr_type, i8_ptr_type2, i64_type, i32_type, bool_type];
-
-//                                 let fn_type2 = void_type.fn_type(&mut args, false);
-
-//                                 module.add_function("llvm.memcpy.p0i8.p0i8.i64", fn_type2)
-//                             }
-//                         };
-
-//                         let global_i8_ptr = self.builder.build_gep(&global_str, &vec![0, 0], "global_i8_ptr");
-
-//                         self.builder.build_call(&memcpy_fn, &vec![i8_heap_ptr, global_i8_ptr, len, i32_one, bool_false], "llvm.memcpy.p0i8.p0i8.i64"); // REVIEW: val.len() as u64 doesn't seem to work. Says type is invalid... due to missing context?
-
-//                         Some(stack_struct)
-//                     },
 //                     &Literals::I8Num(ref val) => Some(self.context.i8_type().const_int(*val as u64, true)),
 //                     &Literals::I16Num(ref val) => Some(self.context.i16_type().const_int(*val as u64, true)),
 //                     &Literals::I32Num(ref val) => Some(self.context.i32_type().const_int(*val as u64, true)),
@@ -703,6 +608,14 @@ impl<'tmp, 'ctx> CodeGen<'tmp, 'ctx> {
             module,
         }
     }
+
+    fn get_or_insert_struct_type<T: Type<'ctx, StructType<'ctx>>>(&self) -> StructType<'ctx> {
+        if let Some(ty) = self.module.get_struct_type(T::FULL_PATH) {
+            return ty;
+        }
+
+        T::build_ty(self.context, &self.module)
+    }
 }
 
 impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
@@ -752,6 +665,7 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
                 let num_params = function.count_params() as usize;
 
                 if num_params != params.len() {
+                    // If this happens then it means semantic analysis didn't do its job.
                     unreachable!("LLVMGenError: Function {} requires {} args. Found {}", name.node(), params.len(), num_params);
                 }
 
@@ -765,10 +679,12 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
 
                 let fn_call = self.builder.build_call(function, &param_values, name.node());
 
-                VisitOutcome::new_with_stop(fn_call.try_as_basic_value().left())
+                VisitOutcome::new_without_visit(fn_call.try_as_basic_value().left())
             },
             ExprKind::Literal(Literal::UTF8String(s)) => {
-                let string_type = self.module.get_type(LimeString::FULL_PATH).expect("To find string def");
+                // Trim beginning and end quotes
+                let s = &s[1..(s.len() - 1)];
+                let string_type = self.get_or_insert_struct_type::<LimeString>();
                 let void_type = self.context.void_type();
                 let bool_type = self.context.bool_type();
                 let i8_type = self.context.i8_type();
@@ -790,11 +706,12 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
 
                 let const_str_array = i8_type.const_array(&chars);
 
+                // TODO: Use module.get_global so we don't have a million dupes?
                 let global_str = self.module.add_global(i8_array_type, Some(AddressSpace::Generic), "global_str");
 
                 global_str.set_initializer(&const_str_array);
 
-                let stack_struct_ptr = self.builder.build_alloca(string_type, "string_struct");
+                let stack_struct_ptr = self.builder.build_alloca(string_type, "string_struct_ptr");
 
                 let str_ptr = unsafe { self.builder.build_gep(stack_struct_ptr, &[i32_zero, i32_zero], "str_ptr") };
                 let len_ptr = unsafe { self.builder.build_gep(stack_struct_ptr, &[i32_zero, i32_one], "len_ptr") };
@@ -806,14 +723,12 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
                 let i8_heap_array = self.builder.build_array_alloca(i8_array_type, len, "i8_heap_array");
                 let i8_heap_ptr = self.builder.build_pointer_cast(i8_heap_array, i8_ptr_type, "i8_heap_ptr");
 
-                self.builder.build_store(i8_heap_ptr, str_ptr);
+                self.builder.build_store(str_ptr, i8_heap_ptr);
 
                 let memcpy_fn = match self.module.get_function("llvm.memcpy.p0i8.p0i8.i64") {
                     Some(f) => f,
                     None => {
-                        let i8_ptr_type2 = i8_type.ptr_type(AddressSpace::Generic);
-                        let args = [i8_ptr_type.into(), i8_ptr_type2.into(), i64_type.into(), i32_type.into(), bool_type.into()];
-
+                        let args = [i8_ptr_type.into(), i8_ptr_type.into(), i64_type.into(), bool_type.into()];
                         let fn_type2 = void_type.fn_type(&args, false);
 
                         self.module.add_function("llvm.memcpy.p0i8.p0i8.i64", fn_type2, None)
@@ -822,9 +737,21 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
 
                 let global_i8_ptr = unsafe { self.builder.build_gep(global_str.as_pointer_value(), &[i32_zero, i32_zero], "global_i8_ptr") };
 
-                self.builder.build_call(memcpy_fn, &[i8_heap_ptr.into(), global_i8_ptr.into(), len.into(), i32_one.into(), bool_false.into()], "llvm.memcpy.p0i8.p0i8.i64"); // REVIEW: val.len() as u64 doesn't seem to work. Says type is invalid... due to missing context?
+                self.builder.build_call(memcpy_fn, &[i8_heap_ptr.into(), global_i8_ptr.into(), len.into(), bool_false.into()], "llvm.memcpy.p0i8.p0i8.i64");
 
                 VisitOutcome::new(BasicValueEnum::from(stack_struct_ptr))
+            },
+            ExprKind::Return(ret_val) => {
+                match ret_val {
+                    Some(expr) => {
+                        self.visit_expr_kind(expr.deref_node_mut()).without_visit()
+                    },
+                    None => {
+                        self.builder.build_return(None);
+
+                        VisitOutcome::default()
+                    },
+                }
             },
             e => unimplemented!("{:?}", e),
         }
@@ -860,6 +787,16 @@ impl<'cg, 'ctx> JitEngine<'cg, 'ctx> {
         };
 
         main_module.verify().map_err(|llvm_str| llvm_str.to_string())?;
+
+        for (id, module) in self.modules {
+            if *id == self.main_id {
+                continue;
+            }
+
+            module.verify().map_err(|llvm_str| llvm_str.to_string())?;
+
+            self.execution_engine.add_module(module).or_else(|_| Err(String::from("Failed to add module")))?;
+        }
 
         unsafe {
             self.execution_engine.run_function_as_main(main, &[]);
