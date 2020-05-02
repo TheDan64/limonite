@@ -12,7 +12,8 @@ pub type TokenResult<'s> = Result<Token<'s>, LexerError<'s>>;
 // REVIEW: CharIndices may not be sufficient for unicode with modifiers?
 // For example, y̆ is y + \u{0306} modifier. I think the current approach
 // would treat them separately and likely fail early on the modifier
-// since it's not treated as the same "character".
+// since it's not treated as the same "character". The unicode-segmentation
+// crate should be sufficient to fix this.
 /// A zero-copy Lexer/Tokenizer.
 pub struct Lexer<'s> {
     file_id: StrId,

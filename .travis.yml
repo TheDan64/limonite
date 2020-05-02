@@ -5,7 +5,14 @@ rust: stable
 dist: trusty
 env:
   global:
-    - RUSTFLAGS="-C link-dead-code"
+    - RUSTFLAGS="-C link-dead-code -C target-cpu=native"
+cache:
+  directories:
+    - /home/travis/.cargo
+
+before_cache:
+  - cargo install cargo-tarpaulin
+  - rm -rf /home/travis/.cargo/registry
 
 addons:
   apt:
@@ -25,19 +32,10 @@ before_install:
   - export PATH=/usr/lib/llvm-8.0/bin/:$HOME/.local/bin:$PATH
 
 after_success: |
-  wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
-  tar xzf master.tar.gz &&
-  cd kcov-master &&
-  mkdir build &&
-  cd build &&
-  cmake .. &&
-  make &&
-  make install DESTDIR=../../kcov-build &&
-  cd ../.. &&
-  rm -rf kcov-master &&
-  for file in $(find . -regextype posix-extended -regex "./target/debug/test(\w|-)+"); do mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib,tests --verify "target/cov/$(basename $file)" "$file"; done &&
-  bash <(curl -s https://codecov.io/bash) &&
-  echo "Uploaded code coverage"
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    cargo tarpaulin --out Xml
+    bash <(curl -s https://codecov.io/bash)
+  fi
 
 notifications:
   email: false
