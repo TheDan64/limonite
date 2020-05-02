@@ -2,6 +2,8 @@ use crate::lexical::{Keyword::Equals, Symbol::*, TokenKind};
 
 use std::convert::TryFrom;
 
+// TODO: Just turn `a *= b` (and friends) into `a = a * b`?
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum InfixOp {
     // A + B

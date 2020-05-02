@@ -5,11 +5,11 @@ use crate::codegen::llvm::builtins::PutcharBuiltin;
 use crate::codegen::llvm::std::string::{PrintString, LimeString};
 use crate::interner::StrId;
 use crate::span::{Span, Spanned};
-use crate::syntax::{Block, ExprKind, ItemKind, Literal, Stmt};
+use crate::syntax::{Block, ExprKind, InfixOp, ItemKind, Literal, Stmt, UnaryOp};
 use crate::syntax::items::FnSig;
 use crate::syntax::visitor::{AstVisitor, Visitor, VisitOutcome};
 
-use inkwell::AddressSpace;
+use inkwell::{AddressSpace, IntPredicate, FloatPredicate};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::ExecutionEngine;
@@ -20,7 +20,7 @@ use inkwell::types::{AnyType, AnyTypeEnum, FunctionType, StructType};
 use inkwell::values::{AnyValueEnum, BasicValueEnum, FunctionValue};
 use rustc_hash::FxHashMap;
 
-use ::std::convert::TryFrom;
+use ::std::convert::{TryFrom, TryInto};
 
 trait Type<'ctx, B: AnyType<'ctx>> {
     const FULL_PATH: &'static str;
@@ -190,206 +190,6 @@ impl<'ctx> LLVMCodeGen<'ctx> {
         })
     }
 
-// REVIEW: Should scoped_variables take a COW keys?
-//         match ast.get_expr() {
-//             &Expr::Block(ref exprs) => {
-//                 let mut last_value = None;
-
-//                 for expr in exprs {
-//                     last_value = self.generate_ir(module, expr, scoped_variables);
-//                 }
-
-//                 last_value
-//             },
-//             &Expr::FnCall(ref name, ref args) => {
-//                 let function = match module.get_function(name) {
-//                     Some(function) => function,
-//                     None => {
-//                         println!("LLVMGenError: Could not find function {}", name);
-
-//                         return None; // REVIEW: Should this panic? We should've already known it was missing and safely unwrap
-//                     }
-//                 };
-
-//                 let num_params = function.count_params() as usize;
-
-//                 if num_params != args.len() {
-//                     println!("LLVMGenError: Function {} requires {} args. Found {}", name, args.len(), num_params);
-
-//                     return None; // REVIEW: panic?
-//                 }
-
-//                 let mut arg_values = Vec::with_capacity(num_params);
-
-//                 for arg in args {
-//                     let value = self.generate_ir(module, arg, scoped_variables).unwrap();
-
-//                     arg_values.push(value);
-//                 }
-
-//                 Some(self.builder.build_call(&function, &arg_values, name)) // REVIEW: maybe tmp_ + name? Unclear if same name as fn is bad..
-//             },
-//             &Expr::Literal(ref literal_type) => {
-//                 match literal_type {
-//                     &Literals::UTF8Char(ref val) => Some(self.context.i32_type().const_int(*val as u64, false)),
-//                     &Literals::I8Num(ref val) => Some(self.context.i8_type().const_int(*val as u64, true)),
-//                     &Literals::I16Num(ref val) => Some(self.context.i16_type().const_int(*val as u64, true)),
-//                     &Literals::I32Num(ref val) => Some(self.context.i32_type().const_int(*val as u64, true)),
-//                     &Literals::I64Num(ref val) => Some(self.context.i64_type().const_int(*val as u64, true)),
-//                     &Literals::U8Num(ref val) => Some(self.context.i8_type().const_int(*val as u64, false)),
-//                     &Literals::U16Num(ref val) => Some(self.context.i16_type().const_int(*val as u64, false)),
-//                     &Literals::U32Num(ref val) => Some(self.context.i32_type().const_int(*val as u64, false)),
-//                     &Literals::U64Num(ref val) => Some(self.context.i64_type().const_int(*val as u64, false)),
-//                     &Literals::F32Num(ref val) => Some(self.context.f32_type().const_float(*val as f64)),
-//                     &Literals::F64Num(ref val) => Some(self.context.f64_type().const_float(*val as f64)),
-//                     &Literals::Bool(ref val) => Some(self.context.bool_type().const_int(*val as u64, false)),
-//                     &Literals::_None => panic!("LLVMGenError: Unimplemented for NoneType")
-//                 }
-//             },
-//             &Expr::InfixOp(ref op, ref lhs_exprwrapper, ref rhs_exprwrapper) => {
-//                 let (mut lhs_val, mut rhs_val) = match (self.generate_ir(module, lhs_exprwrapper, scoped_variables), self.generate_ir(module, rhs_exprwrapper, scoped_variables)) {
-//                     (Some(val1), Some(val2)) => (val1, val2),
-//                     (Some(_), None) => unreachable!("LLVMGenError: InfixOp only LHS contains value"),
-//                     (None, Some(_)) => unreachable!("LLVMGenError: InfixOp only RHS contains value"),
-//                     (None, None) => unreachable!("LLVMGenError: InfixOp has no values")
-//                 };
-
-//                 // REVIEW: I'm wondering if auto deref should be handled by semantic analysis
-//                 // and insert a "deref" expr
-//                 if lhs_val.is_pointer() {
-//                     lhs_val = self.builder.build_load(&lhs_val, "deref"); // Think this is like Rust's deref trait...
-//                 }
-
-//                 if rhs_val.is_pointer() {
-//                     rhs_val = self.builder.build_load(&rhs_val, "deref"); // Think this is like Rust's deref trait...
-//                 }
-
-//                 // REVIEW: Adding different types should never happen if SA is doing it's job, right?
-//                 match op {
-//                     &InfixOp::Add => {
-//                         let add = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
-//                             (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_add(&lhs_val, &rhs_val, "int_add"),
-//                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_add(&lhs_val, &rhs_val, "f32_add"), // REVIEW: How is this different from LLVMRealUEQ??
-//                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_add(&lhs_val, &rhs_val, "f64_add"), // ^
-//                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_add(&lhs_val, &rhs_val, "f128_add"), // ^
-//                             (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct addition not yet implemented."),
-//                             (_, _) => panic!("LLVMGenError: Unsupported type addition: {:?} + {:?}", lhs_val.get_name(), rhs_val.get_name()),
-//                         };
-
-//                         Some(add)
-//                     },
-//                     &InfixOp::Sub => {
-//                         let sub = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
-//                             (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_sub(&lhs_val, &rhs_val, "int_sub"),
-//                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f32_sub"),
-//                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f64_sub"),
-//                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_sub(&lhs_val, &rhs_val, "f128_sub"),
-//                             (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct subtraction not yet implemented."),
-//                             (_, _) => panic!("LLVMGenError: Unsupported type subtraction: {:?} - {:?}", lhs_val.get_name(), rhs_val.get_name()),
-//                         };
-
-//                         Some(sub)
-
-//                     },
-//                     &InfixOp::Mul => {
-//                         let mul = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
-//                             (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_mul(&lhs_val, &rhs_val, "int_mul"),
-//                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f32_mul"),
-//                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f64_mul"),
-//                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_mul(&lhs_val, &rhs_val, "f128_mul"),
-//                             (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct multiplication not yet implemented."),
-//                             (_, _) => panic!("LLVMGenError: Unsupported type multiplication: {:?} * {:?}", lhs_val.get_name(), rhs_val.get_name()),
-//                         };
-
-//                         Some(mul)
-//                     },
-//                     &InfixOp::Div => {
-//                         let div = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
-//                             (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_div(&lhs_val, &rhs_val, "int_div"), // TODO: Signed support
-//                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f32_div"),
-//                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f64_div"),
-//                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_div(&lhs_val, &rhs_val, "f128_div"),
-//                             (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct division not yet implemented."),
-//                             (_, _) => panic!("LLVMGenError: Unsupported type division: {:?} / {:?}", lhs_val.get_name(), rhs_val.get_name()),
-//                         };
-
-//                         Some(div)
-//                     },
-//                     &InfixOp::Mod => match (lhs_val, rhs_val) {
-//                         _ => panic!("LLVMGenError: Unimplemented infix operator mod")
-//                     },
-//                     &InfixOp::Pow => match (lhs_val, rhs_val) {
-//                         _ => panic!("LLVMGenError: Unimplemented infix operator pow")
-//                     },
-//                     &InfixOp::Equ => {
-//                         let equ = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
-//                             (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntEQ, &lhs_val, &rhs_val, "int_equ"),
-//                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOEQ, &lhs_val, &rhs_val, "f32_equ"), // REVIEW: How is this different from LLVMRealUEQ??
-//                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOEQ, &lhs_val, &rhs_val, "f64_equ"), // ^
-//                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOEQ, &lhs_val, &rhs_val, "f128_equ"), // ^
-//                             (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct equality not yet implemented."),
-//                             (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} == {:?}", lhs_val.get_name(), rhs_val.get_name()),
-//                         };
-
-//                         Some(equ)
-//                     },
-//                     &InfixOp::Lt => {
-//                         let lt = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
-//                             (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntULT, &lhs_val, &rhs_val, "int_lt"), // TODO: Signed compare
-//                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOLT, &lhs_val, &rhs_val, "f32_lt"), // REVIEW: How is this different from LLVMRealULT??
-//                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOLT, &lhs_val, &rhs_val, "f64_lt"), // ^
-//                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOLT, &lhs_val, &rhs_val, "f128_lt"), // ^
-//                             (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct less than not yet implemented."),
-//                             (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} < {:?}", lhs_val.get_name(), rhs_val.get_name()),
-//                         };
-
-//                         Some(lt)
-//                     },
-//                     &InfixOp::Lte => {
-//                         let lte = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
-//                             (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntULE, &lhs_val, &rhs_val, "int_lte"), // TODO: Signed compare
-//                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOLE, &lhs_val, &rhs_val, "f32_lte"), // REVIEW: How is this different from LLVMRealULE??
-//                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOLE, &lhs_val, &rhs_val, "f64_lte"), // ^
-//                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOLE, &lhs_val, &rhs_val, "f128_lte"), // ^
-//                             (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct less than equal not yet implemented."),
-//                             (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} <= {:?}", lhs_val.get_name(), rhs_val.get_name()),
-//                         };
-
-//                         Some(lte)
-//                     },
-//                     &InfixOp::Gt => {
-//                         let gt = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
-//                             (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntUGT, &lhs_val, &rhs_val, "int_gt"), // TODO: Signed compare
-//                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOGT, &lhs_val, &rhs_val, "f32_gt"), // REVIEW: How is this different from LLVMRealUGT??
-//                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOGT, &lhs_val, &rhs_val, "f64_gt"), // ^
-//                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOGT, &lhs_val, &rhs_val, "f128_gt"), // ^
-//                             (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct greater than not yet implemented."),
-//                             (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} > {:?}", lhs_val.get_name(), rhs_val.get_name()),
-//                         };
-
-//                         Some(gt)
-//                     },
-//                     &InfixOp::Gte => {
-//                         let gte = match (lhs_val.get_type_kind(), rhs_val.get_type_kind()) { // REVIEW: Not fully tested
-//                             (LLVMIntegerTypeKind, LLVMIntegerTypeKind) => self.builder.build_int_compare(LLVMIntUGE, &lhs_val, &rhs_val, "int_gte"), // TODO: Signed compare
-//                             (LLVMFloatTypeKind, LLVMFloatTypeKind) => self.builder.build_float_compare(LLVMRealOGE, &lhs_val, &rhs_val, "f32_gte"), // REVIEW: How is this different from LLVMRealUGE??
-//                             (LLVMDoubleTypeKind, LLVMDoubleTypeKind) => self.builder.build_float_compare(LLVMRealOGE, &lhs_val, &rhs_val, "f64_gte"), // ^
-//                             (LLVMFP128TypeKind, LLVMFP128TypeKind) => self.builder.build_float_compare(LLVMRealOGE, &lhs_val, &rhs_val, "f128_gte"), // ^
-//                             (LLVMStructTypeKind, LLVMStructTypeKind) => panic!("LLVMGenError: Custom struct greater than equal not yet implemented."),
-//                             (_, _) => panic!("LLVMGenError: Unsupported type equality: {:?} >= {:?}", lhs_val.get_name(), rhs_val.get_name()),
-//                         };
-
-//                         Some(gte)
-//                     }
-//                 }
-//             },
-//             // REVIEW: Needs further testing
-//             &Expr::UnaryOp(ref op, ref expr) => {
-//                 match op {
-//                     &UnaryOp::Negate => self.generate_ir(module, expr, scoped_variables).map(|val| self.builder.build_neg(&val, "neg")),
-//                     &UnaryOp::Not => self.generate_ir(module, expr, scoped_variables).map(|val| self.builder.build_not(&val, "not")),
-//                 }
-//             },
 //             &Expr::FnDecl(ref name, ref arg_defs, ref return_type, ref body_expr) => {
 //                 let mut fn_variable_scope = HashMap::new(); // REVIEW: This will exclude globals
 //                 let mut arg_types: Vec<Type> = arg_defs.iter().map(|&(_, ref type_string)| self.string_to_type(&type_string[..], &module).expect("Did not find specified type")).collect();
@@ -416,23 +216,6 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //                 // REVIEW: This will return the last generated value... is that what we want?
 //                 // Or should it go back to the global scope after generating ir?
 //                 self.generate_ir(module, body_expr, &mut fn_variable_scope)
-//             },
-//             &Expr::Return(ref return_type_expr) => {
-//                 match return_type_expr {
-//                     &Some(ref return_type) => match self.generate_ir(module, return_type, scoped_variables) {
-//                         Some(mut t) => {
-//                             // REVIEW: I'm wondering if auto deref should be handled by semantic analysis
-//                             // and insert a "deref" expr
-//                             if t.is_pointer() {
-//                                 t = self.builder.build_load(&t, "deref"); // Think this is like Rust's Deref Trait
-//                             }
-
-//                             Some(self.builder.build_return(Some(t)))
-//                         }
-//                         None => unreachable!("LLVMGenError: Hit unreachable return type generation")
-//                     },
-//                     &None => Some(self.builder.build_return(None)),
-//                 }
 //             },
 //             &Expr::Var(ref name) => {
 //                 match scoped_variables.get(name) {
@@ -741,6 +524,93 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
 
                 VisitOutcome::new(BasicValueEnum::from(stack_struct_ptr))
             },
+            ExprKind::Literal(Literal::UTF8Char(ch)) => {
+                let val = self.context.i32_type().const_int(*ch as u64, false);
+
+                VisitOutcome::new(BasicValueEnum::from(val))
+            },
+            ExprKind::Literal(lit_kind) => {
+                // REVIEW: Do we pass in the sign_extend flag for i* types or just if the value is negative?
+                match lit_kind {
+                    Literal::Bool(n) => {
+                        let val = self.context.bool_type().const_int(*n as u64, false);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::I8Num(n) => {
+                        let val = self.context.i8_type().const_int(*n as u64, true);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::U8Num(n) => {
+                        let val = self.context.i8_type().const_int(*n as u64, false);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::I16Num(n) => {
+                        let val = self.context.i16_type().const_int(*n as u64, true);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::U16Num(n) => {
+                        let val = self.context.i16_type().const_int(*n as u64, false);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::I32Num(n) => {
+                        let val = self.context.i32_type().const_int(*n as u64, true);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::U32Num(n) => {
+                        let val = self.context.i32_type().const_int(*n as u64, false);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::I64Num(n) => {
+                        let val = self.context.i64_type().const_int(*n as u64, true);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::U64Num(n) => {
+                        let val = self.context.i64_type().const_int(*n as u64, false);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::I128Num(n) => {
+                        let bytes = n.to_ne_bytes();
+                        let words = [
+                            u64::from_ne_bytes(bytes[0..=7].try_into().unwrap()),
+                            u64::from_ne_bytes(bytes[8..=16].try_into().unwrap()),
+                        ];
+                        let val = self.context.i128_type().const_int_arbitrary_precision(&words);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::U128Num(n) => {
+                        let bytes = n.to_ne_bytes();
+                        let words = [
+                            u64::from_ne_bytes(bytes[0..=7].try_into().unwrap()),
+                            u64::from_ne_bytes(bytes[8..=16].try_into().unwrap()),
+                        ];
+                        let val = self.context.i128_type().const_int_arbitrary_precision(&words);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::F32Num(f) => {
+                        let val = self.context.f32_type().const_float(*f as f64);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::F64Num(f) => {
+                        let val = self.context.f64_type().const_float(*f);
+
+                        VisitOutcome::new(BasicValueEnum::from(val))
+                    },
+                    Literal::_None => panic!("todo?"),
+                    _ => unreachable!("ICE"),
+                }
+            },
             ExprKind::Return(ret_val) => {
                 match ret_val {
                     Some(expr) => {
@@ -752,6 +622,62 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
                         VisitOutcome::default()
                     },
                 }
+            },
+            ExprKind::InfixOp(op, lhs_expr, rhs_expr) => {
+                let lhs_val = self.visit_expr_kind(lhs_expr.deref_node_mut()).into_node();
+                let rhs_val = self.visit_expr_kind(rhs_expr.deref_node_mut()).into_node();
+
+                match (lhs_val, rhs_val) {
+                    (BasicValueEnum::IntValue(lhs), BasicValueEnum::IntValue(rhs)) => {
+                        let iv = match op.node() {
+                            InfixOp::Add => self.builder.build_int_add(lhs, rhs, "add"),
+                            InfixOp::Sub => self.builder.build_int_sub(lhs, rhs, "sub"),
+                            // TODO: nsw, nuw mul?
+                            InfixOp::Mul => self.builder.build_int_sub(lhs, rhs, "mul"),
+                            // TODO: Unsigned div?
+                            InfixOp::Div => self.builder.build_int_signed_div(lhs, rhs, "div"),
+                            // TODO: Unsigned variants?
+                            InfixOp::Lt => self.builder.build_int_compare(IntPredicate::SLT, lhs, rhs, "lt"),
+                            InfixOp::Lte => self.builder.build_int_compare(IntPredicate::SLE, lhs, rhs, "lte"),
+                            InfixOp::Gt => self.builder.build_int_compare(IntPredicate::SLT, lhs, rhs, "gt"),
+                            InfixOp::Gte => self.builder.build_int_compare(IntPredicate::SLE, lhs, rhs, "gte"),
+                            InfixOp::Equ => self.builder.build_int_compare(IntPredicate::EQ, lhs, rhs, "eq"),
+                            _ => unimplemented!(),
+                        };
+
+                        VisitOutcome::new_without_visit(BasicValueEnum::from(iv))
+                    },
+                    (BasicValueEnum::FloatValue(lhs), BasicValueEnum::FloatValue(rhs)) => {
+                        let bv: BasicValueEnum = match op.node() {
+                            InfixOp::Add => self.builder.build_float_add(lhs, rhs, "fadd").into(),
+                            InfixOp::Sub => self.builder.build_float_sub(lhs, rhs, "fsub").into(),
+                            InfixOp::Mul => self.builder.build_float_mul(lhs, rhs, "fmul").into(),
+                            InfixOp::Div => self.builder.build_float_div(lhs, rhs, "fdiv").into(),
+                            // TODO: U* variants?:
+                            InfixOp::Lt => self.builder.build_float_compare(FloatPredicate::OLT, lhs, rhs, "lt").into(),
+                            InfixOp::Lte => self.builder.build_float_compare(FloatPredicate::OLE, lhs, rhs, "lte").into(),
+                            InfixOp::Gt => self.builder.build_float_compare(FloatPredicate::OGT, lhs, rhs, "gt").into(),
+                            InfixOp::Gte => self.builder.build_float_compare(FloatPredicate::OGE, lhs, rhs, "gte").into(),
+                            InfixOp::Equ => self.builder.build_float_compare(FloatPredicate::OEQ, lhs, rhs, "eq").into(),
+                            _ => unimplemented!(),
+                        };
+
+                        VisitOutcome::new_without_visit(bv)
+                    },
+                    _ => unimplemented!(),
+               }
+            },
+            ExprKind::UnaryOp(op, expr) => {
+                let val = self.visit_expr_kind(expr.deref_node_mut())
+                    .into_node()
+                    .into_int_value();
+                let val = match op.node() {
+                    // REVIEW: nsw, nuw neg
+                    UnaryOp::Negate => self.builder.build_int_neg(val, "neg"),
+                    UnaryOp::Not => self.builder.build_not(val, "not"),
+                };
+
+                VisitOutcome::new_without_visit(BasicValueEnum::from(val))
             },
             e => unimplemented!("{:?}", e),
         }
