@@ -334,28 +334,28 @@ impl<'tmp, 'ctx, 's> CodeGen<'tmp, 'ctx, 's> {
     fn insert_value<I: Into<BasicValueEnum<'ctx>>>(&mut self, s: &'s str, bv: I) {
         self.values.insert(s, bv.into());
     }
+
+    /// Workaround to having to call visit_block tree in expr codegen
+    /// because we don't want to modify the normal block codegen path.
+    fn visit_block_ext(&mut self, block: &mut Block<'s>) {
+        self.add_scope();
+        for stmt in block.stmts_mut() {
+            match stmt.kind_mut() {
+                StmtKind::Item(i) => self.visit_item_kind(i.get_node_mut()),
+                StmtKind::Local(l) => self.visit_local(l),
+                StmtKind::Expr(e) => self.visit_expr_kind(e.deref_node_mut()),
+            };
+        }
+        self.pop_scope();
+    }
 }
 
 impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx, 's> {
-    fn visit_block(&mut self, block: &mut Block<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
+    fn visit_block(&mut self, _block: &mut Block<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
         self.add_scope();
-
-        // for stmt in block.stmts_mut() {
-        //     self.visit_stmt_kind(stmt.kind_mut());
-        // }
 
         VisitOutcome::default()
     }
-
-    // fn visit_stmt_kind(&mut self, stmt_kind: &mut StmtKind<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
-    //     match stmt_kind {
-    //         StmtKind::Item(i) => self.visit_item_kind(i.get_node_mut()),
-    //         StmtKind::Local(l) => self.visit_local(l),
-    //         StmtKind::Expr(e) => self.visit_expr_kind(e.deref_node_mut()),
-    //     };
-
-    //     VisitOutcome::default()
-    // }
 
     fn exit_block(&mut self, _block: &mut Block<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
         self.pop_scope();
@@ -696,7 +696,7 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx, 's> {
                 self.builder.build_conditional_branch(cond, then_block, else_block);
                 self.builder.position_at_end(then_block);
 
-                self.visit_block(block);
+                self.visit_block_ext(block);
                 self.builder.build_unconditional_branch(exit_block);
 
                 self.builder.position_at_end(else_block);
@@ -728,7 +728,7 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx, 's> {
                 self.builder.build_conditional_branch(cond, then_block, exit_block);
                 self.builder.position_at_end(then_block);
 
-                self.visit_block(block);
+                self.visit_block_ext(block);
 
                 dbg!("Post visit_block");
 
