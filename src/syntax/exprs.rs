@@ -5,7 +5,7 @@ pub type Expr<'s> = Spanned<Box<ExprKind<'s>>>;
 
 // Should Return be a Stmt instead? Or do we want Rust-like Expr Returns?
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ExprKind<'s> {
     // Operations between two expressions
     InfixOp(Spanned<InfixOp>, Expr<'s>, Expr<'s>),
@@ -18,7 +18,7 @@ pub enum ExprKind<'s> {
     // If condition true, run block, optional elif, else
     If(Expr<'s>, Block<'s>, Option<Expr<'s>>),
     // Assign an expression to an existing variable
-    Assign(Spanned<&'s str>, Expr<'s>),
+    Assign(Expr<'s>, Expr<'s>),
     // Fn call with name and args.
     FnCall(Spanned<&'s str>, Vec<Expr<'s>>),
     // Consecutive Stmts

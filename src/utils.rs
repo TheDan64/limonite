@@ -73,6 +73,7 @@ impl<'s> AstVisitor<'s> for DebugTree {
                 return VisitOutcome::default();
             },
             ExprKind::WhileLoop(..) => "Expr: While".into(),
+            ExprKind::Assign(..) => "Expr: Assign".into(),
             e => unimplemented!("{:?}", e),
         };
 
@@ -116,8 +117,8 @@ impl<'s> AstVisitor<'s> for DebugTree {
         VisitOutcome::default()
     }
 
-    fn visit_local(&mut self, _local: &mut Local<'s>) -> VisitOutcome<()> {
-        self.add_branch("Local");
+    fn visit_local(&mut self, local: &mut Local<'s>) -> VisitOutcome<()> {
+        self.add_branch(&format!("Local {}", local.ident.node()));
 
         VisitOutcome::default()
     }

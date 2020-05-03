@@ -1,6 +1,6 @@
 use crate::syntax::{Expr, Item, Local};
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Stmt<'s> {
     kind: StmtKind<'s>,
 }
@@ -21,7 +21,7 @@ impl<'s> Stmt<'s> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum StmtKind<'s> {
     Local(Local<'s>),
     Item(Item<'s>),

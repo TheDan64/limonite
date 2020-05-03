@@ -5,10 +5,11 @@ use crate::codegen::llvm::builtins::PutcharBuiltin;
 use crate::codegen::llvm::std::string::{PrintString, LimeString};
 use crate::interner::StrId;
 use crate::span::{Span, Spanned};
-use crate::syntax::{Block, ExprKind, InfixOp, ItemKind, Literal, Stmt, UnaryOp};
+use crate::syntax::{Block, ExprKind, InfixOp, ItemKind, Literal, Local, Stmt, StmtKind, UnaryOp};
 use crate::syntax::items::FnSig;
 use crate::syntax::visitor::{AstVisitor, Visitor, VisitOutcome};
 
+use hash_chain::ChainMap;
 use inkwell::{AddressSpace, IntPredicate, FloatPredicate};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -17,10 +18,11 @@ use inkwell::module::Module;
 use inkwell::passes::PassManager;
 use inkwell::targets::{InitializationConfig, Target};
 use inkwell::types::{AnyType, AnyTypeEnum, FunctionType, StructType};
-use inkwell::values::{AnyValueEnum, BasicValueEnum, FunctionValue};
-use rustc_hash::FxHashMap;
+use inkwell::values::{AnyValueEnum, BasicValue, BasicValueEnum, FunctionValue};
+use rustc_hash::{FxHasher, FxHashMap};
 
 use ::std::convert::{TryFrom, TryInto};
+use ::std::hash::BuildHasherDefault;
 
 trait Type<'ctx, B: AnyType<'ctx>> {
     const FULL_PATH: &'static str;
@@ -217,92 +219,6 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //                 // Or should it go back to the global scope after generating ir?
 //                 self.generate_ir(module, body_expr, &mut fn_variable_scope)
 //             },
-//             &Expr::Var(ref name) => {
-//                 match scoped_variables.get(name) {
-//                     Some(val) => Some(*val),
-//                     None => unreachable!("LLVMGenError: Unknown variable {} was uncaught", name)
-//                 }
-//             },
-//             &Expr::VarDecl(_, ref name, ref val_type, ref expr) => {
-//                 assert!(val_type.is_some(), "LLVMGenError: Variable declaration not given a type by codegen phase");
-
-//                 // Assign to a literal
-//                 match self.generate_ir(module, expr, scoped_variables) {
-//                     Some(val) => {
-//                         let val = if !val.is_pointer() {
-//                             let alloca = self.builder.build_stack_allocation(&val.get_type(), "stored_ptr");
-//                             self.builder.build_store(&val, &alloca);
-
-//                             alloca
-//                         } else {
-//                             val
-//                         };
-
-//                         // Couldn't figure out how to not clone this string
-//                         scoped_variables.insert(name.clone(), val);
-
-//                         Some(val)
-//                     },
-//                     None => None
-//                 }
-//             },
-//             &Expr::If(ref cond_expr, ref body_expr, ref opt_else_expr) => {
-//                 let cond_val = match self.generate_ir(module, cond_expr, scoped_variables) {
-//                     Some(val) => val,
-//                     None => return None
-//                 };
-
-//                 let type_ = self.context.bool_type();
-
-//                 let zero = type_.const_int(0, false);
-//                 let op = LLVMIntEQ;
-
-//                 let block = self.builder.get_insert_block();
-
-//                 let cond_cmp = self.builder.build_int_compare(op, &cond_val, &zero, "ifcond");
-
-//                 let parent_fn = block.get_parent();
-
-//                 let body_block = self.context.append_basic_block(&parent_fn, "if");
-//                 let else_block = self.context.append_basic_block(&parent_fn, "else");
-//                 let merge_block = self.context.append_basic_block(&parent_fn, "merge");
-
-//                 // If the condition is true:
-//                 self.builder.build_conditional_branch(&cond_cmp, &body_block, &else_block);
-//                 self.builder.position_at_end(&body_block);
-
-//                 let mut body_val = match self.generate_ir(module, body_expr, scoped_variables) {
-//                     Some(val) => val,
-//                     None => return None
-//                 };
-
-//                 // Merge into the above layer when done
-//                 self.builder.build_unconditional_branch(&merge_block);
-
-//                 // Call else codegen if it exists
-//                 let mut body_end_block = self.builder.get_insert_block();
-
-//                 self.builder.position_at_end(&else_block);
-
-//                 // Optional, doesn't need to return on None
-//                 let opt_else_val = match opt_else_expr {
-//                     &Some(ref expr) => self.generate_ir(module, expr, scoped_variables),
-//                     &None => None
-//                 };
-
-//                 let else_br = self.builder.build_unconditional_branch(&merge_block);
-//                 let mut else_end_block = self.builder.get_insert_block();
-
-//                 // Finish up
-//                 self.builder.position_at_end(&merge_block);
-
-//                 let phi = self.builder.build_phi(&type_, "phi");
-
-//                 phi.add_incoming(&mut body_val, &mut body_end_block, 1);
-//                 phi.add_incoming(&mut opt_else_val.unwrap_or(else_br), &mut else_end_block, 1);
-
-//                 Some(phi)
-//             },
 //             &Expr::WhileLoop(ref condition, ref body) => {
 //                 let one = self.context.bool_type().const_int(1, false);
 
@@ -375,13 +291,18 @@ impl<'ctx> LLVMCodeGen<'ctx> {
 //     }
 }
 
-struct CodeGen<'tmp, 'ctx: 'tmp> {
-    builder: Builder<'ctx>,
-    context: &'ctx Context,
-    module: &'tmp Module<'ctx>,
+use ::std::collections::HashMap;
+
+type FxHasherWrapper = BuildHasherDefault<FxHasher>;
+
+struct CodeGen<'tmp, 'context: 'tmp, 's> {
+    builder: Builder<'context>,
+    context: &'context Context,
+    module: &'tmp Module<'context>,
+    values: ChainMap<&'s str, BasicValueEnum<'context>, FxHasherWrapper>,
 }
 
-impl<'tmp, 'ctx> CodeGen<'tmp, 'ctx> {
+impl<'tmp, 'ctx, 's> CodeGen<'tmp, 'ctx, 's> {
     fn new(context: &'ctx Context, module: &'tmp Module<'ctx>) -> Self {
         let builder = context.create_builder();
 
@@ -389,6 +310,7 @@ impl<'tmp, 'ctx> CodeGen<'tmp, 'ctx> {
             builder,
             context,
             module,
+            values: ChainMap::new(HashMap::default()),
         }
     }
 
@@ -399,13 +321,67 @@ impl<'tmp, 'ctx> CodeGen<'tmp, 'ctx> {
 
         T::build_ty(self.context, &self.module)
     }
+
+    fn add_scope(&mut self) {
+        self.values.new_child();
+    }
+
+    fn pop_scope(&mut self) -> FxHashMap<&'s str, BasicValueEnum<'ctx>> {
+        // Unwrap should never fail based on how remove_child is written
+        self.values.remove_child().unwrap()
+    }
+
+    fn insert_value<I: Into<BasicValueEnum<'ctx>>>(&mut self, s: &'s str, bv: I) {
+        self.values.insert(s, bv.into());
+    }
 }
 
-impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
+impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx, 's> {
+    fn visit_block(&mut self, block: &mut Block<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
+        self.add_scope();
+
+        // for stmt in block.stmts_mut() {
+        //     self.visit_stmt_kind(stmt.kind_mut());
+        // }
+
+        VisitOutcome::default()
+    }
+
+    // fn visit_stmt_kind(&mut self, stmt_kind: &mut StmtKind<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
+    //     match stmt_kind {
+    //         StmtKind::Item(i) => self.visit_item_kind(i.get_node_mut()),
+    //         StmtKind::Local(l) => self.visit_local(l),
+    //         StmtKind::Expr(e) => self.visit_expr_kind(e.deref_node_mut()),
+    //     };
+
+    //     VisitOutcome::default()
+    // }
+
+    fn exit_block(&mut self, _block: &mut Block<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
+        self.pop_scope();
+
+        VisitOutcome::default()
+    }
+
+    fn visit_local(&mut self, local: &mut Local<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
+        let init = self.visit_expr_kind(local.init.deref_node_mut()).into_node();
+
+        // FIXME: use local.init.ty
+        let alloca = self.builder.build_alloca(self.context.i32_type(), "stored_ptr");
+
+        self.builder.build_store(alloca, init);
+
+        self.insert_value(local.ident.node(), alloca);
+
+        VisitOutcome::default().without_visit()
+    }
+
     fn visit_item_kind(&mut self, item_kind: &mut ItemKind<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
         match item_kind {
             ItemKind::FnDef(name, fn_sig, _block) => {
-                // let mut fn_variable_scope = HashMap::new(); // REVIEW: This will exclude globals
+                // Since Fn params live in the fn scope, not the block, this allows shadowing of params
+                // with locals.
+                self.add_scope();
                 // let mut arg_types: Vec<Type> = arg_defs.iter().map(|&(_, ref type_string)| self.string_to_type(&type_string[..], &module).expect("Did not find specified type")).collect();
 
                 // TODO: Support args types and return types
@@ -417,12 +393,13 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
 
                 let function = self.module.add_function(name.node(), fn_ty, None);
 
-                // let name_value_data = arg_defs.iter().map(|&(ref name, _)| name).zip(function.params());
+                for (i, (name, _)) in fn_sig.get_node().params().iter().enumerate() {
+                    let param = function.get_nth_param(i.try_into().expect("ICE")).expect("ICE");
 
-                // for (name, mut param_value) in name_value_data {
-                //     param_value.set_name(&name);
-                //     fn_variable_scope.insert(name.to_string(), param_value.as_value()); // REVIEW: Cow?
-                // }
+                    param.set_name(name.node());
+
+                    self.values.insert(name.node(), param);
+                }
 
                 let bb_enter = self.context.append_basic_block(function, "enter");
 
@@ -432,6 +409,15 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
             },
             i => unimplemented!("{:?}", i),
         }
+    }
+
+    fn exit_item_kind(&mut self, item_kind: &mut ItemKind<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
+        match item_kind {
+            ItemKind::FnDef(..) => { self.pop_scope(); },
+            _ => ()
+        }
+
+        VisitOutcome::default()
     }
 
     fn visit_expr_kind(&mut self, expr_kind: &mut ExprKind<'s>) -> VisitOutcome<BasicValueEnum<'ctx>> {
@@ -624,8 +610,24 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
                 }
             },
             ExprKind::InfixOp(op, lhs_expr, rhs_expr) => {
-                let lhs_val = self.visit_expr_kind(lhs_expr.deref_node_mut()).into_node();
-                let rhs_val = self.visit_expr_kind(rhs_expr.deref_node_mut()).into_node();
+                let mut lhs_val = self.visit_expr_kind(lhs_expr.deref_node_mut()).into_node();
+                let mut rhs_val = self.visit_expr_kind(rhs_expr.deref_node_mut()).into_node();
+
+                // Deref if ptr to value
+                if let BasicValueEnum::PointerValue(lhs_ptr) = lhs_val {
+                    if !lhs_ptr.get_type().get_element_type().is_pointer_type() {
+                        lhs_val = self.builder.build_load(lhs_ptr, "auto_deref");
+                    }
+                }
+
+                if let BasicValueEnum::PointerValue(rhs_ptr) = rhs_val {
+                    if !rhs_ptr.get_type().get_element_type().is_pointer_type() {
+                        rhs_val = self.builder.build_load(rhs_ptr, "auto_deref");
+                    }
+                }
+
+                // TODO: If lhs/rhs points to a non ptr, we probably want to deref it prior to the match.
+                // this is because it's likely an alloca
 
                 match (lhs_val, rhs_val) {
                     (BasicValueEnum::IntValue(lhs), BasicValueEnum::IntValue(rhs)) => {
@@ -664,7 +666,7 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
 
                         VisitOutcome::new_without_visit(bv)
                     },
-                    _ => unimplemented!(),
+                    pair => unimplemented!("Op {:?} pair: {:?}", op.node(), pair),
                }
             },
             ExprKind::UnaryOp(op, expr) => {
@@ -678,6 +680,70 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx> {
                 };
 
                 VisitOutcome::new_without_visit(BasicValueEnum::from(val))
+            },
+            ExprKind::Var(name) => VisitOutcome::new(*self.values.get(name).unwrap_or_else(|| panic!("ICE: Var {}", name))),
+            ExprKind::If(cond, block, opt_elif) => {
+                let start_block = self.builder.get_insert_block().expect("ICE");
+                let fn_val = start_block.get_parent().expect("ICE");
+                let then_block = self.context.append_basic_block(fn_val, "if_then_block");
+                let else_block = self.context.append_basic_block(fn_val, "if_else_block");
+                let exit_block = self.context.append_basic_block(fn_val, "if_exit_block");
+
+                // self.builder.position_at_end(start_block);
+
+                let cond = self.visit_expr_kind(cond.deref_node_mut()).into_node().into_int_value();
+
+                self.builder.build_conditional_branch(cond, then_block, else_block);
+                self.builder.position_at_end(then_block);
+
+                self.visit_block(block);
+                self.builder.build_unconditional_branch(exit_block);
+
+                self.builder.position_at_end(else_block);
+
+                if let Some(elif) = opt_elif {
+                    assert!(matches!(elif.deref_node_mut(), ExprKind::If(..) | ExprKind::Block(..)));
+
+                    self.visit_expr_kind(elif.deref_node_mut());
+                }
+
+                self.builder.build_unconditional_branch(exit_block);
+                self.builder.position_at_end(exit_block);
+
+                VisitOutcome::default().without_visit()
+            },
+            ExprKind::WhileLoop(cond, block) => {
+                dbg!("WhileLoop");
+                let start_block = self.builder.get_insert_block().expect("ICE");
+                let fn_val = start_block.get_parent().expect("ICE");
+                let cond_block = self.context.append_basic_block(fn_val, "while_cond_block");
+                let then_block = self.context.append_basic_block(fn_val, "while_then_block");
+                let exit_block = self.context.append_basic_block(fn_val, "while_exit_block");
+
+                self.builder.build_unconditional_branch(cond_block);
+                self.builder.position_at_end(cond_block);
+
+                let cond = self.visit_expr_kind(cond.deref_node_mut()).into_node().into_int_value();
+
+                self.builder.build_conditional_branch(cond, then_block, exit_block);
+                self.builder.position_at_end(then_block);
+
+                self.visit_block(block);
+
+                dbg!("Post visit_block");
+
+                self.builder.build_unconditional_branch(cond_block);
+                self.builder.position_at_end(exit_block);
+
+                VisitOutcome::default().without_visit()
+            },
+            ExprKind::Assign(lhs, rhs) => {
+                let lhs = self.visit_expr_kind(lhs.deref_node_mut()).into_node().into_pointer_value();
+                let rhs = self.visit_expr_kind(rhs.deref_node_mut()).into_node();
+
+                self.builder.build_store(lhs, rhs);
+
+                VisitOutcome::default().without_visit()
             },
             e => unimplemented!("{:?}", e),
         }

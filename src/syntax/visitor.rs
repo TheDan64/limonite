@@ -162,7 +162,8 @@ impl<'s, R, V: AstVisitor<'s, R>> Visitor<V, R> {
                         self.visit_expr(expr);
                     }
                 },
-                ExprKind::Assign(_path, rhs_expr) => {
+                ExprKind::Assign(lhs_expr, rhs_expr) => {
+                    self.visit_expr(lhs_expr);
                     self.visit_expr(rhs_expr);
                 },
                 ExprKind::FnCall(_ident, params) => {
@@ -174,7 +175,10 @@ impl<'s, R, V: AstVisitor<'s, R>> Visitor<V, R> {
                 ExprKind::Return(Some(expr)) => {
                     self.visit_expr(expr);
                 },
-                _ => {},
+                ExprKind::Return(None) => (),
+                ExprKind::Var(_)
+                | ExprKind::Literal(_) => (), // TODO: Unimportant atm
+                e => unimplemented!("{:?}", e),
             }
         }
 
@@ -228,7 +232,7 @@ impl<'s, R, V: AstVisitor<'s, R>> Visitor<V, R> {
                 ItemKind::FnDef(_name, _fn_sig, block) => {
                     self.visit_block(block);
                 },
-                _ => (),
+                i => unimplemented!("{:?}", i),
             }
         }
 

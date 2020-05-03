@@ -277,6 +277,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash-chain"
+version = "0.2.5"
+source = "git+https://github.com/TheDan64/hash-chain#603d46a7a06bc7fe4ee068d5358517026283cd44"
+
+[[package]]
 name = "heck"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -295,7 +300,7 @@ dependencies = [
 [[package]]
 name = "inkwell"
 version = "0.1.0"
-source = "git+https://github.com/TheDan64/inkwell?branch=llvm8-0#4d2928731a633216545914b501a84c91482f889f"
+source = "git+https://github.com/TheDan64/inkwell?branch=llvm8-0#9aabeab21188dcb512b877c1ca9bda94d7d959ee"
 dependencies = [
  "either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "inkwell_internals 0.1.0 (git+https://github.com/TheDan64/inkwell?branch=llvm8-0)",
@@ -309,7 +314,7 @@ dependencies = [
 [[package]]
 name = "inkwell_internals"
 version = "0.1.0"
-source = "git+https://github.com/TheDan64/inkwell?branch=llvm8-0#4d2928731a633216545914b501a84c91482f889f"
+source = "git+https://github.com/TheDan64/inkwell?branch=llvm8-0#9aabeab21188dcb512b877c1ca9bda94d7d959ee"
 dependencies = [
  "proc-macro2 1.0.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -353,6 +358,7 @@ version = "0.2.0"
 dependencies = [
  "criterion 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "debug_tree 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hash-chain 0.2.5 (git+https://github.com/TheDan64/hash-chain)",
  "inkwell 0.1.0 (git+https://github.com/TheDan64/inkwell?branch=llvm8-0)",
  "rustc-hash 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog 2.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -926,6 +932,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum dirs-sys 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "afa0b23de8fd801745c471deffa6e12d248f962c9fd4b4c33787b055599bde7b"
 "checksum either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 "checksum getrandom 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)" = "7abc8dd8451921606d809ba32e95b6111925cd2906060d2dcc29c070220503eb"
+"checksum hash-chain 0.2.5 (git+https://github.com/TheDan64/hash-chain)" = "<none>"
 "checksum heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "20564e78d53d2bb135c343b3f47714a56af2061f1c928fdb541dc7b9fdd94205"
 "checksum hermit-abi 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "61565ff7aaace3525556587bd2dc31d4a07071957be715e63ce7b1eccf51a8f4"
 "checksum inkwell 0.1.0 (git+https://github.com/TheDan64/inkwell?branch=llvm8-0)" = "<none>"

@@ -5,7 +5,7 @@ use inkwell::{AddressSpace, IntPredicate};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::{FunctionType, StructType};
-use inkwell::values::FunctionValue;
+use inkwell::values::{BasicValue, FunctionValue};
 
 pub struct LimeString;
 

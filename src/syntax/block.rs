@@ -1,6 +1,6 @@
 use crate::syntax::Stmt;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Block<'s> {
     pub(crate) indent: u32,
     stmts: Vec<Stmt<'s>>,

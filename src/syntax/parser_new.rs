@@ -250,7 +250,48 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             let rhs = self.parse_expr(r_bp)?;
             let span = Span::new(lhs_tok, lhs_tok, rhs.span());
 
-            lhs = Spanned::boxed(ExprKind::InfixOp(op, lhs, rhs), span);
+            // We want to desugar an assignment infix op into an assignment expr.
+            // Maybe ExprKind::InfixOp is a poor name since it doesn't include all infix ops?
+            let kind = match op.node() {
+                InfixOp::AddEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Add), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                InfixOp::DivEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Div), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                InfixOp::ModEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Mod), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                InfixOp::MulEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Mul), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                InfixOp::SubEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Sub), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                _ => ExprKind::InfixOp(op, lhs, rhs),
+            };
+
+            lhs = Spanned::boxed(kind, span);
 
             continue;
         }
@@ -292,9 +333,12 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                             _ => false,
                         };
 
-                        // If it's not just multiple indents or an error, dedent
+                        // TODO: 1) Might have to do this in a loop. 2) Should check that the last ident isnt the same level
+
+                        // If it's not just multiple indents or an error, dedent & exit block
                         if !is_indent_or_err {
                             self.indent = level;
+                            break;
                         }
 
                         continue;

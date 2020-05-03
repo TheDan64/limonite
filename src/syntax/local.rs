@@ -1,9 +1,7 @@
 use crate::span::Spanned;
 use crate::syntax::{Expr, Type};
-// Const declaration?, variable name, type(optional in parser but not SA), and expression
-    // VarDecl(bool, Spanned<&'s str>, Option<Spanned<&'s str>>, Expr<'s>),
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Local<'s> {
     // TODO: Pat instead of name
     // pat: Pat,
