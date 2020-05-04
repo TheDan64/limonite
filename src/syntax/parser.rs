@@ -1,900 +1,657 @@
-#![allow(dead_code)]
-use std::iter::Peekable;
-use lexical::tokens::Tokens;
-use lexical::tokens::Tokens::*;
-use lexical::keywords::Keywords;
-use lexical::symbols::Symbols;
-use syntax::expr::*;
-use syntax::literals::*;
-use syntax::op::*;
-use lexical::types::*;
+use crate::interner::StrId;
+use crate::lexical::{Keyword::*, LexerError, Symbol::{self, *}, Token, TokenKind, TokenResult};
+use crate::span::{Span, Spanned};
+use crate::syntax::{Block, Expr, ExprKind, InfixOp, Item, ItemKind, Local, Literal::*, Stmt, StmtKind, Type, TypeKind, UnaryOp};
+use crate::syntax::items::FnSig;
 
-pub struct Parser<I: Iterator<Item=Tokens>> {
+use std::convert::TryFrom;
+use std::iter::{Iterator, Peekable};
+
+pub struct Parser<'s, I: Iterator> {
+    errors: Vec<ParserError<'s>>,
     token_stream: Peekable<I>,
-    ast_root: ExprWrapper,
-    preview_token: Option<Option<Tokens>>,
-    block_status: BlockStatus,
-    indent_level: u64,
-    valid_ast: bool,
-    between_brackets: bool,
-    last_depth: Option<u64>,
+    indent: u32,
 }
 
-enum BlockStatus {
-    Out,
-    Starting,
-    In,
-}
-
-fn debunt(val: u64) -> String {
-    let mut a = String::new();
-    for _ in 0..val {
-        a.push_str("    ");
-    }
-    return a;
-}
-
-impl <I: Iterator<Item=Tokens>> Parser<I> {
-    pub fn new(token_stream: I) -> Parser<I> {
+impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
+    pub fn new(token_stream: I) -> Self {
         Parser {
+            errors: Vec::new(),
             token_stream: token_stream.peekable(),
-            ast_root: ExprWrapper::default(Expr::NoOp),
-            indent_level: 0,
-            valid_ast: true,
-            preview_token: Some(Some(Indent(0))),
-            block_status: BlockStatus::Out,
-            between_brackets: false,
-            last_depth: None,
+            indent: 0,
         }
     }
 
-    /// Consume the next `Token` from the token_stream
-    /// - Ignores `Comment`s entirely
-    /// - Smartly handlers `Indent`s by:
-    ///    - When in blocks ignores them
-    ///    - Ensures correct indentation size, then gets the next token
-    fn _next_token(&mut self, allow_any: bool) -> Option<Tokens> {
-        loop {
-            let token = self.preview_token
-                .take()
-                .unwrap_or_else(|| self.token_stream.next());
+    pub fn run(mut self) -> Result<Block<'s>, Vec<ParserError<'s>>> {
+        let ast_root = self.parse_block();
 
-            match token {
-                Some(Indent(depth)) => {
-                    match self.block_status {
-                        BlockStatus::Out => {
-                            // If the new depth is smaller than the old depth, we've dedented
-                            // if depth - self.indent_level <= 0 {
-                                // self.indent_level = depth;
-                            // }
-                        },
-                        BlockStatus::Starting => {
-                            if self.indent_level == depth {
-                                self.block_status = BlockStatus::In;
-                            } else {
-                                return Some(self.write_error("Invalid level of indentation"));
-                            }
-                        },
-                        BlockStatus::In => {
-                            self.block_status = BlockStatus::Out;
-                        },
-                    }
-                    if !self.between_brackets && allow_any {
-                        return token;
-                    }
-                },
-                Some(Comment(_)) => {
-                    self.last_depth = None;
-                },
-                _ => return token,
-            }
+        if self.errors.is_empty() {
+            Ok(ast_root)
+        } else {
+            Err(self.errors)
         }
     }
 
-    fn next_token(&mut self) -> Tokens {
-        self._next_token(false)
-            .unwrap_or_else(|| Tokens::Error(format!("Unexpected end of stream.")))
+    fn opt_next_token(&mut self) -> Result<Option<Token<'s>>, ParserError<'s>> {
+        match self.token_stream.peek() {
+            Some(Ok(t)) => Ok(Some(*t)),
+            Some(Err(e)) => (*e).into(),
+            None => Ok(None),
+        }
     }
 
-    fn next_token_any(&mut self) -> Tokens {
-        self._next_token(true)
-            .unwrap_or_else(|| Tokens::Error(format!("Unexpected end of stream.")))
+    fn next_token(&mut self) -> Result<Token<'s>, ParserError<'s>> {
+        match self.opt_next_token()? {
+            Some(t) => Ok(t),
+            None => unimplemented!("eof error"),
+        }
     }
 
-    /// Returns a peek at the next `Token` without consuming it
-    ///
-    /// The next call to `next_token` will return the same `Token` returned
-    /// by the last call to `peek`
-    fn _peek(&mut self, allow_any: bool) -> Option<Tokens> {
-        let tok = self._next_token(allow_any);
-        self.preview_token = Some(tok.clone());
-        tok
+    fn opt_consume_token(&mut self) -> Result<Option<Token<'s>>, ParserError<'s>> {
+        match self.token_stream.next() {
+            Some(Ok(t)) => Ok(Some(t)),
+            Some(Err(e)) => e.into(),
+            None => Ok(None),
+        }
     }
 
-    /// Peeks the next token while doing smart filtering out of tokens
-    /// which most callers would not want to see.
-    fn peek(&mut self) -> Tokens {
-        self._peek(false)
-            .unwrap_or_else(|| Tokens::Error(format!("Unexpected end of stream.")))
+    fn skip_til_indent(&mut self) {
+        while !matches!(self.opt_next_token().map(|i| i.map(|i| i.node())), Ok(Some(TokenKind::Indent(_)))) {
+            self.consume_token().unwrap();
+        }
     }
 
-    /// Peeks the next token, but does not do any filtering
-    /// on `Tokens`
-    fn peek_any(&mut self) -> Tokens {
-        self._peek(true)
-            .unwrap_or_else(|| Tokens::Error(format!("Unexpected end of stream.")))
+    fn consume_token(&mut self) -> Result<Token<'s>, ParserError<'s>> {
+        match self.opt_consume_token()? {
+            Some(t) => Ok(t),
+            None => unimplemented!("eof error"),
+        }
     }
 
-    /// Create an error from the current parser state, with a message
-    fn write_error(&mut self, msg: &str) -> Tokens {
-        let (start_line, start_column, _, _) = (0, 0, 0, 0);
+    fn parse_fn_call(&mut self, ident: Spanned<&'s str>) -> Result<Expr<'s>, ParserError<'s>> {
+        // Open Paren
+        self.consume_token().unwrap();
 
-        self.valid_ast = false;
+        let token = self.next_token()?;
 
-        println!("filename:{}:{} {}", start_line, start_column, msg); // REVIEW: Rust added eprintln!
+        // call()
+        if token.node() == TokenKind::Symbol(ParenClose) {
+            self.consume_token().unwrap();
 
-        // This token seems to always be unused:
-        Tokens::Error(format!("filename:{}:{} {}", start_line, start_column, msg))
+            let span = Span::new(ident, ident, token);
+
+            return Ok(Spanned::boxed(ExprKind::FnCall(ident, Vec::new()), span));
+        }
+
+        let exprs = self.parse_deliminated(|p| p.parse_expr(0), Comma, true)?;
+        let end_token = self.next_token()?;
+
+        // Can be close token
+        if end_token.node() != TokenKind::Symbol(ParenClose) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(end_token),
+            });
+        }
+
+        self.consume_token().unwrap();
+
+        let span = Span::new(token, ident, end_token);
+
+        Ok(Spanned::boxed(ExprKind::FnCall(ident, exprs), span))
     }
 
-    fn write_expect_error(&mut self, reason: &str, expect: &str, got: &str) {
-        self.write_error(&format!("{}. Expected {}, but got {}", reason, expect, got));
-    }
+    fn parse_numeric(&mut self, num: Spanned<&'s str>, opt_suffix: Option<Spanned<&'s str>>) -> Result<Expr<'s>, ParserError<'s>> {
+        macro_rules! parse_int {
+            ($ty:ty) => {{
+                let num = num.node();
 
-    /// Perform any necessary on-start actions
-    fn start(&self) {
-    }
-
-    fn incr_indentation(&mut self) {
-        self.block_status = BlockStatus::Starting;
-        self.indent_level += 1;
-    }
-
-    fn collect_args(&mut self) -> Option<Vec<ExprWrapper>> {
-        let mut args = Vec::new();
-        let mut tok = self.next_token();
-        let mut first_arg = true;
-
-        loop {
-            if !first_arg {
-                tok = self.next_token();
-            }
-
-            if !first_arg && tok.expect(Symbol(Symbols::Comma)) {
-                tok = self.next_token();
-            }
-
-            if tok.expect(Symbol(Symbols::ParenClose)) {
-                return Some(args);
-            }
-
-            let name = match tok {
-                Tokens::Identifier(ref name) => Some(name),
-                _ => {
-                    self.write_error(&format!("Unsupported token {:?}.", tok));
-                    None
+                if num.starts_with("0b") {
+                    <$ty>::from_str_radix(&num[2..], 2).expect("fixme")
+                } else if num.starts_with("0x") {
+                    <$ty>::from_str_radix(&num[2..], 16).expect("fixme")
+                } else {
+                    <$ty>::from_str_radix(&num, 10).expect("fixme")
                 }
-            };
-
-            if let Some(arg) = name {
-                args.push(ExprWrapper::default(Expr::Literal(Literals::UTF8String(arg.to_string()))));
-                first_arg = false;
-                continue;
-            }
-            break;
-        }
-        self.write_error(&format!("Invalid syntax."));
-        None
-    }
-
-    fn collect_sequence<F, G>
-        (&mut self, mut collect_arg: F, sequence_end: G) -> Vec<ExprWrapper>
-        where F: FnMut(&mut Parser<I>, Tokens) -> Option<ExprWrapper>,
-              G: Fn(&Parser<I>, Tokens) -> bool {
-        let mut args = Vec::new();
-        loop {
-            if let Some(new_arg) = collect_arg(self, Symbol(Symbols::Comma)) {
-                args.push(new_arg);
-            }
-            let tok = self.peek();
-            if sequence_end(self, tok) {
-                break;
-            }
-
-            // Skips the comma
-            self.next_token();
-        }
-        args
-    }
-
-    #[allow(unused_variables)]
-    fn parse_fn_call(&mut self, ident: String) -> Option<ExprWrapper> {
-        let token = self.next_token();
-        if !token.expect(Symbol(Symbols::ParenOpen)) {
-            self.write_error("Expected an open parenthesis here.");
-            return None;
+            }}
         }
 
-        let tok = self.peek();
-
-        // Check to see if there are no args
-        if tok.expect(Symbol(Symbols::ParenClose)) {
-            self.next_token();
-            return Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), Vec::new())));
-        }
-
-        let parse_args = |this: &mut Parser<I>, seperator: Tokens| {
-            if !seperator.expect(Symbol(Symbols::Comma)) {
-                this.write_error("Missing a comma between arguments.");
-            }
-            this.parse_expression(0)
-        };
-
-        let sequence_end = |this: &Parser<I>, current_token: Tokens| {
-            current_token.expect(Symbol(Symbols::ParenClose))
-        };
-
-        let args = self.collect_sequence(parse_args, sequence_end);
-        self.next_token();
-
-        Some(ExprWrapper::default(Expr::FnCall(ident.to_string(), args)))
-    }
-
-    fn parse_assignment(&mut self, ident: String) -> Option<ExprWrapper> {
-        // Clear the equals sign
-        self.next_token();
-
-        if let Some(rvalue) = self.parse_expression(0) {
-            let ident = ExprWrapper::default(Expr::Var(ident));
-            return Some(ExprWrapper::default(Expr::Assign(ident, rvalue)));
-        } else {
-            self.write_expect_error("", "An expression", "None");
-        }
-
-        None
-    }
-
-    fn parse_add_assignment(&mut self, ident: String) -> Option<ExprWrapper> {
-        // Clear the greater than symbol
-        self.next_token();
-
-        if let Some(rvalue) = self.parse_expression(0) {
-            let ident_expr = ExprWrapper::default(Expr::Var(ident.clone()));
-            let ident_expr2 = ExprWrapper::default(Expr::Var(ident));
-            let add = ExprWrapper::default(Expr::InfixOp(InfixOp::Add, ident_expr, rvalue));
-
-            return Some(ExprWrapper::default(Expr::Assign(ident_expr2, add)));
-        } else {
-            self.write_expect_error("", "An expression", "None");
-        }
-
-        None
-    }
-
-    fn parse_sub_assignment(&mut self, ident: String) -> Option<ExprWrapper> {
-        // Clear the greater than symbol
-        self.next_token();
-
-        if let Some(rvalue) = self.parse_expression(0) {
-            let ident_expr = ExprWrapper::default(Expr::Var(ident.clone()));
-            let ident_expr2 = ExprWrapper::default(Expr::Var(ident));
-            let sub = ExprWrapper::default(Expr::InfixOp(InfixOp::Sub, ident_expr, rvalue));
-
-            return Some(ExprWrapper::default(Expr::Assign(ident_expr2, sub)));
-        } else {
-            self.write_expect_error("", "An expression", "None");
-        }
-
-        None
-    }
-
-    fn parse_idents(&mut self, ident: String) -> Option<ExprWrapper> {
-        self.next_token();
-
-        let tok = self.peek();
-        match tok {
-            Symbol(Symbols::ParenOpen) => self.parse_fn_call(ident),
-            Symbol(Symbols::Equals) => self.parse_assignment(ident),
-            Symbol(Symbols::PlusEquals) => self.parse_add_assignment(ident),
-            Symbol(Symbols::MinusEquals) => self.parse_sub_assignment(ident),
-            _ => None,
-        }
-    }
-
-    // Parse function definitions: fn ident(args) -> type
-    #[allow(unused_variables)]
-    fn parse_fn(&mut self) -> Option<ExprWrapper> {
-        self.next_token();
-
-        // Get the function name
-        let tok = self.next_token();
-        let fn_name = match tok {
-            Identifier(string) => string,
-            _ => {
-                self.write_expect_error("", "an identifier", &format!("{:?}", tok));
-
-                return None;
-            }
-        };
-
-        // Get a left paren (
-        let mut tok = self.next_token();
-
-        if !tok.expect(Symbol(Symbols::ParenOpen)) {
-            self.write_expect_error("", "an opening paren '('", &format!("{:?}", tok));
-
-            return None;
-        }
-
-        // Get all args (ie a: u64)
-        let mut args = Vec::new();
-
-        tok = self.next_token();
-
-        if tok != Symbol(Symbols::ParenClose) {
-            loop {
-                // Find sequence: ((Identifier : Identifier)(, (Identifier : Identifier))*)?
-                let arg_name = match tok {
-                    Identifier(ident) => ident,
-                    _ => {
-                        self.write_expect_error("", "a function name", &format!("{:?}", tok));
-
-                        return None;
-                    }
-                };
-
-                tok = self.next_token();
-
-                if !tok.expect(Symbol(Symbols::Colon)) {
-                    self.write_expect_error("", "a colon ':'", &format!("{:?}", tok));
-
-                    return None;
+        let num_lit = match opt_suffix.map(|sp| sp.node()) {
+            Some("i8") => I8Num(parse_int!(i8)),
+            Some("i16") => I16Num(parse_int!(i16)),
+            Some("i32") => I32Num(parse_int!(i32)),
+            Some("i64") => I64Num(parse_int!(i64)),
+            Some("i128") => I128Num(parse_int!(i128)),
+            Some("u8") => U8Num(parse_int!(u8)),
+            Some("u16") => U16Num(parse_int!(u16)),
+            Some("u32") => U32Num(parse_int!(u32)),
+            Some("u64") => U64Num(parse_int!(u64)),
+            Some("u128") => U128Num(parse_int!(u128)),
+            Some("f32") => F32Num(num.node().parse().expect("fixme")),
+            Some("f64") => F64Num(num.node().parse().expect("fixme")),
+            Some(_unknown) => todo!("parser error"),
+            None => {
+                if num.node().contains('.') {
+                    F32Num(num.node().parse().expect("fixme"))
+                } else {
+                    I32Num(parse_int!(i32))
                 }
-
-                let this_token = self.next_token();
-                match this_token {
-                    Identifier(ident) => args.push((arg_name, ident)),
-                    _ => {
-                        self.write_expect_error("", "a return type", &format!("{:?}", this_token));
-
-                        return None;
-                    }
-                };
-
-                let this_token = self.next_token();
-                match this_token {
-                    // Hit a closing paren, no more args
-                    Symbol(Symbols::ParenClose) => break,
-
-                    // Hit a comma, expecting more args
-                    Symbol(Symbols::Comma) => (),
-
-                    // Found something else, error
-                    _ => {
-                        self.write_expect_error("", "a closing paren ')' or comma ','", &format!("{:?}", this_token));
-
-                        return None;
-                    }
-                };
-
-                tok = self.next_token();
-            }
-        }
-
-        // TODO: Support no type param which means void/none
-
-        // Get right arrow ->
-        tok = self.next_token();
-        if !tok.expect(Symbol(Symbols::RightThinArrow)) {
-            self.write_expect_error("", "a thin right arrow '->'", &format!("{:?}", tok));
-            return None;
-        }
-
-        // Get a return type or identifier
-        tok = self.next_token();
-
-        let return_type = match tok {
-            Identifier(ident) => {
-                Some(ident)
             },
-            _ => {
-                self.write_expect_error("", "a return type", &format!("{:?}", tok));
-
-                return None;
-            }
         };
 
-        self.incr_indentation();
+        let end_idx = opt_suffix.map(|s| s.end_idx()).unwrap_or(num.end_idx());
+        let span = Span::new(num, num, end_idx);
 
-        // Combine the rest of the function definiton with the fn info
-        let definition = self.sub_parse();
-
-        let expr = Expr::FnDecl(fn_name, args, return_type, definition);
-
-        Some(ExprWrapper::default(expr))
+        Ok(Spanned::boxed(ExprKind::Literal(num_lit), span))
     }
 
-    fn parse_declaration(&mut self) -> Option<ExprWrapper> {
-        let keyword = self.next_token();
-        let def_decl = keyword.expect(Keyword(Keywords::Def));
-
-        let token = self.next_token();
-
-        if let Identifier(name) = token {
-            let mut token = self.next_token();
-            let mut val_type:Option<String> = None;
-
-            // Find an (optional) type:
-            if token.expect(Symbol(Symbols::Colon)) {
-                match self.next_token() {
-                    Identifier(t) => {
-                        token = self.next_token();
-                        val_type = Some(t);
-                    },
-                    _ => {
-                        self.write_expect_error("", "a type", &format!("{:?}", token));
-                        return None;
-                    }
-                }
-            }
-
-            if !token.expect(Symbol(Symbols::Equals)) {
-                self.write_expect_error("", "an Equal", &format!("{:?}", token));
-                return None
-            }
-
-            let expr = self.parse_expression(0);
-            if let Some(value) = expr {
-                return Some(ExprWrapper::default(Expr::VarDecl(def_decl, name, val_type, value)));
-            } else {
-                self.write_expect_error("No value", "an expression",
-                                        &format!("{:?}", token));
-            }
-        } else {
-            self.write_expect_error("No identifier", "an identifier",
-                                    &format!("{:?}", token));
-        }
-
-        None
-    }
-
-    /// Parse a while block
-    fn parse_while(&mut self) -> Option<ExprWrapper> {
-        self.next_token();
-        if let Some(expr) = self.parse_expression(0) {
-            let token = self.next_token();
-            if !token.expect(Symbol(Symbols::Comma)) {
-                self.write_expect_error("Incomplete while expression",
-                                        &format!("{:?}", Symbols::Comma),
-                                        &format!("{:?}", token));
-                return None
-            }
-            self.incr_indentation();
-
-            let block = self.sub_parse();
-            let result = Expr::WhileLoop(expr, block);
-
-            Some(ExprWrapper::default(result))
-        } else {
-            self.write_expect_error("While should have an expression",
-                                    &format!("{:?}", "An expression"),
-                                    &format!("{:?}", "Nothing"));
-            None
-        }
-    }
-
-    /// Handles top-level keywords to start parsing them
-    fn parse_keywords(&mut self, keyword: Keywords) -> Option<ExprWrapper> {
-        match keyword {
-            Keywords::Var | Keywords::Def => self.parse_declaration(),
-            Keywords::Function => self.parse_fn(),
-            Keywords::While => self.parse_while(),
-            Keywords::If => self.parse_if(),
-            Keywords::Return => self.parse_return(),
-            _ => {
-                self.write_error(&format!("Unsupported keyword {:?}.", keyword));
-                None
-            }
-        }
-    }
-
-    fn parse_return(&mut self) -> Option<ExprWrapper> {
-        self.next_token();
-
-        let wrapper = match self.parse_expression(0) {
-            Some(exprwrapper) => exprwrapper,
-            None => return None,
-        };
-
-        Some(ExprWrapper::default(Expr::Return(Some(wrapper))))
-
-        // TODO: Expect newline?
-    }
-
-    fn parse_if(&mut self) -> Option<ExprWrapper> {
-        self.next_token();
-
-        let condition = match self.parse_expression(0) {
-            Some(exprwrapper) => exprwrapper,
-            None => return None
-        };
-
-        let tok = self.next_token();
-
-        if !tok.expect(Symbol(Symbols::Comma)) {
-            self.write_expect_error("", "a comma ','", &format!("{:?}", tok));
-
-            return None;
-        }
-
-        self.incr_indentation();
-
-        let block = self.sub_parse();
-
-        let expr = Expr::If(condition, block, None);
-
-        Some(ExprWrapper::default(expr))
-    }
-
-    fn is_infix_op(&self, token: &Tokens) -> bool {
-        match *token {
-            Symbol(Symbols::Plus) => true,
-            Symbol(Symbols::Minus) => true,
-            Symbol(Symbols::Asterisk) => true,
-            Symbol(Symbols::Slash) => true,
-            Symbol(Symbols::Percent) => true,
-            Symbol(Symbols::Caret) => true,
-            Symbol(Symbols::LessThan) => true,
-            Symbol(Symbols::LessThanEqual) => true,
-            Symbol(Symbols::GreaterThan) => true,
-            Symbol(Symbols::GreaterThanEqual) => true,
-            Keyword(Keywords::Equals) => true,
-            _ => false
-        }
-    }
-
-    fn get_precedence(&self, token: &Tokens) -> u8 {
-        match *token {
-            Symbol(Symbols::Plus) => InfixOp::Add.get_precedence(),
-            Symbol(Symbols::Minus) => InfixOp::Sub.get_precedence(),
-            Symbol(Symbols::Asterisk) => InfixOp::Mul.get_precedence(),
-            Symbol(Symbols::Slash) => InfixOp::Div.get_precedence(),
-            Symbol(Symbols::Percent) => InfixOp::Mod.get_precedence(),
-            Symbol(Symbols::Caret) => InfixOp::Pow.get_precedence(),
-            Keyword(Keywords::Equals) => InfixOp::Equ.get_precedence(),
-            _ => 0
-        }
-    }
-
-    fn parse_expression(&mut self, precedence: u8) -> Option<ExprWrapper> {
+    fn parse_expr(&mut self, min_bp: u8) -> Result<Expr<'s>, ParserError<'s>> {
         // E -> (E) | [E] | E * E | E + E | E - E | E / E | E % E | E ^ E |
         // E equals E | E and E | E or E | not E | -E | Terminal
         // Terminal -> identifier | literal
 
-        let subroutine = self.parse_expression_subroutine();
-        if subroutine == None {
-            return None
-        }
-        let mut lhs = subroutine.unwrap();
+        let lhs_tok = self.next_token()?;
+        let mut lhs = match lhs_tok.node() {
+            TokenKind::Symbol(ParenOpen) => {
+                self.consume_token().unwrap();
 
-        debug!("        Parse_expression: sub({:?}) next({:?})", lhs, self.peek_any());
-        let mut token = self.peek_any();
-        while self.is_infix_op(&token) && self.get_precedence(&token) >= precedence {
-            token = self.next_token_any();
-            let new_precedence = self.get_precedence(&token) + match token {
-                // Right associative ops don't get the +1
-                Symbol(Symbols::Caret) => 0,
-                _ => 1,
-            };
+                let lhs = self.parse_expr(0)?;
+                let sp_tok = self.next_token()?;
 
-            if let Some(rhs) = self.parse_expression(new_precedence) {
-                let infix = match token {
-                    Symbol(Symbols::Plus) => InfixOp::Add,
-                    Symbol(Symbols::Minus) => InfixOp::Sub,
-                    Symbol(Symbols::Asterisk) => InfixOp::Mul,
-                    Symbol(Symbols::Slash) => InfixOp::Div,
-                    Symbol(Symbols::Percent) => InfixOp::Mod,
-                    Symbol(Symbols::Caret) => InfixOp::Pow,
-                    Symbol(Symbols::LessThan) => InfixOp::Lt,
-                    Symbol(Symbols::LessThanEqual) => InfixOp::Lte,
-                    Symbol(Symbols::GreaterThan) => InfixOp::Gt,
-                    Symbol(Symbols::GreaterThanEqual) => InfixOp::Gte,
-                    Keyword(Keywords::Equals) => InfixOp::Equ,
-                    _ => unreachable!("Expression parse")
-                };
-
-                lhs = ExprWrapper::default(Expr::InfixOp(infix, lhs, rhs));
-            } else {
-                return None;
-            }
-            token = self.peek_any();
-            debug!("        Parse expr end: {:?}", token);
-        }
-
-        Some(lhs)
-    }
-
-    fn parse_expression_subroutine(&mut self) -> Option<ExprWrapper> {
-        match self.next_token() {
-            // Terminals
-            BoolLiteral(val) => {
-                Some(ExprWrapper::default(Expr::Literal(Literals::Bool(val))))
-            },
-            StrLiteral(string) => {
-                Some(ExprWrapper::default(Expr::Literal(Literals::UTF8String(string))))
-            },
-            CharLiteral(chr) => {
-                Some(ExprWrapper::default(Expr::Literal(Literals::UTF8Char(chr))))
-            },
-            Identifier(ident) => {
-                if let Symbol(Symbols::ParenOpen) = self.peek_any() {
-                    return self.parse_fn_call(ident);
+                if sp_tok.node() != TokenKind::Symbol(ParenOpen) {
+                    return Err(ParserError {
+                        kind: ParserErrorKind::UnexpectedToken(sp_tok)
+                    });
                 }
 
-                Some(ExprWrapper::default(Expr::Var(ident)))
+                self.consume_token().unwrap();
+
+                lhs
             },
-            Numeric(string, _type) => Some(self.parse_number(string, _type)),
+            // Symbol(SBracketOpen) => {
+            //     let lhs = self.parse_expr(0);
 
-            // Parens
-            Symbol(Symbols::ParenOpen) => {
-                let exprwrapper = self.parse_expression(0);
+            //     // FIXME: Check if SBracketClose
+            //     self.consume_token();
 
-                let tok = self.next_token();
+            //     lhs
+            // },
+            // TODO: or Keyword::Not
+            TokenKind::Symbol(Minus) => {
+                self.consume_token().unwrap();
 
-                if !tok.expect(Symbol(Symbols::ParenClose)) {
-                    self.write_expect_error("", "a closing paren ')'", &format!("{:?}", tok));
+                let ((), r_bp) = UnaryOp::Negate.binding_power();
+                let rhs = self.parse_expr(r_bp)?;
+                let span = Span::new(lhs_tok, lhs_tok, rhs.span());
 
-                    return None;
-                }
-
-                exprwrapper
+                Spanned::boxed(ExprKind::UnaryOp(lhs_tok.replace(UnaryOp::Negate), rhs), span)
             },
+            TokenKind::StrLiteral(s) => {
+                self.consume_token().unwrap();
 
-            // Unary ops, precedence hard coded to a (high) 8
-            Symbol(Symbols::Minus) => {
-                return match self.parse_expression(8) {
-                    Some(exprwrapper) => Some(ExprWrapper::default(Expr::UnaryOp(UnaryOp::Negate, exprwrapper))),
-                    None => None
-                }
+                lhs_tok.replace(Box::new(ExprKind::Literal(UTF8String(s))))
             },
-            Keyword(Keywords::Not) => {
-                return match self.parse_expression(8) {
-                    Some(exprwrapper) => Some(ExprWrapper::default(Expr::UnaryOp(UnaryOp::Not, exprwrapper))),
-                    None => None
-                }
+            TokenKind::Numeric(num, opt_suffix) => {
+                self.consume_token().unwrap();
+                self.parse_numeric(num, opt_suffix)?
             },
+            TokenKind::Identifier(i) => {
+                self.consume_token().unwrap();
 
-            // Else error
-            _ => {
-                self.write_error("Not sure how you got here.");
-
-                None
-            }
-        }
-    }
-
-    // Parse numbers into their correct representation
-    #[allow(unused_variables)]
-    #[allow(dead_code)]
-    fn parse_number(&mut self, num: String, type_: Option<Types>) -> ExprWrapper {
-        let has_decimal_point = num.contains('.');
-
-        // There might be a better way to write this:
-        let base:u32 = if num.len() == 1 {
-            10
-        } else {
-            match &num[..2] {
-                "0x" => 16,
-                "0b" => 2,
-                _    => 10
-            }
+                lhs_tok.replace(Box::new(ExprKind::Var(i)))
+            },
+            TokenKind::Symbol(_) => {
+                return Err(ParserError {
+                    kind: ParserErrorKind::UnexpectedToken(lhs_tok),
+                });
+            },
+            t => panic!("Unsupported expr lhs: {:?}", t),
         };
 
-        // May leave a leading 0 for hex and bin but won't change math:
-        let chars = num.chars().filter(|chr| match *chr {
-            '_' | 'x' | 'b' => false,
-            _ => true
-        });
+        loop {
+            let tok = match self.opt_next_token()? {
+                Some(tok) => tok,
+                None => break,
+            };
 
-        let mut int32 = 0i32;
-        let mut int64 = 0i64;
-        let mut uint32 = 0u32;
-        let mut uint64 = 0u64;
-        let mut float32 = 0f32;
-        let mut float64 = 0f64;
-
-        let mut before_decimal_point = true;
-        let mut decimal_iteration = 1f32;
-
-        // Does not account for overflow
-        for chr in chars {
-            match chr {
-                c if c.is_digit(base) => {
-                    match type_ {
-                        Some(Types::Int32Bit) => {
-                            int32 *= base as i32;
-                            int32 += c.to_digit(base).unwrap() as i32;
-                        },
-                        Some(Types::Int64Bit) => {
-                            int64 *= base as i64;
-                            int64 += c.to_digit(base).unwrap() as i64;
-                        },
-                        Some(Types::UInt32Bit) => {
-                            uint32 *= base;
-                            uint32 += c.to_digit(base).unwrap();
-                        },
-                        Some(Types::UInt64Bit) => {
-                            uint64 *= base as u64;
-                            uint64 += c.to_digit(base).unwrap() as u64;
-                        },
-                        Some(Types::Float32Bit) => {
-                            if before_decimal_point {
-                                float32 *= base as f32;
-                                float32 += c.to_digit(base).unwrap() as f32;
-                            } else {
-                                float32 += c.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
-                                decimal_iteration += 1f32;
-                            }
-                        },
-                        Some(Types::Float64Bit) => {
-                            if before_decimal_point {
-                                float64 *= base as f64;
-                                float64 += c.to_digit(base).unwrap() as f64;
-                            } else {
-                                float64 += c.to_digit(base).unwrap() as f64 / (base as f64 * decimal_iteration as f64);
-                                decimal_iteration += 1f32;
-                            }
-                        },
-                        _ => {
-                            // No given type suffix. Default to i32 or f32 when a decimal point present
-                            if has_decimal_point {
-                                if before_decimal_point {
-                                    float32 *= base as f32;
-                                    float32 += c.to_digit(base).unwrap() as f32;
-                                } else {
-                                    float32 += c.to_digit(base).unwrap() as f32 / (base as f32 * decimal_iteration);
-                                    decimal_iteration += 1f32;
-                                }
-                            } else {
-                                int32 *= base as i32;
-                                int32 += c.to_digit(base).unwrap() as i32;
-                            }
-
-                        }
-                    }
-                },
-                '.' => before_decimal_point = false,
-                _ => unreachable!("Invalid characters found")
-            }
-        }
-
-        ExprWrapper::default(Expr::Literal(match type_ {
-            Some(Types::Int32Bit)   => Literals::I32Num(int32),
-            Some(Types::Int64Bit)   => Literals::I64Num(int64),
-            Some(Types::UInt32Bit)  => Literals::U32Num(uint32),
-            Some(Types::UInt64Bit)  => Literals::U64Num(uint64),
-            Some(Types::Float32Bit) => Literals::F32Num(float32),
-            Some(Types::Float64Bit) => Literals::F64Num(float64),
-            _ => {
-                // No given type suffix. Default to i32 or f32 when a decimal point present
-                if has_decimal_point {
-                    Literals::F32Num(float32)
-                } else {
-                    Literals::I32Num(int32)
-                }
-            }
-        }))
-    }
-
-    /// Returns an `ExprWrapper` to the root of the current AST branch
-    fn sub_parse(&mut self) -> ExprWrapper {
-        let mut expr = Vec::new();
-        let cur_level = self.indent_level;
-        debug!("{}Beginning parse", debunt(cur_level));
-        'outer: loop {
-            debug!("{}Beginning TLL at level: {:?}", debunt(cur_level + 1), cur_level);
-
-            // This inner loop is used to repeatedly consume Indent(0) tokens
-            // for as many lines as necessary until the next real line.
-            debug!("{}Start indent consumption loop", debunt(cur_level + 1));
-            'inner: loop {
-                debug!("{}Peek: {:?}", debunt(cur_level + 2), self.peek_any());
-                if let Some(token) = self._peek(true) {
-                    match token {
-                        Indent(this_depth) => {
-                            debug!("{}Hit an indent: {:?}", debunt(cur_level + 2), self.last_depth);
-
-                            // Indents / repeated indents are fine as long as the first of
-                            // the current indent and the directly previous indent is Indent(0).
-                            // The current one can be anything since it could be the last indent
-                            // before a new statement.
-                            if let Some(last_depth) = self.last_depth {
-                                if last_depth != 0 {
-                                    self.write_error(&format!("There were two indents in a row, {} and {}",
-                                                     last_depth, this_depth));
-                                    break 'outer;
-                                }
-                            }
-                            self.last_depth = Some(this_depth);
-                            self.next_token_any();
-                        },
-                        Error(_) => {
-                            break 'outer;
-                        },
-                        _ => {
-                            debug!("{}Not an indent: {:?}", debunt(cur_level + 2), self.last_depth);
-
-                            // A new non-Indent is only allowed after there has been an Indent
-                            // token. This forbids two statements (or any start of a block
-                            // and its subsequent statments) from being on the same line.
-                            if let Some(last_depth) = self.last_depth {
-                                if last_depth < cur_level {
-                                    debug!("{}Not a dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
-                                    self.indent_level = last_depth;
-                                    self.last_depth = Some(last_depth);
-                                    break 'outer;
-                                } else {
-                                    debug!("{}A dedent: last({:?}) current({:?})", debunt(cur_level + 3), last_depth, cur_level);
-                                    break 'inner;
-                                }
-                            } else {
-                                let token = self.peek_any();
-                                self.write_expect_error("There should be at most one statement per line",
-                                                         "a newline", &format!("{:?}", token));
-                                return ExprWrapper::default(Expr::NoOp)
-                            }
-                        }
-                    }
-                } else {
-                    break 'outer;
-                }
-            }
-
-            debug!("{}Last depth before TLL: {:?}", debunt(cur_level + 1), self.last_depth);
-            self.last_depth = None;
-
-            if let Some(token) = self._peek(false) {
-                match token {
-                    Identifier(ident) => {
-                        debug!("{}TLL found an identifier: {:?}", debunt(cur_level + 1), self.peek());
-                        if let Some(exprwrapper) = self.parse_idents(ident) {
-                            expr.push(exprwrapper);
-                        }
-                    },
-                    Keyword(keyword) => {
-                        debug!("{}TLL found an keyword: {:?}", debunt(cur_level + 1), self.peek());
-                        if let Some(exprwrapper) = self.parse_keywords(keyword) {
-                            expr.push(exprwrapper);
-                        }
-                    },
-                    Error(err) => {
-                        self.write_error(&err);
-                        break
-                    },
-
-                    // These tokens are all illegal in top level expressions
-                    Symbol(_) | StrLiteral(_) | CharLiteral(_) | BoolLiteral(_) |
-                    Numeric(_, _) | Comment(_) | Indent(_) => {
-                        let token = self.peek();
-                        self.write_error(&format!("Unimplemented top level token '{:?}'", token));
-                    },
+            if let TokenKind::Symbol(Symbol::ParenOpen) = tok.node() {
+                let ident = match lhs_tok.node() {
+                    TokenKind::Identifier(s) => lhs_tok.replace(s),
+                    _ => unreachable!(), // Maybe not?
                 };
-            } else {
+                lhs = self.parse_fn_call(ident)?;
+
+                continue;
+            }
+
+            let (op, (l_bp, r_bp)) = match InfixOp::try_from(tok.node()) {
+                Ok(op) => (tok.replace(op), op.binding_power()),
+                // REVIEW: Should we always break?
+                Err(()) => break,
+            };
+
+            if l_bp < min_bp {
                 break;
             }
+
+            self.consume_token().unwrap();
+
+            let rhs = self.parse_expr(r_bp)?;
+            let span = Span::new(lhs_tok, lhs_tok, rhs.span());
+
+            // We want to desugar an assignment infix op into an assignment expr.
+            // Maybe ExprKind::InfixOp is a poor name since it doesn't include all infix ops?
+            let kind = match op.node() {
+                InfixOp::AddEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Add), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                InfixOp::DivEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Div), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                InfixOp::ModEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Mod), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                InfixOp::MulEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Mul), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                InfixOp::SubEq => {
+                    let rhs_span = rhs.span();
+                    let op_expr = ExprKind::InfixOp(op.replace(InfixOp::Sub), lhs.clone(), rhs);
+                    let desugared_rhs = Spanned::boxed(op_expr, rhs_span);
+
+                    ExprKind::Assign(lhs, desugared_rhs)
+                },
+                _ => ExprKind::InfixOp(op, lhs, rhs),
+            };
+
+            lhs = Spanned::boxed(kind, span);
+
+            continue;
         }
 
-        debug!("{}Returning from parse: {:?}", debunt(cur_level), expr);
-        ExprWrapper::default(Expr::Block(expr))
+        Ok(lhs)
     }
 
-    pub fn parse(&mut self) -> Option<ExprWrapper>{
-        let ast_root = self.sub_parse();
+    fn handle_sub_parse<F, O>(&mut self, stmts: &mut Vec<Stmt<'s>>, f: F)
+    where
+        F: Fn(&mut Self) -> Result<O, ParserError<'s>>,
+        O: Into<StmtKind<'s>>,
+    {
+        match f(self) {
+            Ok(o) => stmts.push(Stmt::new(o)),
+            Err(err) => {
+                self.errors.push(err);
+                self.skip_til_indent();
+            },
+        }
+    }
 
-        if self.valid_ast {
-            Some(ast_root)
+    fn parse_block(&mut self) -> Block<'s> {
+        let mut stmts = Vec::new();
+        let indent_level = self.indent;
+
+        loop {
+            let next_token = match self.opt_next_token() {
+                Ok(Some(t)) => t,
+                Err(e) => {
+                    self.consume_token().unwrap_err();
+                    self.errors.push(e);
+                    continue;
+                },
+                Ok(None) => break,
+            };
+
+            match next_token.node() {
+                TokenKind::Comment(..) => { self.consume_token().unwrap(); },
+                TokenKind::Indent(level) => {
+                    if level == indent_level {
+                        self.consume_token().unwrap();
+                        continue;
+                    } else if level > indent_level {
+                        todo!("indent error: {} > {}", level, indent_level);
+                    } else {
+                        self.consume_token().unwrap();
+
+                        let next_tok = self.opt_next_token().map(|opt_sp_tok| opt_sp_tok.map(|t| t.node()));
+                        let is_indent_or_err = match next_tok {
+                            Ok(Some(TokenKind::Indent(_))) | Err(_) => true,
+                            // Hit EOF; end block
+                            Ok(None) => break,
+                            _ => false,
+                        };
+
+                        // TODO: 1) Might have to do this in a loop. 2) Should check that the last ident isnt the same level
+
+                        // If it's not just multiple indents or an error, dedent & exit block
+                        if !is_indent_or_err {
+                            self.indent = level;
+                            break;
+                        }
+
+                        continue;
+                    }
+                },
+                TokenKind::Identifier(_) => self.handle_sub_parse(&mut stmts, |p| p.parse_expr(0)),
+                TokenKind::Numeric(_, _) => self.handle_sub_parse(&mut stmts, |p| p.parse_expr(0)),
+                TokenKind::Keyword(Var) => self.handle_sub_parse(&mut stmts, Self::parse_var_decl),
+                TokenKind::Keyword(If) => self.handle_sub_parse(&mut stmts, Self::parse_if),
+                TokenKind::Keyword(While) => self.handle_sub_parse(&mut stmts, Self::parse_while),
+                TokenKind::Keyword(Function) => self.handle_sub_parse(&mut stmts, Self::parse_fn_def),
+                TokenKind::Keyword(Return) => self.handle_sub_parse(&mut stmts, Self::parse_return),
+                TokenKind::Keyword(Use) => self.handle_sub_parse(&mut stmts, Self::parse_use),
+                e => unimplemented!("{:?}", e),
+            }
+        }
+
+        // REVIEW: What if multi ident dedent? next_token == indent?
+        self.dedent();
+
+        Block::new(indent_level, stmts)
+    }
+
+    fn parse_use(&mut self) -> Result<Item<'s>, ParserError<'s>> {
+        let use_keywd = self.consume_token().unwrap();
+        let idents = self.parse_deliminated(Parser::parse_ident, Symbol::DoubleColon, false)?;
+        let end_idx = if idents.is_empty() {
+            use_keywd.span()
         } else {
-            None
+            idents[idents.len() - 1].span()
+        };
+
+        let span = Span::new(use_keywd, use_keywd, end_idx);
+
+        Ok(Spanned::new(ItemKind::Use(use_keywd.replace(()), idents), span))
+    }
+
+    fn parse_return(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
+        let return_keywd = self.consume_token().unwrap();
+        let opt_expr;
+        let end_idx;
+
+        if matches!(self.next_token()?.node(), TokenKind::Indent(_)) {
+            opt_expr = None;
+            end_idx = return_keywd.span();
+        } else {
+            let expr = self.parse_expr(0)?;
+
+            end_idx = expr.span();
+            opt_expr = Some(expr);
+        };
+
+        let span = Span::new(return_keywd, return_keywd, end_idx);
+
+        Ok(Spanned::boxed(ExprKind::Return(opt_expr), span))
+    }
+
+    fn parse_deliminated<F, T>(&mut self, f: F, sym: Symbol, _can_trail: bool) -> Result<Vec<T>, ParserError<'s>>
+    where
+        F: Fn(&mut Parser<'s, I>) -> Result<T, ParserError<'s>>,
+    {
+        let mut parsed = Vec::new();
+
+        parsed.push(f(self)?);
+
+        let mut next_tok = self.next_token()?;
+
+        while next_tok.node() == TokenKind::Symbol(sym) {
+            self.consume_token().unwrap();
+
+            parsed.push(f(self)?);
+
+            next_tok = self.next_token()?;
+        }
+
+        Ok(parsed)
+    }
+
+    fn parse_if(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
+        let if_keywd = self.consume_token().unwrap();
+        let cond = self.parse_expr(0)?;
+        let sp_comma = self.next_token()?;
+
+        if sp_comma.node() != TokenKind::Symbol(Symbol::Comma) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_comma)
+            });
+        }
+
+        self.consume_token().unwrap();
+        self.indent();
+
+        let block = self.parse_block();
+        let span = Span::new(if_keywd, if_keywd, sp_comma);
+
+        // TODO: else/elseif
+        Ok(Spanned::boxed(ExprKind::If(cond, block, None), span))
+    }
+
+    fn parse_while(&mut self) -> Result<Expr<'s>, ParserError<'s>> {
+        let while_keywd = self.consume_token().unwrap();
+        let cond = self.parse_expr(0)?;
+        let sp_comma = self.next_token()?;
+
+        if sp_comma.node() != TokenKind::Symbol(Symbol::Comma) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_comma)
+            });
+        }
+
+        self.consume_token().unwrap();
+        self.indent();
+
+        let block = self.parse_block();
+        let span = Span::new(while_keywd, while_keywd, sp_comma);
+
+        Ok(Spanned::boxed(ExprKind::WhileLoop(cond, block), span))
+    }
+
+    fn parse_ident(&mut self) -> Result<Spanned<&'s str>, ParserError<'s>> {
+        let sp_ident = self.next_token()?;
+        let ident = match sp_ident.node() {
+            TokenKind::Identifier(ident) => sp_ident.replace(ident),
+            _ => return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_ident),
+            }),
+        };
+
+        self.consume_token().unwrap();
+
+        Ok(ident)
+    }
+
+    fn parse_ident_ty_pair(&mut self) -> Result<(Spanned<&'s str>, Type<'s>), ParserError<'s>> {
+        let ident = self.parse_ident()?;
+        let sp_colon = self.next_token()?;
+
+        if sp_colon.node() != TokenKind::Symbol(Symbol::Colon) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_colon)
+            });
+        }
+
+        let sp_ident_ty = self.next_token()?;
+        let ident_ty = match sp_ident_ty.node() {
+            TokenKind::Identifier(ident) => ident,
+            _ => return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_ident_ty),
+            }),
+        };
+
+        Ok((ident, Spanned::boxed(TypeKind::Path(ident_ty), sp_ident_ty.span())))
+    }
+
+    fn parse_fn_def(&mut self) -> Result<Item<'s>, ParserError<'s>> {
+        let fn_keywd = self.consume_token().unwrap();
+        let sp_ident = self.next_token()?;
+        let ident = match sp_ident.node() {
+            TokenKind::Identifier(ident) => sp_ident.replace(ident),
+            _ => return Err(ParserError {
+                kind: ParserErrorKind::FnDeclNameMissing(sp_ident),
+            }),
+        };
+
+        self.consume_token().unwrap();
+
+        let sp_paren = self.next_token()?;
+
+        if sp_paren.node() != TokenKind::Symbol(Symbol::ParenOpen) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_paren)
+            });
+        }
+
+        self.consume_token().unwrap();
+
+        let param_pairs = if self.next_token()?.node() == TokenKind::Symbol(Symbol::ParenClose) {
+            Vec::new()
+        } else {
+            self.parse_deliminated(Parser::parse_ident_ty_pair, Comma, true)?
+        };
+
+        let sp_paren = self.next_token()?;
+
+        if sp_paren.node() != TokenKind::Symbol(Symbol::ParenClose) {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(sp_paren)
+            });
+        }
+
+        // TODO: return type
+        let end_idx = if true {
+            sp_paren
+        } else {
+            todo!("return type")
+        };
+
+        let fn_sig = FnSig::new(param_pairs, None);
+
+        self.consume_token().unwrap();
+        self.indent();
+
+        let block = self.parse_block();
+
+        let span = Span::new(fn_keywd, fn_keywd, end_idx);
+
+        Ok(Spanned::new(ItemKind::FnDef(ident, Spanned::new(fn_sig, span), block), span)) // FIXME: outer span should encompase block?
+    }
+
+    #[inline]
+    fn indent(&mut self) {
+        self.indent += 1;
+    }
+
+    #[inline]
+    fn dedent(&mut self) {
+        if self.indent > 0 {
+            self.indent -= 1;
         }
     }
+
+    fn parse_var_decl(&mut self) -> Result<Local<'s>, ParserError<'s>> {
+        let _var_kwd = self.consume_token().unwrap();
+        let tok = self.next_token()?;
+        let ident = match tok.node() {
+            TokenKind::Identifier(i) => tok.replace(i),
+            _ => return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(tok),
+            }),
+        };
+
+        self.consume_token().unwrap();
+
+        let tok = self.next_token()?;
+
+        if tok.node() == TokenKind::Symbol(Symbol::Equals) {
+            self.consume_token().unwrap();
+        } else {
+            return Err(ParserError {
+                kind: ParserErrorKind::UnexpectedToken(tok),
+            });
+        }
+
+        let init = self.parse_expr(0)?;
+        // let span = Span::new(var_kwd, var_kwd, init.span());
+
+        Ok(Local::new(false, ident, None, init))
+    }
+}
+
+#[derive(Debug)]
+pub enum ParserErrorKind<'s> {
+    FnDeclNameMissing(Token<'s>),
+    LexerError(LexerError<'s>),
+    /// This is the most generic error we can produce. It is only intended
+    /// to be a placeholder to be replaced by a more detailed variant.
+    UnexpectedToken(Token<'s>),
+}
+
+#[derive(Debug)]
+pub struct ParserError<'s> {
+    pub(crate) kind: ParserErrorKind<'s>,
+}
+
+impl ParserError<'_> {
+    pub fn file_id(&self) -> StrId {
+        match self.kind {
+            ParserErrorKind::LexerError(le) => le.file_id(),
+            ParserErrorKind::FnDeclNameMissing(t)
+            | ParserErrorKind::UnexpectedToken(t) => t.span().file_id,
+        }
+    }
+}
+
+impl<'s, T> From<LexerError<'s>> for Result<T, ParserError<'s>> {
+    fn from(le: LexerError<'s>) -> Self {
+        Err(ParserError {
+            kind: ParserErrorKind::LexerError(le),
+        })
+    }
+}
+
+#[test]
+fn test_comment_hello_world() {
+    use crate::interner::StrId;
+    use crate::lexical::Lexer;
+    use crate::syntax::StmtKind;
+
+    let s = ">> This is a comment
+print(\"Hello, world!\")\n";
+    let lexer = Lexer::new(s, StrId::DUMMY);
+    let parser = Parser::new(lexer);
+    let ast_block = parser.run().unwrap();
+    let stmts = ast_block.stmts();
+
+    assert_eq!(stmts.len(), 1);
+
+    let stmt = &stmts[0];
+
+    if let StmtKind::Expr(e) = stmt.kind() {
+        assert_eq!(&s[e.span()], "print(\"Hello, world!\")");
+
+        if let ExprKind::FnCall(ident, args) = &**e.get_node() {
+            assert_eq!(ident.node(), "print");
+            assert_eq!(&s[ident.span()], "print");
+            assert_eq!(args.len(), 1);
+
+            let arg_expr = &args[0];
+
+            assert_eq!(&s[arg_expr.span()], "\"Hello, world!\"");
+            assert!(matches!(**arg_expr.get_node(), ExprKind::Literal(UTF8String("\"Hello, world!\""))))
+        } else { unreachable!(); }
+    } else { unreachable!(); }
 }
