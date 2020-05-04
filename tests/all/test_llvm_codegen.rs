@@ -1,11 +1,42 @@
-// extern crate limonite;
+use limonite::codegen::llvm::LLVMCodeGen;
+use limonite::interner::Interner;
+use limonite::lexical::Lexer;
+use limonite::syntax::Parser;
 
-// use limonite::codegen::llvm::LLVMGenerator;
-// use limonite::syntax::expr::{Expr, ExprWrapper};
-// use limonite::syntax::op::InfixOp;
-// use limonite::syntax::literals::Literals;
+use inkwell::context::Context;
 
-// use std::mem::transmute;
+#[test]
+fn test_can_gen_ir() {
+    let s = "\
+var x = 1 + 2
+var y = -1
+var z = x + 1
+
+if x <= 3,
+	x -= 1
+
+while x < 10,
+	x += 1
+
+if x equals 10,
+	x *= 6
+";
+    // FIXME: x *= 6 / 3 panics
+    let mut interner = Interner::with_capacity(2);
+    let std_id = interner.intern("std");
+    let test_id = interner.intern("test.lim");
+    let lexer = Lexer::new(&s, test_id);
+    let ast = Parser::new(lexer).run().unwrap();
+    let context = Context::create();
+    let mut generator = LLVMCodeGen::new(&context);
+
+    generator.add_std_module(std_id);
+    generator.add_module(ast, test_id, "main");
+
+    let jit_engine = generator.build_jit(test_id).unwrap();
+
+    jit_engine.run().unwrap();
+}
 
 // #[test]
 // fn test_sum_function() {

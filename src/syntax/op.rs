@@ -67,8 +67,8 @@ impl InfixOp {
         match self {
             InfixOp::Equ | InfixOp::Gt | InfixOp::Gte | InfixOp::Lt | InfixOp::Lte => (2, 1),
             // '?' => (4, 3),
-            InfixOp::Add | InfixOp::AddEq | InfixOp::Sub => (5, 6),
-            InfixOp::Mul | InfixOp::Div => (7, 8),
+            InfixOp::Add | InfixOp::AddEq | InfixOp::Sub | InfixOp::SubEq => (5, 6),
+            InfixOp::Mul | InfixOp::MulEq | InfixOp::Div | InfixOp::DivEq => (7, 8),
             // '.' => (14, 13),
             op => unimplemented!("{:?}", op),
         }
