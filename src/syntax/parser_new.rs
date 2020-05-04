@@ -83,19 +83,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
             return Ok(Spanned::boxed(ExprKind::FnCall(ident, Vec::new()), span));
         }
 
-        // re: (e[, e]*)
-        let regex = And(
-            |p: &mut Parser<'s, I>| Self::parse_expr(p, 0),
-            ZeroOrMore(And(
-                Comma,
-                |p: &mut Parser<'s, I>| Self::parse_expr(p, 0),
-            ))
-        );
-
-        let mut exprs = Vec::new();
-
-        regex.parse(self, &mut exprs)?;
-
+        let exprs = self.parse_deliminated(|p| p.parse_expr(0), Comma, true)?;
         let end_token = self.next_token()?;
 
         // Can be close token
@@ -602,70 +590,6 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         Ok(Local::new(false, ident, None, init))
     }
 }
-
-struct And<P, P2>(P, P2);
-struct ZeroOrMore<P>(P);
-
-trait RegexParse<'s, I: Iterator<Item=TokenResult<'s>>> {
-    fn parse(&self, parser: &mut Parser<'s, I>, exprs: &mut Vec<Expr<'s>>) -> Result<(), ParserError<'s>>;
-}
-
-impl<'s, I> RegexParse<'s, I> for Symbol
-where
-    I: Iterator<Item=TokenResult<'s>>,
-{
-    fn parse(&self, parser: &mut Parser<'s, I>, _exprs: &mut Vec<Expr<'s>>) -> Result<(), ParserError<'s>> {
-        let tok = parser.next_token()?;
-
-        if tok.node() == TokenKind::Symbol(*self) {
-            parser.consume_token().unwrap();
-
-            Ok(())
-        } else {
-            Err(ParserError {
-                kind: ParserErrorKind::UnexpectedToken(tok),
-            })
-        }
-    }
-}
-
-impl<'s, I, P, P2> RegexParse<'s, I> for And<P, P2>
-where
-    I: Iterator<Item=TokenResult<'s>>,
-    P: RegexParse<'s, I>,
-    P2: RegexParse<'s, I>,
-{
-    fn parse(&self, parser: &mut Parser<'s, I>, exprs: &mut Vec<Expr<'s>>) -> Result<(), ParserError<'s>> {
-        self.0.parse(parser, exprs)?;
-        self.1.parse(parser, exprs)
-    }
-}
-
-impl<'s, I, P> RegexParse<'s, I> for ZeroOrMore<P>
-where
-    I: Iterator<Item=TokenResult<'s>>,
-    P: RegexParse<'s, I>,
-{
-    fn parse(&self, parser: &mut Parser<'s, I>, exprs: &mut Vec<Expr<'s>>) -> Result<(), ParserError<'s>> {
-        while let Ok(()) = self.0.parse(parser, exprs) {}
-
-        Ok(())
-    }
-}
-
-impl<'s, I, F> RegexParse<'s, I> for F
-where
-    F: Fn(&mut Parser<'s, I>) -> Result<Expr<'s>, ParserError<'s>>,
-    I: Iterator<Item=TokenResult<'s>>,
-{
-    fn parse(&self, parser: &mut Parser<'s, I>, exprs: &mut Vec<Expr<'s>>) -> Result<(), ParserError<'s>> {
-        exprs.push(self(parser)?);
-
-        Ok(())
-    }
-}
-
-trait RegexObject {}
 
 #[derive(Debug)]
 pub enum ParserErrorKind<'s> {
