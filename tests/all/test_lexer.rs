@@ -1,8 +1,7 @@
-// use limonite::lexical::keywords::Keywords::{Def, Function, If, Is, Return, Var};
+use limonite::lexical::keywords::Keyword::If;
 use limonite::interner::StrId;
-use limonite::lexical::Symbol::{Comma, Equals, ParenClose, ParenOpen, PlusEquals, RightThinArrow};
-use limonite::lexical::{CommentKind, Lexer, LexerError, Token, TokenKind::{self, *}, TokenResult};
-use limonite::span::{Span, Spanned};
+use limonite::lexical::Symbol::{Comma, ParenClose, ParenOpen};
+use limonite::lexical::{CommentKind, Lexer, LexerError, TokenKind::{self, *}, TokenResult};
 
 fn cmp_tokens<'s>(mut lexer: Lexer<'s>, tokens: &[TokenResult<'s>], skip_indents: bool) {
     let mut iter: &mut dyn Iterator<Item=TokenResult<'s>> = &mut lexer;
@@ -44,32 +43,56 @@ print(\"Hello World!\")";
     cmp_tokens(lexer, &desired_output, false);
 }
 
-// #[test]
-// fn test_indentation() {
-//     let input_string = "\
-// >>>
-//     Test of indentation and a few keywords.
-// <<<
+#[test]
+fn test_indentation() {
+    let input_string = "
+if True,
+	func()
 
-// if True,
-// 	func()
+	if False,
+		func2()";
 
-// 	if False,
-// 		func2()";
+    let lexer = Lexer::new(&input_string, StrId::DUMMY);
+    let desired_output = vec![
+        Ok(span!(Indent(0), 0, 0)),
+        Ok(span!(Keyword(If), 1, 2)),
+        Ok(span!(BoolLiteral(true), 4, 7)),
+        Ok(span!(Symbol(Comma), 8, 8)),
+        Ok(span!(Indent(1), 9, 10)),
+        Ok(span!(Identifier("func"), 11, 14)),
+        Ok(span!(Symbol(ParenOpen), 15, 15)),
+        Ok(span!(Symbol(ParenClose), 16, 16)),
+        Ok(span!(Indent(0), 17, 17)),
+        Ok(span!(Indent(1), 18, 19)),
+        Ok(span!(Keyword(If), 20, 21)),
+        Ok(span!(BoolLiteral(false), 23, 27)),
+        Ok(span!(Symbol(Comma), 28, 28)),
+        Ok(span!(Indent(2), 29, 31)),
+        Ok(span!(Identifier("func2"), 32, 36)),
+        Ok(span!(Symbol(ParenOpen), 37, 37)),
+        Ok(span!(Symbol(ParenClose), 38, 38)),
+    ];
 
-//     let lexer = Lexer::new(&input_string);
-//     let desired_output = vec![
-//         Comment("\n    Test of indentation and a few keywords.\n".to_string()), Indent(0),
-//         Indent(0),
-//         Keyword(If), BoolLiteral(true), Symbol(Comma), Indent(1),
-//         Identifier("func".to_string()), Symbol(ParenOpen), Symbol(ParenClose), Indent(0),
-//         Indent(1),
-//         Keyword(If), BoolLiteral(false), Symbol(Comma), Indent(2),
-//         Identifier("func2".to_string()), Symbol(ParenOpen), Symbol(ParenClose),
-//     ];
+    cmp_tokens(lexer, &desired_output, false);
 
-//     cmp_tokens(lexer, desired_output);
-// }
+    assert_eq!(&input_string[desired_output[0].unwrap().span()], "\n");
+    assert_eq!(&input_string[desired_output[1].unwrap().span()], "if");
+    assert_eq!(&input_string[desired_output[2].unwrap().span()], "True");
+    assert_eq!(&input_string[desired_output[3].unwrap().span()], ",");
+    assert_eq!(&input_string[desired_output[4].unwrap().span()], "\n	");
+    assert_eq!(&input_string[desired_output[5].unwrap().span()], "func");
+    assert_eq!(&input_string[desired_output[6].unwrap().span()], "(");
+    assert_eq!(&input_string[desired_output[7].unwrap().span()], ")");
+    assert_eq!(&input_string[desired_output[8].unwrap().span()], "\n");
+    assert_eq!(&input_string[desired_output[9].unwrap().span()], "\n	");
+    assert_eq!(&input_string[desired_output[10].unwrap().span()], "if");
+    assert_eq!(&input_string[desired_output[11].unwrap().span()], "False");
+    assert_eq!(&input_string[desired_output[12].unwrap().span()], ",");
+    assert_eq!(&input_string[desired_output[13].unwrap().span()], "\n		");
+    assert_eq!(&input_string[desired_output[14].unwrap().span()], "func2");
+    assert_eq!(&input_string[desired_output[15].unwrap().span()], "(");
+    assert_eq!(&input_string[desired_output[16].unwrap().span()], ")");
+}
 
 #[test]
 fn test_valid_numerics() {

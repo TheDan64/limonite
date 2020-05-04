@@ -1,6 +1,6 @@
 use limonite::interner::StrId;
 use limonite::lexical::Lexer;
-use limonite::syntax::{Block, ExprKind, InfixOp::*, Literal::*, Parser, UnaryOp::*};
+use limonite::syntax::{ExprKind, InfixOp::*, Literal::*, Parser, UnaryOp::*};
 
 // use std::vec::IntoIter;
 
