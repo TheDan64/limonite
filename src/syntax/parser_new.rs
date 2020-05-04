@@ -1,7 +1,7 @@
 use crate::interner::StrId;
-use crate::lexical::{Keyword, LexerError, Symbol::{self, *}, Token, TokenKind, TokenResult};
+use crate::lexical::{Keyword::*, LexerError, Symbol::{self, *}, Token, TokenKind, TokenResult};
 use crate::span::{Span, Spanned};
-use crate::syntax::{Block, Expr, ExprKind, InfixOp, Item, ItemKind, Local, Literal::*, Stmt, Type, TypeKind, UnaryOp};
+use crate::syntax::{Block, Expr, ExprKind, InfixOp, Item, ItemKind, Local, Literal::*, Stmt, StmtKind, Type, TypeKind, UnaryOp};
 use crate::syntax::items::FnSig;
 
 use std::convert::TryFrom;
@@ -299,6 +299,20 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
         Ok(lhs)
     }
 
+    fn handle_sub_parse<F, O>(&mut self, stmts: &mut Vec<Stmt<'s>>, f: F)
+    where
+        F: Fn(&mut Self) -> Result<O, ParserError<'s>>,
+        O: Into<StmtKind<'s>>,
+    {
+        match f(self) {
+            Ok(o) => stmts.push(Stmt::new(o)),
+            Err(err) => {
+                self.errors.push(err);
+                self.skip_til_indent();
+            },
+        }
+    }
+
     fn parse_block(&mut self) -> Block<'s> {
         let mut stmts = Vec::new();
         let indent_level = self.indent;
@@ -344,80 +358,14 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                         continue;
                     }
                 },
-                TokenKind::Identifier(_) => {
-                    match self.parse_expr(0) {
-                        Ok(expr) => stmts.push(Stmt::new(expr)),
-                        Err(err) => {
-                            self.errors.push(err);
-                            self.skip_til_indent();
-                        },
-                    };
-                    // self.consume_token().unwrap();
-                },
-                TokenKind::Numeric(_, _) => {
-                    match self.parse_expr(0) {
-                        Ok(expr) => stmts.push(Stmt::new(expr)),
-                        Err(err) => {
-                            self.errors.push(err);
-                            self.skip_til_indent();
-                        },
-                    };
-                    // self.consume_token().unwrap();
-                },
-                TokenKind::Keyword(Keyword::Var) => {
-                    match self.parse_var_decl() {
-                        Ok(local) => stmts.push(Stmt::new(local)),
-                        Err(err) => {
-                            self.errors.push(err);
-                            self.skip_til_indent();
-                        },
-                    }
-                },
-                TokenKind::Keyword(Keyword::If) => {
-                    match self.parse_if() {
-                        Ok(expr) => stmts.push(Stmt::new(expr)),
-                        Err(err) => {
-                            self.errors.push(err);
-                            self.skip_til_indent();
-                        },
-                    }
-                },
-                TokenKind::Keyword(Keyword::While) => {
-                    match self.parse_while() {
-                        Ok(expr) => stmts.push(Stmt::new(expr)),
-                        Err(err) => {
-                            self.errors.push(err);
-                            self.skip_til_indent();
-                        },
-                    }
-                },
-                TokenKind::Keyword(Keyword::Function) => {
-                    match self.parse_fn_def() {
-                        Ok(item) => stmts.push(Stmt::new(item)),
-                        Err(err) => {
-                            self.errors.push(err);
-                            self.skip_til_indent();
-                        },
-                    }
-                },
-                TokenKind::Keyword(Keyword::Return) => {
-                    match self.parse_return() {
-                        Ok(expr) => stmts.push(Stmt::new(expr)),
-                        Err(err) => {
-                            self.errors.push(err);
-                            self.skip_til_indent();
-                        },
-                    }
-                },
-                TokenKind::Keyword(Keyword::Use) => {
-                    match self.parse_use() {
-                        Ok(item) => stmts.push(Stmt::new(item)),
-                        Err(err) => {
-                            self.errors.push(err);
-                            self.skip_til_indent();
-                        },
-                    }
-                },
+                TokenKind::Identifier(_) => self.handle_sub_parse(&mut stmts, |p| p.parse_expr(0)),
+                TokenKind::Numeric(_, _) => self.handle_sub_parse(&mut stmts, |p| p.parse_expr(0)),
+                TokenKind::Keyword(Var) => self.handle_sub_parse(&mut stmts, Self::parse_var_decl),
+                TokenKind::Keyword(If) => self.handle_sub_parse(&mut stmts, Self::parse_if),
+                TokenKind::Keyword(While) => self.handle_sub_parse(&mut stmts, Self::parse_while),
+                TokenKind::Keyword(Function) => self.handle_sub_parse(&mut stmts, Self::parse_fn_def),
+                TokenKind::Keyword(Return) => self.handle_sub_parse(&mut stmts, Self::parse_return),
+                TokenKind::Keyword(Use) => self.handle_sub_parse(&mut stmts, Self::parse_use),
                 e => unimplemented!("{:?}", e),
             }
         }

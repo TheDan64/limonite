@@ -713,7 +713,6 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx, 's> {
                 VisitOutcome::default().without_visit()
             },
             ExprKind::WhileLoop(cond, block) => {
-                dbg!("WhileLoop");
                 let start_block = self.builder.get_insert_block().expect("ICE");
                 let fn_val = start_block.get_parent().expect("ICE");
                 let cond_block = self.context.append_basic_block(fn_val, "while_cond_block");
@@ -729,8 +728,6 @@ impl<'s, 'ctx> AstVisitor<'s, BasicValueEnum<'ctx>> for CodeGen<'_, 'ctx, 's> {
                 self.builder.position_at_end(then_block);
 
                 self.visit_block_ext(block);
-
-                dbg!("Post visit_block");
 
                 self.builder.build_unconditional_branch(cond_block);
                 self.builder.position_at_end(exit_block);
