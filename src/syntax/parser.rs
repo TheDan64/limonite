@@ -157,7 +157,7 @@ impl<'s, I: Iterator<Item=TokenResult<'s>>> Parser<'s, I> {
                 let lhs = self.parse_expr(0)?;
                 let sp_tok = self.next_token()?;
 
-                if sp_tok.node() != TokenKind::Symbol(ParenOpen) {
+                if sp_tok.node() != TokenKind::Symbol(ParenClose) {
                     return Err(ParserError {
                         kind: ParserErrorKind::UnexpectedToken(sp_tok)
                     });
