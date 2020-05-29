@@ -30,7 +30,7 @@ hash-chain = { git = "https://github.com/TheDan64/hash-chain", branch = "master"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "llvm8-0", optional = true }
 rustc-hash = "1.1"
 slog = "2.5"
-slog-term = "2.5"
+slog-term = "2.6"
 structopt = "0.3"
 
 [dev-dependencies]
