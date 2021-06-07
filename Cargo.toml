@@ -25,7 +25,7 @@ default = ["llvm-backend"]
 llvm-backend = ["inkwell"]
 
 [dependencies]
-debug_tree = "0.3"
+debug_tree = "0.4"
 hash-chain = { git = "https://github.com/TheDan64/hash-chain", branch = "master" }
 inkwell = { version = "0.1.0-beta.2", features = ["llvm10-0"], optional = true }
 rustc-hash = "1.1"
